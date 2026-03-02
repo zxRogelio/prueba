@@ -1,0 +1,717 @@
+[1mdiff --git a/backend/.gitignore b/backend/.gitignore[m
+[1mdeleted file mode 100644[m
+[1mindex 2d49d19..0000000[m
+[1m--- a/backend/.gitignore[m
+[1m+++ /dev/null[m
+[36m@@ -1,32 +0,0 @@[m
+[31m-# Evitar subir variables sensibles[m
+[31m-.env[m
+[31m-[m
+[31m-# Node modules (carpeta muy pesada, se vuelve a instalar)[m
+[31m-node_modules/[m
+[31m-[m
+[31m-# Logs[m
+[31m-logs[m
+[31m-*.log[m
+[31m-npm-debug.log*[m
+[31m-[m
+[31m-# Sistema operativo y editor[m
+[31m-.DS_Store[m
+[31m-Thumbs.db[m
+[31m-.vscode/[m
+[31m-.idea/[m
+[31m-[m
+[31m-# Producción de compilación (si haces build en algún momento)[m
+[31m-dist/[m
+[31m-build/[m
+[31m-[m
+[31m-# Test coverage[m
+[31m-coverage/[m
+[31m-[m
+[31m-# Render o Vercel local[m
+[31m-.vercel/[m
+[31m-.render/[m
+[31m-[m
+[31m-# Otros archivos temporales[m
+[31m-*.local[m
+[31m-*.swp[m
+[31m-*.swo[m
+[1mdiff --git a/backend/README.md b/backend/README.md[m
+[1mdeleted file mode 100644[m
+[1mindex e69de29..0000000[m
+[1mdiff --git a/backend/cert/localhost.crt b/backend/cert/localhost.crt[m
+[1mdeleted file mode 100644[m
+[1mindex 7630f4b..0000000[m
+[1m--- a/backend/cert/localhost.crt[m
+[1m+++ /dev/null[m
+[36m@@ -1,26 +0,0 @@[m
+[31m------BEGIN CERTIFICATE-----[m
+[31m-MIIETzCCAregAwIBAgIQTEjqqHw2UQcKo+VtOeAbCDANBgkqhkiG9w0BAQsFADCB[m
+[31m-izEeMBwGA1UEChMVbWtjZXJ0IGRldmVsb3BtZW50IENBMTAwLgYDVQQLDCdMQVBU[m
+[31m-T1AtMjRFUTlMRUZcUm9nZWxpb0BMQVBUT1AtMjRFUTlMRUYxNzA1BgNVBAMMLm1r[m
+[31m-Y2VydCBMQVBUT1AtMjRFUTlMRUZcUm9nZWxpb0BMQVBUT1AtMjRFUTlMRUYwHhcN[m
+[31m-MjUxMTIwMjE0MTUyWhcNMjgwMjIwMjE0MTUyWjBbMScwJQYDVQQKEx5ta2NlcnQg[m
+[31m-ZGV2ZWxvcG1lbnQgY2VydGlmaWNhdGUxMDAuBgNVBAsMJ0xBUFRPUC0yNEVROUxF[m
+[31m-RlxSb2dlbGlvQExBUFRPUC0yNEVROUxFRjCCASIwDQYJKoZIhvcNAQEBBQADggEP[m
+[31m-ADCCAQoCggEBALYtgV5s90jknf2hE51Qqvh/9eYn0l6aZe1DILsLMme0TSPaKrkH[m
+[31m-BGvu78cIwhcJi+kTpR8z+OJvru9DtVvietDV+K6iXKoykYwFMmPtSpt61ziVvEFX[m
+[31m-BKxMC0qNoC5wFphMtdgmLPQbqMOqxJFfQO9RjlwSCjpSgqATmWe85JzvmAtrU9Hn[m
+[31m-qzpKrhe43yTv0QgB2gDduzbF4hxttSWOqDc2Thfp1mTgx+CZmxPylk2kmuYLBsk/[m
+[31m-ND+dLjYYZNz7qHWoPs0ubIus9n3g0oBcuEzn3HdQJ4CMXuW/gipWMo5hz2QykPw2[m
+[31m-ot31aEXtxppwYyvm+yZWTbsRn2SvkgG8gJMCAwEAAaNeMFwwDgYDVR0PAQH/BAQD[m
+[31m-AgWgMBMGA1UdJQQMMAoGCCsGAQUFBwMBMB8GA1UdIwQYMBaAFObg3sejyxY4pZpn[m
+[31m-ibQox48kAWRBMBQGA1UdEQQNMAuCCWxvY2FsaG9zdDANBgkqhkiG9w0BAQsFAAOC[m
+[31m-AYEAi61in5MjYrrT8pjKT85vedY9hMISogO1CpQ92FWsjFXxntnmHOSN+MOVcbju[m
+[31m-xUIMXKsSVVFxlXeNRnQZ4J8jlZHYdWdHOdqic67NU9ZEZUs87u1bpYg0UXa2GaDr[m
+[31m-J1UXhr/YfvJzFrjfWHJSydj8MbVSJsgBCoh9//PUtbi0Kzb0zIbQhQ4RxiQU1hEU[m
+[31m-lXnAW4sqxCqT4/ABqkGcFPTbyM7m+1QdOoc2EyqrEUhNBeohIvh4axcRTAKx+D6U[m
+[31m-08FUWfs82fjq/Fm2wMl0GBVH3xjj8TWQT+mCEJaSNEGL2YlZ45zz0NpA29wK32qm[m
+[31m-t+f/w7KuklPOlkzEhsA61ukd8qv8lDvVbuuB2lkGog2KMBI+hy5Iqs7TvQ/lVyvg[m
+[31m-h1kT0Z4fb1rTW7eby51+teKk02RifwDLZpwwzM4mSwdKssoHXhT+vp5idePoKZdm[m
+[31m-/OT0zwCY0i32VLuFe8nl9G7mcGa9kMgIP2XDJXknEG2Pyf+hw9m03ynBbR5kCjW6[m
+[31m-KmRb[m
+[31m------END CERTIFICATE-----[m
+[1mdiff --git a/backend/cert/localhost.key b/backend/cert/localhost.key[m
+[1mdeleted file mode 100644[m
+[1mindex 7b3d328..0000000[m
+[1m--- a/backend/cert/localhost.key[m
+[1m+++ /dev/null[m
+[36m@@ -1,28 +0,0 @@[m
+[31m------BEGIN PRIVATE KEY-----[m
+[31m-MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQC2LYFebPdI5J39[m
+[31m-oROdUKr4f/XmJ9JemmXtQyC7CzJntE0j2iq5BwRr7u/HCMIXCYvpE6UfM/jib67v[m
+[31m-Q7Vb4nrQ1fiuolyqMpGMBTJj7Uqbetc4lbxBVwSsTAtKjaAucBaYTLXYJiz0G6jD[m
+[31m-qsSRX0DvUY5cEgo6UoKgE5lnvOSc75gLa1PR56s6Sq4XuN8k79EIAdoA3bs2xeIc[m
+[31m-bbUljqg3Nk4X6dZk4MfgmZsT8pZNpJrmCwbJPzQ/nS42GGTc+6h1qD7NLmyLrPZ9[m
+[31m-4NKAXLhM59x3UCeAjF7lv4IqVjKOYc9kMpD8NqLd9WhF7caacGMr5vsmVk27EZ9k[m
+[31m-r5IBvICTAgMBAAECggEAStWMg+ZM+jN3Nt14+jFN2gBuWVnYT6Yq4niltE/YJ8Nn[m
+[31m-wKd4z0KzrUacVm0hlWcFgvvf415tCU8JVB3DHPh+rNSIb+wgFoXpRdRIq8Wo1Q9z[m
+[31m-4zmW+FwvfjtKlBhzSUAf9/Xi6ORdqPTHsYCveGvhd61PxkBe1TBZmjoS1QtB+bi7[m
+[31m-9ZCavfLv8I71hz+EvnHTan7oMbaVlYyCjkZbBGywegQAe1lny5KjEh1eJfcr1VGR[m
+[31m-p8RFlYWOshMdFAWvJa1iQobKBap7+qIHfZNh5iHfhf75z9uOuYzpclT7oRcCJDTU[m
+[31m-peECFEAY6N9eS6/iUrGdleT9C9Q6ezX54iu80TVGKQKBgQDq9LiQNMIszfOsqg1l[m
+[31m-5wTi317ck/8hRJhc1qmP+72JaOimRDI2MHwh9+d9VhknKk29lY78EvZ+g3GE582M[m
+[31m-BGjAIPVWCiLclLg50Ym/7OLU6JXEF8TAuTfbeGGJk2ZIpgs4RZ/E4SwNQ5aPQkCT[m
+[31m-gJ9285DB2UQaSvp8SZ7g+rDPTQKBgQDGfqOfVKGtSjPSAObltwD29hd2femNoVQs[m
+[31m-x+4u2vzOmQI2qbc8CxmCShrb0ebEoa0V64tA3pe2DWaeGkJ8nJ9FLjlHrfBviW2B[m
+[31m-BmxIhugwoLDFjHtkS7GP3PH2+Oo8BLRrhaN3rffK39ozaMccxHrtbEL8sMOYFIVb[m
+[31m-zH5QnPpfXwKBgQCrSdGrv+q3g0XcYPT3j14uj622nWZoOHvjYtOnFl3taUACxsDc[m
+[31m-ZKh6kyJ+a2BW/y5BwmDFQIXXYbhGrj9ZjnVXbC+vlCAqM3nDHRGRi/8qPI3CsZlM[m
+[31m-7zrbk314MK9m0zZmxcteWtIksVt4AVLWtfSLYbHswJo3mOXX6kwbtGdmGQKBgQC0[m
+[31m-U0QucWJX3btqIyugsTqNIVB7czQEWPXxoMg/hO56egLKyjAOuj64YL45yV0OcZqe[m
+[31m-+VeO3SmSWGZLZ6vTLS58WNvsxJZTndP/jWg+E2FJHBK7xT4sBaAQBDdFmSii0dte[m
+[31m-ew/goAknI2pFngCVn+HVY68PhT6MIMhudz6h2ZqTnQKBgQDXqTrl/QmtzZDH1WgD[m
+[31m-DBKaXwwyuU7B1nDNAWVf+HnVEKuh+4SS41v3k5KU0bJQkcGTWWj7BYcuAWfFDgAe[m
+[31m-aLO4bLB9pwEPYxI07/tZqpZCGkEK64XKMWTG1J3pbtOJQ4oiZXNuxT4wAdv30Jqc[m
+[31m-Cq1kK0LZJdqLsJdYY0Q4+9v5mA==[m
+[31m------END PRIVATE KEY-----[m
+[1mdiff --git a/backend/config/cloudinary.js b/backend/config/cloudinary.js[m
+[1mdeleted file mode 100644[m
+[1mindex af950d0..0000000[m
+[1m--- a/backend/config/cloudinary.js[m
+[1m+++ /dev/null[m
+[36m@@ -1,9 +0,0 @@[m
+[31m-import { v2 as cloudinary } from "cloudinary";[m
+[31m-[m
+[31m-cloudinary.config({[m
+[31m-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,[m
+[31m-  api_key: process.env.CLOUDINARY_API_KEY,[m
+[31m-  api_secret: process.env.CLOUDINARY_API_SECRET,[m
+[31m-});[m
+[31m-[m
+[31m-export default cloudinary;[m
+[1mdiff --git a/backend/config/sequelize.js b/backend/config/sequelize.js[m
+[1mdeleted file mode 100644[m
+[1mindex 5f58efa..0000000[m
+[1m--- a/backend/config/sequelize.js[m
+[1m+++ /dev/null[m
+[36m@@ -1,23 +0,0 @@[m
+[31m-// config/sequelize.js[m
+[31m-import { Sequelize } from "sequelize";[m
+[31m-import dotenv from "dotenv";[m
+[31m-[m
+[31m-dotenv.config();[m
+[31m-[m
+[31m-export const sequelize = new Sequelize([m
+[31m-  process.env.DB_NAME,[m
+[31m-  process.env.DB_USER,[m
+[31m-  process.env.DB_PASS,[m
+[31m-  {[m
+[31m-    host: process.env.DB_HOST,[m
+[31m-    port: process.env.DB_PORT,[m
+[31m-    dialect: "mssql",[m
+[31m-    dialectOptions: {[m
+[31m-      options: {[m
+[31m-        encrypt: true,[m
+[31m-        trustServerCertificate: true,[m
+[31m-      },[m
+[31m-    },[m
+[31m-    logging: false,[m
+[31m-  }[m
+[31m-);[m
+[1mdiff --git a/backend/controllers/authController.js b/backend/controllers/authController.js[m
+[1mdeleted file mode 100644[m
+[1mindex 89292fd..0000000[m
+[1m--- a/backend/controllers/authController.js[m
+[1m+++ /dev/null[m
+[36m@@ -1,729 +0,0 @@[m
+[31m-  import bcrypt from "bcrypt";[m
+[31m-  import jwt from "jsonwebtoken";[m
+[31m-  import { User } from "../models/User.js";[m
+[31m-  import {[m
+[31m-    sendOTP,[m
+[31m-    sendConfirmationEmail,[m
+[31m-    sendVerificationEmail,[m
+[31m-  } from "../utils/sendEmailBrevo.js";[m
+[31m-  import dotenv from 'dotenv';[m
+[31m-  import { blacklistToken } from "../middleware/tokenBlacklist.js";[m
+[31m-  import { Session } from "../models/Session.js";[m
+[31m-  const failedAttempts = new Map(); // email => { count, lastAttempt }[m
+[31m-  dotenv.config();[m
+[31m-  /* ================================[m
+[31m-    🟢 REGISTRO + VERIFICACIÓN CORREO[m
+[31m-  ================================= */[m
+[31m-  export const register = async (req, res) => {[m
+[31m-    const { email, password, role = "cliente" } = req.body;[m
+[31m-[m
+[31m-    try {[m
+[31m-      // Verificar si ya existe[m
+[31m-      const existing = await User.findOne({ where: { email } });[m
+[31m-      if (existing) {[m
+[31m-        return res.status(400).json({ error: "El correo ya está registrado" });[m
+[31m-      }[m
+[31m-[m
+[31m-      // Crear usuario nuevo[m
+[31m-      const hashed = await bcrypt.hash(password, 10);[m
+[31m-      const user = await User.create({[m
+[31m-        email,[m
+[31m-        password: hashed,[m
+[31m-        role,[m
+[31m-        isVerified: false,[m
+[31m-      });[m
+[31m-[m
+[31m-      // Generar token de verificación[m
+[31m-      const verifyToken = jwt.sign([m
+[31m-        { id: user.id, email: user.email },[m
+[31m-        process.env.JWT_SECRET,[m
+[31m-        { expiresIn: "15m" }[m
+[31m-      );[m
+[31m-[m
+[31m-      // Enviar correo de verificación[m
+[31m-      await sendVerificationEmail(user.email, verifyToken);[m
+[31m-[m
+[31m-      res.status(201).json({[m
+[31m-        message: "Usuario registrado. Verifica tu correo antes de iniciar sesión.",[m
+[31m-      });[m
+[31m-    } catch (err) {[m
+[31m-      console.error("❌ Error en registro:", err);[m
+[31m-      res.status(400).json({ error: "Error al registrar usuario" });[m
+[31m-    }[m
+[31m-  };[m
+[31m-[m
+[31m-  /* ================================[m
+[31m-    🟡 VERIFICAR CUENTA DESDE LINK[m
+[31m-  ================================= */[m
+[31m-  export const verifyAccount = async (req, res) => {[m
+[31m-    const { token } = req.query;[m
+[31m-[m
+[31m-    try {[m
+[31m-      const decoded = jwt.verify(token, process.env.JWT_SECRET);[m
+[31m-[m
+[31m-      const user = await User.findByPk(decoded.id);[m
+[31m-      if (!user) return res.status(404).json({ error: "Usuario no encontrado" });[m
+[31m-[m
+[31m-      if (user.isVerified) {[m
+[31m-        return res.status(200).json({ message: "Tu cuenta ya está verificada." });[m
+[31m-      }[m
+[31m-[m
+[31m-      user.isVerified = true;[m
+[31m-      await user.save();[m
+[31m-[m
+[31m-      res.status(200).json({ message: "Cuenta verificada correctamente." });[m
+[31m-    } catch (err) {[m
+[31m-      console.error("❌ Error al verificar cuenta:", err.message);[m
+[31m-      res.status(400).json({ error: "Token inválido o expirado" });[m
+[31m-    }[m
+[31m-  };[m
+[31m-[m
+[31m-/* ================================[m
+[31m-   🔐 LOGIN CON MÉTODOS ADAPTATIVOS[m
+[31m-================================ */[m
+[31m-export const login = async (req, res) => {[m
+[31m-  const { email, password } = req.body;[m
+[31m-[m
+[31m-  try {[m
+[31m-    const user = await User.findOne({ where: { email } });[m
+[31m-[m
+[31m-    // ⛔ Mensaje genérico si el usuario NO existe[m
+[31m-    if (!user) {[m
+[31m-      return res.status(401).json({ error: "Credenciales inválidas" });[m
+[31m-    }[m
+[31m-[m
+[31m-    const attempt = failedAttempts.get(email);[m
+[31m-    const now = Date.now();[m
+[31m-    const maxAttempts = 3;[m
+[31m-    const blockDuration = 5 * 60 * 1000; // 5 minutos[m
+[31m-[m
+[31m-    // Verifica si está bloqueado[m
+[31m-    if (attempt && attempt.count >= maxAttempts) {[m
+[31m-      const timePassed = now - attempt.lastAttempt;[m
+[31m-      if (timePassed < blockDuration) {[m
+[31m-        return res.status(429).json({[m
+[31m-          error:[m
+[31m-            "Demasiados intentos fallidos. Intenta nuevamente en 5 minutos.",[m
+[31m-        });[m
+[31m-      } else {[m
+[31m-        failedAttempts.delete(email); // desbloquea si ya pasó el tiempo[m
+[31m-      }[m
+[31m-    }[m
+[31m-[m
+[31m-    // Verifica verificación de cuenta[m
+[31m-    if (!user.isVerified) {[m
+[31m-      return res.status(403).json({[m
+[31m-        error: "Debes verificar tu cuenta antes de iniciar sesión.",[m
+[31m-      });[m
+[31m-    }[m
+[31m-[m
+[31m-    // Verifica contraseña[m
+[31m-    const match = await bcrypt.compare(password, user.password);[m
+[31m-    if (!match) {[m
+[31m-      if (failedAttempts.has(email)) {[m
+[31m-        const current = failedAttempts.get(email);[m
+[31m-        const newCount = current.count + 1;[m
+[31m-        failedAttempts.set(email, {[m
+[31m-          count: newCount,[m
+[31m-          lastAttempt: now,[m
+[31m-        });[m
+[31m-[m
+[31m-        if (newCount >= maxAttempts) {[m
+[31m-          return res.status(429).json({[m
+[31m-            error:[m
+[31m-              "Demasiados intentos fallidos. Intenta nuevamente en 5 minutos.",[m
+[31m-          });[m
+[31m-        } else if (newCount === 3 || newCount === 4) {[m
+[31m-          return res.status(401).json({[m
+[31m-            // ⛔ Mensaje genérico, no decimos “contraseña incorrecta”[m
+[31m-            error: `Credenciales inválidas. Si fallas ${[m
+[31m-              maxAttempts - newCount[m
+[31m-            } vez más, tu cuenta será bloqueada temporalmente.`,[m
+[31m-          });[m
+[31m-        }[m
+[31m-      } else {[m
+[31m-        failedAttempts.set(email, { count: 1, lastAttempt: now });[m
+[31m-      }[m
+[31m-[m
+[31m-      // ⛔ Mensaje genérico de credenciales[m
+[31m-      return res.status(401).json({ error: "Credenciales inválidas" });[m
+[31m-    }[m
+[31m-[m
+[31m-    // Éxito, limpiar intentos[m
+[31m-    failedAttempts.delete(email);[m
+[31m-[m
+[31m-    // Flujo 2FA[m
+[31m-    switch (user.authMethod) {[m
+[31m-      case "otp": {[m
+[31m-        const otp = Math.floor(100000 + Math.random() * 900000).toString();[m
+[31m-        const expires = new Date(Date.now() + 10 * 60 * 1000);[m
+[31m-        user.otp = otp;[m
+[31m-        user.otpExpires = expires;[m
+[31m-        await user.save();[m
+[31m-        await sendOTP(email, otp);[m
+[31m-        return res.status(200).json({[m
+[31m-          message: "OTP enviado al correo",[m
+[31m-          twoFactorRequired: true,[m
+[31m-          method: "otp",[m
+[31m-        });[m
+[31m-      }[m
+[31m-[m
+[31m-      case "confirm-link": {[m
+[31m-        const token = jwt.sign([m
+[31m-          { id: user.id, role: user.role, email: user.email },[m
+[31m-          process.env.JWT_SECRET,[m
+[31m-          { expiresIn: "10m" }[m
+[31m-        );[m
+[31m-        user.accessToken = token;[m
+[31m-        user.isPendingApproval = true;[m
+[31m-        await user.save();[m
+[31m-        await sendConfirmationEmail(user.email, token);[m
+[31m-        return res.status(200).json({[m
+[31m-          message: "Correo de confirmación enviado",[m
+[31m-          twoFactorRequired: true,[m
+[31m-          method: "confirm-link",[m
+[31m-        });[m
+[31m-      }[m
+[31m-[m
+[31m-      case "totp":[m
+[31m-        return res.status(200).json({[m
+[31m-          message: "TOTP requerido",[m
+[31m-          twoFactorRequired: true,[m
+[31m-          method: "totp",[m
+[31m-        });[m
+[31m-[m
+[31m-           default: {[m
+[31m-        // 👈 Aquí marcamos que ESTA sesión es local[m
+[31m-        const accessToken = jwt.sign([m
+[31m-          {[m
+[31m-            id: user.id,[m
+[31m-            role: user.role,[m
+[31m-            email: user.email,[m
+[31m-            loginMethod: "local", // 🔐 importante: va dentro del JWT[m
+[31m-          },[m
+[31m-          process.env.JWT_SECRET,[m
+[31m-          { expiresIn: "1h" }[m
+[31m-        );[m
+[31m-[m
+[31m-        // Guardar sesión en la base de datos[m
+[31m-        await Session.create({[m
+[31m-          userId: user.id,[m
+[31m-          token: accessToken,[m
+[31m-          expiresAt: new Date(Date.now() + 60 * 60 * 1000),[m
+[31m-          ipAddress: req.ip || req.connection.remoteAddress,[m
+[31m-          userAgent: req.headers["user-agent"] || "Desconocido",[m
+[31m-        });[m
+[31m-[m
+[31m-        return res.status(200).json({[m
+[31m-          message: "Inicio exitoso",[m
+[31m-          accessToken,[m
+[31m-          user: {[m
+[31m-            id: user.id,[m
+[31m-            email: user.email,[m
+[31m-            rol: user.role, // 👈 usa 'rol' para que tu front siga funcionando[m
+[31m-          },[m
+[31m-          twoFactorRequired: false,[m
+[31m-        });[m
+[31m-      }[m
+[31m-[m
+[31m-    }[m
+[31m-  } catch (err) {[m
+[31m-    console.error("❌ Error en login:", err);[m
+[31m-    res.status(500).json({ error: "Error al iniciar sesión" });[m
+[31m-  }[m
+[31m-};[m
+[31m-[m
+[31m-  /* ================================[m
+[31m-    🔵 VERIFICAR OTP[m
+[31m-  ================================= */[m
+[31m-// controllers/authController.js[m
+[31m-export const verifyOTP = async (req, res) => {[m
+[31m-  try {[m
+[31m-    const { email, otp } = req.body;[m
+[31m-[m
+[31m-    if (!email || !otp) {[m
+[31m-      return res[m
+[31m-        .status(400)[m
+[31m-        .json({ error: "Correo y código OTP son requeridos" });[m
+[31m-    }[m
+[31m-[m
+[31m-    const user = await User.findOne({ where: { email } });[m
+[31m-[m
+[31m-    if (!user) {[m
+[31m-      console.warn(" Usuario no encontrado para OTP:", email);[m
+[31m-      return res.status(401).json({ error: "OTP inválido o expirado" });[m
+[31m-    }[m
+[31m-[m
+[31m-    if (!user.otp || !user.otpExpires) {[m
+[31m-      console.warn(" Usuario sin OTP activo:", email, "otp:", user.otp);[m
+[31m-      return res.status(401).json({ error: "OTP inválido o expirado" });[m
+[31m-    }[m
+[31m-[m
+[31m-    const now = new Date();[m
+[31m-    const expiresAt = new Date(user.otpExpires);[m
+[31m-[m
+[31m-    const codeReceived = String(otp).trim();[m
+[31m-    const codeStored = String(user.otp).trim();[m
+[31m-[m
+[31m-    if (codeStored !== codeReceived) {[m
+[31m-      console.warn(" Código OTP incorrecto para:", email);[m
+[31m-      return res.status(401).json({ error: "OTP inválido o expirado" });[m
+[31m-    }[m
+[31m-[m
+[31m-    if (expiresAt.getTime() < now.getTime()) {[m
+[31m-      console.warn(" OTP expirado para:", email);[m
+[31m-      return res.status(401).json({ error: "OTP inválido o expirado" });[m
+[31m-    }[m
+[31m-[m
+[31m-    // ✅ OTP válido → limpiamos campos[m
+[31m-    user.otp = null;[m
+[31m-    user.otpExpires = null;[m
+[31m-    await user.save();[m
+[31m-[m
+[31m-    // 🚨 IMPORTANTE: ESTA SESIÓN ES LOCAL, NO GOOGLE[m
+[31m-    const loginMethod = "local";[m
+[31m-[m
+[31m-    const accessToken = jwt.sign([m
+[31m-      {[m
+[31m-        id: user.id,[m
+[31m-        role: user.role,[m
+[31m-        email: user.email,[m
+[31m-        loginMethod,[m
+[31m-      },[m
+[31m-      process.env.JWT_SECRET,[m
+[31m-      { expiresIn: "1h" }[m
+[31m-    );[m
+[31m-[m
+[31m-    await Session.create({[m
+[31m-      userId: user.id,[m
+[31m-      token: accessToken,[m
+[31m-      expiresAt: new Date(Date.now() + 60 * 60 * 1000),[m
+[31m-      ipAddress: req.ip || req.connection?.remoteAddress,[m
+[31m-      userAgent: req.headers["user-agent"] || "Desconocido",[m
+[31m-    });[m
+[31m-[m
+[31m-    return res.json({[m
+[31m-      message: "Acceso concedido",[m
+[31m-      accessToken,[m
+[31m-      user: {[m
+[31m-        id: user.id,[m
+[31m-        email: user.email,[m
+[31m-        rol: user.role,[m
+[31m-      },[m
+[31m-    });[m
+[31m-  } catch (err) {[m
+[31m-    console.error("❌ Error al verificar OTP:", err);[m
+[31m-    res.status(500).json({ error: "Error al verificar OTP" });[m
+[31m-  }[m
+[31m-};[m
+[31m-[m
+[31m-[m
+[31m-[m
+[31m-  /* ================================[m
+[31m-    🧩 RECUPERAR CONTRASEÑA[m
+[31m-  ================================= */[m
+[31m-export const forgotPassword = async (req, res) => {[m
+[31m-  const { email } = req.body;[m
+[31m-[m
+[31m-  // Mensaje genérico para no revelar si el correo existe o no[m
+[31m-  const genericMessage =[m
+[31m-    "Si el correo está registrado, se ha enviado un código de recuperación";[m
+[31m-[m
+[31m-  try {[m
+[31m-    const user = await User.findOne({ where: { email } });[m
+[31m-[m
+[31m-    // Si NO existe el usuario, respondemos igual pero sin hacer nada[m
+[31m-    if (!user) {[m
+[31m-      return res.status(200).json({ message: genericMessage });[m
+[31m-    }[m
+[31m-[m
+[31m-    // Si SÍ existe, generamos OTP y lo enviamos[m
+[31m-    const otp = Math.floor(100000 + Math.random() * 900000).toString();[m
+[31m-    const expires = new Date(Date.now() + 10 * 60 * 1000);[m
+[31m-[m
+[31m-    user.otp = otp;[m
+[31m-    user.otpExpires = expires;[m
+[31m-    await user.save();[m
+[31m-[m
+[31m-    await sendOTP(email, otp);[m
+[31m-[m
+[31m-    // Respondemos el mismo mensaje genérico[m
+[31m-    return res.status(200).json({ message: genericMessage });[m
+[31m-  } catch (err) {[m
+[31m-    console.error(err);[m
+[31m-    return res.status(500).json({ error: "Error al procesar la solicitud" });[m
+[31m-  }[m
+[31m-};[m
+[31m-[m
+[31m-[m
+[31m-  /* ================================[m
+[31m-    🧾 VERIFICAR CÓDIGO RESET[m
+[31m-  ================================= */[m
+[31m-  export const verifyResetOTP = async (req, res) => {[m
+[31m-    const { email, otp } = req.body;[m
+[31m-    try {[m
+[31m-      const user = await User.findOne({ where: { email } });[m
+[31m-      if (!user || user.otp !== otp || user.otpExpires < Date.now()) {[m
+[31m-        return res.status(400).json({ error: "Código inválido o expirado" });[m
+[31m-      }[m
+[31m-      res.status(200).json({ message: "Código válido" });[m
+[31m-    } catch (err) {[m
+[31m-      res.status(500).json({ error: "Error verificando OTP" });[m
+[31m-    }[m
+[31m-  };[m
+[31m-[m
+[31m-  /* ================================[m
+[31m-    🔄 CAMBIAR CONTRASEÑA[m
+[31m-  ================================= */[m
+[31m-export const resetPassword = async (req, res) => {[m
+[31m-  const { email, otp, newPassword } = req.body;[m
+[31m-[m
+[31m-  try {[m
+[31m-    // 1️⃣ Validar política de contraseña[m
+[31m-    const passwordRegex =[m
+[31m-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;[m
+[31m-[m
+[31m-    if (!passwordRegex.test(newPassword)) {[m
+[31m-      return res.status(400).json({[m
+[31m-        error:[m
+[31m-          "La nueva contraseña no cumple la política de seguridad: mínimo 8 caracteres, con al menos una mayúscula, una minúscula, un número y un símbolo.",[m
+[31m-      });[m
+[31m-    }[m
+[31m-[m
+[31m-    // 2️⃣ Validar OTP y usuario[m
+[31m-    const user = await User.findOne({ where: { email } });[m
+[31m-    if (!user || user.otp !== otp || user.otpExpires < Date.now()) {[m
+[31m-      return res.status(400).json({ error: "OTP inválido o expirado" });[m
+[31m-    }[m
+[31m-[m
+[31m-    // 3️⃣ Verificar límite de 3 cambios por día[m
+[31m-    const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"[m
+[31m-    const lastDate = user.passwordChangesDate; // puede ser null o "YYYY-MM-DD"[m
+[31m-[m
+[31m-    if (lastDate === today) {[m
+[31m-      if (user.passwordChangesCount >= 3) {[m
+[31m-        return res.status(429).json({[m
+[31m-          error:[m
+[31m-            "Ya has cambiado tu contraseña 3 veces hoy. Intenta de nuevo mañana.",[m
+[31m-        });[m
+[31m-      }[m
+[31m-      user.passwordChangesCount += 1;[m
+[31m-    } else {[m
+[31m-      // Nuevo día: reiniciamos contador[m
+[31m-      user.passwordChangesDate = today;[m
+[31m-      user.passwordChangesCount = 1;[m
+[31m-    }[m
+[31m-[m
+[31m-    // 4️⃣ Hashear y guardar nueva contraseña[m
+[31m-    const hashedPassword = await bcrypt.hash(newPassword, 10);[m
+[31m-    user.password = hashedPassword;[m
+[31m-    user.otp = null;[m
+[31m-    user.otpExpires = null;[m
+[31m-[m
+[31m-    await user.save();[m
+[31m-[m
+[31m-    res[m
+[31m-      .status(200)[m
+[31m-      .json({ message: "Contraseña actualizada correctamente" });[m
+[31m-  } catch (err) {[m
+[31m-    console.error("Error al resetear contraseña:", err);[m
+[31m-    res[m
+[31m-      .status(500)[m
+[31m-      .json({ error: "Error al actualizar contraseña" });[m
+[31m-  }[m
+[31m-};[m
+[31m-[m
+[31m-[m
+[31m-export const confirmAccess = async (req, res) => {[m
+[31m-  // 🔍 Aceptamos el token de varias formas[m
+[31m-  const token =[m
+[31m-    req.body.token ||[m
+[31m-    req.body.accessToken ||[m
+[31m-    req.body.confirmToken ||[m
+[31m-    req.query.token;[m
+[31m-[m
+[31m-  if (!token) {[m
+[31m-    console.error("❌ confirmAccess sin token recibido:", {[m
+[31m-      body: req.body,[m
+[31m-      query: req.query,[m
+[31m-    });[m
+[31m-    return res[m
+[31m-      .status(400)[m
+[31m-      .json({ error: "Token de confirmación no proporcionado" });[m
+[31m-  }[m
+[31m-[m
+[31m-  try {[m
+[31m-    const decoded = jwt.verify(token, process.env.JWT_SECRET);[m
+[31m-    console.log("✅ confirmAccess - token decodificado:", decoded);[m
+[31m-[m
+[31m-    const user = await User.findByPk(decoded.id);[m
+[31m-    if (!user) {[m
+[31m-      return res.status(403).json({ error: "Usuario no encontrado" });[m
+[31m-    }[m
+[31m-[m
+[31m-    // 👇 Esta sesión final cuenta como "local" (flujo interno de tu sistema)[m
+[31m-    const loginMethod = "local";[m
+[31m-[m
+[31m-    const finalToken = jwt.sign([m
+[31m-      {[m
+[31m-        id: user.id,[m
+[31m-        role: user.role,[m
+[31m-        email: user.email,[m
+[31m-        loginMethod,[m
+[31m-      },[m
+[31m-      process.env.JWT_SECRET,[m
+[31m-      { expiresIn: "1h" }[m
+[31m-    );[m
+[31m-[m
+[31m-    // 🟢 MUY IMPORTANTE: guardar sesión para que verifyToken la encuentre[m
+[31m-    await Session.create({[m
+[31m-      userId: user.id,[m
+[31m-      token: finalToken,[m
+[31m-      expiresAt: new Date(Date.now() + 60 * 60 * 1000),[m
+[31m-      ipAddress: req.ip || req.connection?.remoteAddress,[m
+[31m-      userAgent: req.headers["user-agent"] || "Desconocido",[m
+[31m-    });[m
+[31m-[m
+[31m-    // Opcional: limpiar flags de pendiente[m
+[31m-    user.isPendingApproval = false;[m
+[31m-    user.accessToken = null;[m
+[31m-    await user.save();[m
+[31m-[m
+[31m-    return res.status(200).json({[m
+[31m-      message: "Acceso confirmado",[m
+[31m-      token: finalToken,[m
+[31m-      email: user.email,[m
+[31m-      role: user.role,[m
+[31m-    });[m
+[31m-  } catch (err) {[m
+[31m-    console.error([m
+[31m-      "❌ Error al verificar token en confirmAccess:",[m
+[31m-      err.name,[m
+[31m-      err.message[m
+[31m-    );[m
+[31m-[m
+[31m-    if (err.name === "TokenExpiredError") {[m
+[31m-      return res.status(400).json({ error: "Token expirado" });[m
+[31m-    }[m
+[31m-[m
+[31m-    return res.status(400).json({ error: "Token inválido" });[m
+[31m-  }[m
+[31m-};[m
+[31m-[m
+[31m-[m
+[31m-export const logout = async (req, res) => {[m
+[31m-  try {[m
+[31m-    const authHeader = req.headers.authorization || req.headers["authorization"];[m
+[31m-[m
+[31m-    if (!authHeader || !authHeader.startsWith("Bearer ")) {[m
+[31m-      return res.status(400).json({ error: "Token no proporcionado" });[m
+[31m-    }[m
+[31m-[m
+[31m-    const token = authHeader.split(" ")[1];[m
+[31m-[m
+[31m-    // Marcar sesión como revocada en BD (si estás guardando tokens en Session)[m
+[31m-    await Session.update([m
+[31m-      { revoked: true },[m
+[31m-      { where: { token } }[m
+[31m-    );[m
+[31m-[m
+[31m-    // Meter el token a la blacklist en memoria[m
+[31m-    blacklistToken(token);[m
+[31m-[m
+[31m-    return res.status(200).json({ message: "Sesión cerrada correctamente" });[m
+[31m-  } catch (error) {[m
+[31m-    console.error("Error en logout:", error);[m
+[31m-    return res.status(500).json({ error: "Error al cerrar sesión" });[m
+[31m-  }[m
+[31m-};[m
+[31m-// ====================== OAuth con Google ======================[m
+[31m-[m
+[31m-// 1) Redirigir a Google[m
+[31m-export const googleAuth = async (req, res) => {[m
+[31m-  try {[m
+[31m-    const rootUrl = "https://accounts.google.com/o/oauth2/v2/auth";[m
+[31m-[m
+[31m-    const options = {[m
+[31m-      redirect_uri: process.env.GOOGLE_REDIRECT_URI,[m
+[31m-      client_id: process.env.GOOGLE_CLIENT_ID,[m
+[31m-      access_type: "offline",[m
+[31m-      response_type: "code",[m
+[31m-      prompt: "consent",[m
+[31m-      scope: ["openid", "email", "profile"].join(" "),[m
+[31m-    };[m
+[31m-[m
+[31m-    const params = new URLSearchParams(options);[m
+[31m-    const authUrl = `${rootUrl}?${params.toString()}`;[m
+[31m-[m
+[31m-    return res.redirect(authUrl);[m
+[31m-  } catch (error) {[m
+[31m-    console.error("Error en 
