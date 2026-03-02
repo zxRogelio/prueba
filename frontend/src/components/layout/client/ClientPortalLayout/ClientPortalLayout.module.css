@@ -1,42 +1,70 @@
 .page {
   min-height: 100vh;
-  background: color-mix(in srgb, var(--primary) 4%, var(--white));
+  display: flex;
+  flex-direction: column;
+  background: #fafafa;
 }
 
 .main {
-  max-width: var(--container);
+  flex: 1;
+  width: 100%;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: calc(var(--header-h) + 20px) 16px 32px;
+  padding: 28px 20px;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 22px;
 }
 
+/* Sidebar */
 .clientNav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 18px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 16px;
+  padding: 16px;
+  height: fit-content;
+  position: sticky;
+  top: 92px; /* depende de tu header */
 }
 
 .link {
-  border: 1px solid var(--border);
-  background: var(--white);
-  color: var(--text);
-  border-radius: var(--radius-pill);
-  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: #222;
   font-weight: 600;
-  transition: all var(--t);
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .link:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+  background: #f6f6f6;
 }
 
 .active {
-  border-color: var(--primary);
-  background: var(--primary);
-  color: var(--white);
+  background: rgba(236, 93, 187, 0.1);
+  color: #ec5dbb;
 }
 
+/* Content area */
 .content {
-  margin-bottom: 20px;
+  min-width: 0;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 16px;
+  padding: 18px;
 }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .main {
+    grid-template-columns: 1fr;
+  }
+
+  .clientNav {
+    position: static;
+  }
+}
+  

@@ -1,6 +1,8 @@
 import styles from "./AdminTopbar.module.css";
-import { FaBell, FaQuestionCircle, FaSearch } from "react-icons/fa";
+import { FaBell, FaQuestionCircle, FaSearch, FaSignOutAlt } from "react-icons/fa";
 import Logo from "../../../../assets/LogoP.png";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../../../context/AuthContext";
 
 interface Props {
   onToggleSidebar?: () => void;
@@ -12,10 +14,12 @@ export default function AdminTopbar({
   title = "HOME",
   breadcrumb = "DASHBOARD",
 }: Props) {
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
   return (
     <header className={styles.topbar}>
       <div className={styles.left}>
-        {/*BRAND CON IMAGEN */}
         <div className={styles.brand}>
           <img src={Logo} alt="Titanium" className={styles.brandLogo} />
         </div>
@@ -33,11 +37,7 @@ export default function AdminTopbar({
           <input className={styles.searchInput} placeholder="Buscar..." />
         </div>
 
-        <button
-          className={styles.iconBtn}
-          aria-label="Notificaciones"
-          type="button"
-        >
+        <button className={styles.iconBtn} aria-label="Notificaciones" type="button">
           <FaBell />
           <span className={styles.badge} />
         </button>
@@ -47,12 +47,28 @@ export default function AdminTopbar({
         </button>
 
         <div className={styles.profile}>
-          <div className={styles.avatar}>A</div>
+          <div className={styles.avatar}>
+            {(user?.email?.[0] ?? "A").toUpperCase()}
+          </div>
           <div className={styles.profileText}>
-            <div className={styles.name}>Admin</div>
+            <div className={styles.name}>{user?.email ?? "Admin"}</div>
             <div className={styles.role}>Administrador</div>
           </div>
         </div>
+
+        {/* ✅ LOGOUT */}
+        <button
+          className={styles.iconBtn}
+          aria-label="Cerrar sesión"
+          type="button"
+          onClick={() => {
+            logout();
+            navigate("/login");
+          }}
+          title="Cerrar sesión"
+        >
+          <FaSignOutAlt />
+        </button>
       </div>
     </header>
   );

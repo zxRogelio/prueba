@@ -13,7 +13,13 @@
   "description": "",
   "dependencies": {
     "bcrypt": "^6.0.0",
+<<<<<<< HEAD
     "brevo": "^1.0.0",
+=======
+    "bcryptjs": "^3.0.3",
+    "brevo": "^1.0.0",
+    "cloudinary": "^2.9.0",
+>>>>>>> 45ce176 (cambios 1 de marzo)
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
@@ -22,6 +28,10 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.19.2",
+<<<<<<< HEAD
+=======
+    "multer": "^2.0.2",
+>>>>>>> 45ce176 (cambios 1 de marzo)
     "nodemailer": "^7.0.9",
     "qrcode": "^1.5.4",
     "resend": "^6.2.2",

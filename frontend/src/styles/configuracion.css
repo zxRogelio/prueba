@@ -1,0 +1,63 @@
+    .config-container {
+  max-width: 600px;
+  margin: 120px auto 60px; /* Deja espacio para el navbar */
+  padding: 2rem;
+  background: #fff9f0;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.config-container h2 {
+  font-size: 1.8rem;
+  color: #333;
+  margin-bottom: 1.5rem;
+}
+
+.config-options {
+  margin-bottom: 2rem;
+}
+
+.config-options label {
+  display: block;
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  color: #444;
+}
+
+select {
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+  margin-top: 0.5rem;
+}
+
+.btn-guardar {
+  margin-top: 1rem;
+  padding: 0.6rem 1.2rem;
+  background-color: #ec5dbb;
+  color: white;
+  font-weight: bold;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.btn-guardar:hover {
+  background-color: #d34ba3;
+}
+
+.qr-container {
+  margin-top: 2rem;
+}
+
+.qr-container img {
+  width: 200px;
+  height: 200px;
+  border: 4px solid #facc15;
+  padding: 8px;
+  background: #fff;
+  border-radius: 10px;
+}

@@ -1,9 +1,7 @@
 import { useState, useEffect } from "react";
 import "../styles/home.css";
-import Navbar from "../components/layout/Navbar/Navbar";
 import MobileMenu from "../components/layout/MobileMenu";
 import Breadcrumbs from "../components/layout/Breadcrumbs";
-import Footer from "../components/layout/Footer";
 
 const features = [
   {
@@ -91,12 +89,7 @@ export default function HomePage() {
         <div className="bg-glow bg-glow-2" />
       </div>
 
-      {/* Header */}
-      <Navbar
-        scrolled={scrolled}
-        onToggleMobile={() => setMobileMenuOpen(!mobileMenuOpen)}
-      />
-
+     
       {mobileMenuOpen && (
         <MobileMenu onClose={() => setMobileMenuOpen(false)} />
       )}
@@ -217,7 +210,7 @@ export default function HomePage() {
       </section>
 
       {/* Stats Section */}
-      <Footer />
+
       {/* New Footer - Smart Fit Style */}
     </div>
   );

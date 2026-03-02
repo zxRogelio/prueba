@@ -36,6 +36,47 @@
   gap: 8px;
 }
 
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.groupTitle {
+  width: 100%;
+  border: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px;
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  text-align: left;
+}
+
+.groupTitle:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.groupActive {
+  color: #fff;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.groupItems {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chevron {
+  margin-left: auto;
+  display: inline-flex;
+}
+
 .link {
   display: flex;
   align-items: center;
@@ -68,6 +109,12 @@
   font-weight: 600;
   font-size: 14px;
 }
+
+
+.childLink {
+  margin-left: 14px;
+}
+
 
 /* New styles for brand link and logo */
 .brandLink {

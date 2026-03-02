@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
-import Navbar from "../../Navbar/Navbar";
+import Header from "../../Header/Header";         // ✅ usa Header
 import MobileMenu from "../../MobileMenu";
 import Footer from "../../Footer";
 import styles from "./ClientPortalLayout.module.css";
@@ -10,6 +11,7 @@ const clientLinks = [
   { to: "/cliente/perfil", label: "Mi perfil" },
   { to: "/cliente/suscripcion", label: "Mi suscripción" },
   { to: "/cliente/pagos", label: "Pagos" },
+  { to: "/cliente/configuracion", label: "Configuración (2FA)" }, 
 ];
 
 export default function ClientPortalLayout() {
@@ -24,10 +26,8 @@ export default function ClientPortalLayout() {
 
   return (
     <div className={styles.page}>
-      <Navbar
-        scrolled={scrolled}
-        onToggleMobile={() => setMobileMenuOpen((prev) => !prev)}
-      />
+      {/* ✅ Header inteligente (cambia según login/rol) */}
+      <Header />
 
       {mobileMenuOpen && (
         <MobileMenu onClose={() => setMobileMenuOpen(false)} />

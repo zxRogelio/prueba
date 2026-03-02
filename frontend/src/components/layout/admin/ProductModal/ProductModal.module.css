@@ -10,11 +10,14 @@
 
 .modal {
   width: min(740px, 100%);
+  max-height: calc(100dvh - 32px);
   background: white;
   border-radius: 18px;
   border: 1px solid rgba(0, 0, 0, 0.1);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .header {
@@ -24,6 +27,7 @@
   gap: 16px;
   padding: 16px 16px 10px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
 }
 
 .title {
@@ -44,10 +48,13 @@
   background: #fff;
   cursor: pointer;
   font-weight: 900;
+  flex-shrink: 0;
 }
 
 .body {
   padding: 16px;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .grid {
@@ -70,17 +77,31 @@
 }
 
 .field input,
-.field select {
+.field select,
+.field textarea {
   height: 40px;
   border-radius: 12px;
   border: 1px solid rgba(0, 0, 0, 0.12);
   padding: 0 12px;
   outline: none;
   font-weight: 600;
+  font-family: inherit;
+}
+
+.field input,
+.field select {
+  height: 40px;
+}
+
+.field textarea {
+  min-height: 88px;
+  padding: 10px 12px;
+  resize: vertical;
 }
 
 .field input:focus,
-.field select:focus {
+.field select:focus,
+.field textarea:focus {
   border-color: rgba(239, 68, 68, 0.35);
 }
 
@@ -105,6 +126,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .btnGhost {
@@ -134,7 +156,26 @@
 }
 
 @media (max-width: 640px) {
+  .backdrop {
+    padding: 10px;
+  }
+
+  .modal {
+    max-height: calc(100dvh - 20px);
+    border-radius: 14px;
+  }
+
+  .header,
+  .body,
+  .footer {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
   .grid {
     grid-template-columns: 1fr;
+  }
+
+  .span2 {
+    grid-column: span 1;
   }
 }
