@@ -1,15 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import styles from "./BrandModal.module.css";
 
+type IdLike = string | number;
+
+type CategoryDTO = { id: IdLike; name: string; active: boolean };
+
 export type BrandFormData = {
   name: string;
   active: boolean;
+  categoryId: string;
 };
 
 interface Props {
   open: boolean;
   title?: string;
   initial?: Partial<BrandFormData>;
+  categories: CategoryDTO[];
   onClose: () => void;
   onSave: (data: BrandFormData) => void;
 }
@@ -17,23 +23,46 @@ interface Props {
 const defaultData: BrandFormData = {
   name: "",
   active: true,
+  categoryId: "",
 };
+
+const asStr = (v: unknown) => (v == null ? "" : String(v));
+const trimStr = (v: unknown) => asStr(v).trim();
 
 export default function BrandModal({
   open,
   title = "Nueva marca",
   initial,
+  categories,
   onClose,
   onSave,
 }: Props) {
   const [data, setData] = useState<BrandFormData>(defaultData);
 
+  // opcional: solo activas
+  const activeCategories = useMemo(
+    () => categories.filter((c) => c.active),
+    [categories]
+  );
+
   useEffect(() => {
     if (!open) return;
-    setData({ ...defaultData, ...initial });
-  }, [open, initial]);
 
-  const canSave = useMemo(() => data.name.trim().length >= 2, [data.name]);
+    const merged = { ...defaultData, ...initial };
+
+    // ✅ default: primera categoría activa
+    if (!merged.categoryId && activeCategories?.length) {
+      merged.categoryId = String(activeCategories[0].id);
+    } else if (merged.categoryId != null) {
+      merged.categoryId = String(merged.categoryId);
+    }
+
+    setData(merged);
+  }, [open, initial, activeCategories]);
+
+  const canSave = useMemo(() => {
+    return trimStr(data.name).length >= 2 && trimStr(data.categoryId).length > 0;
+  }, [data.name, data.categoryId]);
 
   useEffect(() => {
     const onEsc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -59,6 +88,25 @@ export default function BrandModal({
         <div className={styles.body}>
           <div className={styles.grid}>
             <label className={styles.field}>
+              <span>Categoría</span>
+              <select
+                value={data.categoryId}
+                onChange={(e) => setData((p) => ({ ...p, categoryId: e.target.value }))}
+                disabled={activeCategories.length === 0}
+              >
+                {activeCategories.length === 0 ? (
+                  <option value="">(No hay categorías activas)</option>
+                ) : (
+                  activeCategories.map((c) => (
+                    <option key={String(c.id)} value={String(c.id)}>
+                      {c.name}
+                    </option>
+                  ))
+                )}
+              </select>
+            </label>
+
+            <label className={styles.field}>
               <span>Nombre</span>
               <input
                 value={data.name}
@@ -81,10 +129,19 @@ export default function BrandModal({
         </div>
 
         <div className={styles.footer}>
-          <button className={styles.btnGhost} onClick={onClose}>Cancelar</button>
+          <button className={styles.btnGhost} onClick={onClose}>
+            Cancelar
+          </button>
           <button
             className={styles.btnPrimary}
-            onClick={() => canSave && onSave({ name: data.name.trim(), active: data.active })}
+            onClick={() =>
+              canSave &&
+              onSave({
+                name: trimStr(data.name),
+                active: data.active,
+                categoryId: trimStr(data.categoryId),
+              })
+            }
             disabled={!canSave}
           >
             Guardar

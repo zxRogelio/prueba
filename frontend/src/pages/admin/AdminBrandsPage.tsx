@@ -4,20 +4,24 @@ import styles from "./AdminBrandsPage.module.css";
 import BrandModal, { type BrandFormData } from "../../components/layout/admin/BrandModal/BrandModal";
 import { createBrand, deleteBrand, getBrands, updateBrand, type BrandDTO } from "../../services/admin/brandService";
 
+// ✅ NUEVO
+import { getCategories, type CategoryDTO } from "../../services/admin/categoryService";
+
 export default function AdminBrandsPage() {
   const [brands, setBrands] = useState<BrandDTO[]>([]);
+  const [categories, setCategories] = useState<CategoryDTO[]>([]); // ✅ NUEVO
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // ✅ nuevo: marca que estoy editando (null = crear)
   const [editing, setEditing] = useState<BrandDTO | null>(null);
 
   const refresh = async () => {
     setLoading(true);
     try {
-      const data = await getBrands();
-      setBrands(data);
+      const [brandsData, categoriesData] = await Promise.all([getBrands(), getCategories()]);
+      setBrands(brandsData);
+      setCategories(categoriesData);
     } finally {
       setLoading(false);
     }
@@ -54,18 +58,17 @@ export default function AdminBrandsPage() {
     const updated = await updateBrand(id, {
       name: current.name,
       active: !current.active,
+      categoryId: current.categoryId, // ✅ mantener categoría
     });
 
     setBrands((prev) => prev.map((b) => (b.id === id ? updated : b)));
   };
 
-  // ✅ abrir modal en modo CREAR
   const openCreate = () => {
     setEditing(null);
     setOpen(true);
   };
 
-  // ✅ abrir modal en modo EDITAR
   const openEdit = (brand: BrandDTO) => {
     setEditing(brand);
     setOpen(true);
@@ -126,7 +129,6 @@ export default function AdminBrandsPage() {
                       </td>
                       <td className={styles.tdRight}>
                         <div className={styles.actions}>
-                          {/* ✅ NUEVO */}
                           <button className={styles.btnGhost} onClick={() => openEdit(b)}>
                             Editar
                           </button>
@@ -134,6 +136,7 @@ export default function AdminBrandsPage() {
                           <button className={styles.btnGhost} onClick={() => onToggle(b.id)}>
                             {b.active ? "Desactivar" : "Activar"}
                           </button>
+
                           <button className={styles.btnDanger} onClick={() => onDelete(b.id)}>
                             Eliminar
                           </button>
@@ -163,18 +166,33 @@ export default function AdminBrandsPage() {
       <BrandModal
         open={open}
         title={editing ? "Editar marca" : "Nueva marca"}
-        initial={editing ? { name: editing.name, active: editing.active } : undefined}
-        onClose={() => setOpen(false)}
+        // ✅ NUEVO: initial incluye categoryId
+        initial={
+          editing
+            ? { name: editing.name, active: editing.active, categoryId: editing.categoryId }
+            : undefined
+        }
+        // ✅ NUEVO: pasar categorías al modal
+        categories={categories.filter((c) => c.active)}
+        onClose={() => {
+          setOpen(false);
+          setEditing(null);
+        }}
         onSave={async (data: BrandFormData) => {
           try {
             if (editing) {
               const updated = await updateBrand(editing.id, {
                 name: data.name,
                 active: data.active,
+                categoryId: data.categoryId, // ✅
               });
               setBrands((prev) => prev.map((b) => (b.id === editing.id ? updated : b)));
             } else {
-              const created = await createBrand({ name: data.name, active: data.active });
+              const created = await createBrand({
+                name: data.name,
+                active: data.active,
+                categoryId: data.categoryId, // ✅
+              });
               setBrands((prev) => [created, ...prev]);
             }
 

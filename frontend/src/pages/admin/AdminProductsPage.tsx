@@ -367,7 +367,7 @@ export default function AdminProductsPage() {
       <ProductModal
         open={openModal}
         title={editing ? "Editar producto" : "Nuevo producto"}
-        brands={activeBrands as any}
+        brands={activeBrands}      
         categories={activeCategories as any}
 
         // ✅ CLAVE PARA PODER BORRAR/ORDENAR

@@ -5,16 +5,23 @@ export const Product = sequelize.define(
   "Product",
   {
     id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
       primaryKey: true,
+    },
+
+    // ✅ Clave de negocio
+    id_producto: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      unique: true,
     },
 
     name: { type: DataTypes.STRING(160), allowNull: false },
 
-    // Relaciones (FK)
-    brandId: { type: DataTypes.UUID, allowNull: false },
-    categoryId: { type: DataTypes.UUID, allowNull: false },
+    // ✅ FKs por claves de negocio
+    brandId: { type: DataTypes.INTEGER, allowNull: false },     // -> Brand.id_marca
+    categoryId: { type: DataTypes.INTEGER, allowNull: false },  // -> Category.id_categoria
 
     price: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
     stock: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
@@ -31,31 +38,21 @@ export const Product = sequelize.define(
       type: DataTypes.ENUM("Suplementación", "Ropa"),
       allowNull: false,
     },
-    description: {
-  type: DataTypes.TEXT,
-  allowNull: true,
-},
-features: {
-  // SQL Server: guardamos JSON como TEXT
-  type: DataTypes.TEXT,
-  allowNull: true,
-},
 
+    description: { type: DataTypes.TEXT, allowNull: true },
 
-    // Suplementación
+    features: { type: DataTypes.TEXT, allowNull: true },
+
     supplementFlavor: { type: DataTypes.STRING(120), allowNull: true },
     supplementPresentation: { type: DataTypes.STRING(120), allowNull: true },
     supplementServings: { type: DataTypes.STRING(120), allowNull: true },
 
-    // Ropa
     apparelSize: { type: DataTypes.STRING(50), allowNull: true },
     apparelColor: { type: DataTypes.STRING(80), allowNull: true },
     apparelMaterial: { type: DataTypes.STRING(120), allowNull: true },
   },
-
   {
     tableName: "Products",
     timestamps: true,
   }
-
 );

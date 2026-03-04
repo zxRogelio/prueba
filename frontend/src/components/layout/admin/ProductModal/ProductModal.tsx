@@ -1,18 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import styles from "./ProductModal.module.css";
 
-export type BrandLike = { id: string; name: string; active: boolean };
-export type CategoryLike = { id: string; name: string; active: boolean };
+type IdLike = string | number;
+
+// ✅ soporta ids numéricos o string
+export type BrandLike = { id: IdLike; name: string; active: boolean; categoryId: IdLike };
+export type CategoryLike = { id: IdLike; name: string; active: boolean };
 
 export type ProductStatus = "Activo" | "Inactivo";
 export type ProductType = "Suplementación" | "Ropa";
 
-export type ExistingImage = { id: string; url: string; order: number };
+export type ExistingImage = { id: IdLike; url: string; order: number };
 
 export type ProductFormData = {
   name: string;
-  brandId: string;
-  categoryId: string;
+  brandId: string;     // estado siempre string
+  categoryId: string;  // estado siempre string
 
   price: number;
   stock: number;
@@ -22,7 +25,6 @@ export type ProductFormData = {
   description: string;
   features: string[];
 
-  // ✅ archivos nuevos (se suben al guardar)
   images: File[];
 
   supplementFlavor?: string;
@@ -44,11 +46,9 @@ interface Props {
   brands: BrandLike[];
   categories: CategoryLike[];
 
-  // ✅ SOLO si estás editando
-  productId?: string;
+  productId?: IdLike;
   existingImages?: ExistingImage[];
 
-  // ✅ acciones para imágenes existentes (backend)
   onDeleteExistingImage?: (imageId: string) => Promise<void>;
   onReorderExistingImages?: (newOrderIds: string[]) => Promise<void>;
 }
@@ -66,6 +66,9 @@ const defaultData: ProductFormData = {
   images: [],
 };
 
+const asStr = (v: unknown) => (v == null ? "" : String(v));
+const trimStr = (v: unknown) => asStr(v).trim();
+
 export default function ProductModal({
   open,
   title = "Nuevo producto",
@@ -80,25 +83,47 @@ export default function ProductModal({
   onDeleteExistingImage,
   onReorderExistingImages,
 }: Props) {
-  const activeBrands = useMemo(() => brands.filter((b) => b.active), [brands]);
   const activeCategories = useMemo(() => categories.filter((c) => c.active), [categories]);
+  const activeBrandsAll = useMemo(() => brands.filter((b) => b.active), [brands]);
 
   const [data, setData] = useState<ProductFormData>(defaultData);
 
-  // ✅ previews de archivos nuevos
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [featureInput, setFeatureInput] = useState("");
 
-  // ✅ estado local para la galería existente (para reordenar UI)
   const [gallery, setGallery] = useState<ExistingImage[]>([]);
+
+  // ✅ marcas filtradas por la categoría seleccionada
+  const brandsByCategory = useMemo(() => {
+    const catId = trimStr(data.categoryId);
+    if (!catId) return activeBrandsAll;
+    return activeBrandsAll.filter((b) => trimStr(b.categoryId) === catId);
+  }, [activeBrandsAll, data.categoryId]);
 
   useEffect(() => {
     if (!open) return;
 
     const merged = { ...defaultData, ...initial } as ProductFormData;
 
-    if (!merged.brandId && activeBrands[0]) merged.brandId = activeBrands[0].id;
-    if (!merged.categoryId && activeCategories[0]) merged.categoryId = activeCategories[0].id;
+    // ✅ normalizar ids a string (backend puede mandar number)
+    merged.brandId = merged.brandId != null ? String(merged.brandId) : "";
+    merged.categoryId = merged.categoryId != null ? String(merged.categoryId) : "";
+
+    // ✅ default category
+    if (!merged.categoryId && activeCategories[0]) merged.categoryId = String(activeCategories[0].id);
+
+    // ✅ default brand según category
+    const validBrands = activeBrandsAll.filter(
+      (b) => trimStr(b.categoryId) === trimStr(merged.categoryId)
+    );
+
+    if (!merged.brandId) {
+      merged.brandId = validBrands[0]?.id != null ? String(validBrands[0].id) : "";
+    } else {
+      // si viene brandId pero no pertenece a la categoría, ajustamos
+      const stillValid = validBrands.some((b) => String(b.id) === String(merged.brandId));
+      if (!stillValid) merged.brandId = validBrands[0]?.id != null ? String(validBrands[0].id) : "";
+    }
 
     merged.description = merged.description ?? "";
     merged.features = merged.features ?? [];
@@ -107,13 +132,11 @@ export default function ProductModal({
     setData(merged);
     setFeatureInput("");
 
-    // cargar galería existente ordenada
     const sorted = [...existingImages].sort((a, b) => Number(a.order) - Number(b.order));
     setGallery(sorted);
-  }, [open, initial, activeBrands, activeCategories, existingImages]);
+  }, [open, initial, activeBrandsAll, activeCategories, existingImages]);
 
   useEffect(() => {
-    // cleanup old previews
     previewUrls.forEach((u) => URL.revokeObjectURL(u));
 
     if (!data.images?.length) {
@@ -128,20 +151,23 @@ export default function ProductModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.images]);
 
-  const noBrandOrCategory = activeBrands.length === 0 || activeCategories.length === 0;
+  const noBrandOrCategory = activeBrandsAll.length === 0 || activeCategories.length === 0;
 
   const canSave = useMemo(() => {
     const hasSupplementDetails =
-      data.supplementPresentation?.trim() &&
-      data.supplementFlavor?.trim() &&
-      data.supplementServings?.trim();
+      trimStr(data.supplementPresentation) &&
+      trimStr(data.supplementFlavor) &&
+      trimStr(data.supplementServings);
 
-    const hasApparelDetails = data.apparelSize?.trim() && data.apparelColor?.trim();
+    const hasApparelDetails = trimStr(data.apparelSize) && trimStr(data.apparelColor);
+
+    const brandOk = trimStr(data.brandId).length > 0;
+    const catOk = trimStr(data.categoryId).length > 0;
 
     return (
-      data.name.trim().length >= 3 &&
-      data.brandId.trim().length > 0 &&
-      data.categoryId.trim().length > 0 &&
+      trimStr(data.name).length >= 3 &&
+      brandOk &&
+      catOk &&
       Number.isFinite(data.price) &&
       data.price > 0 &&
       Number.isFinite(data.stock) &&
@@ -176,31 +202,28 @@ export default function ProductModal({
 
     onSave({
       ...data,
-      name: data.name.trim(),
-      description: data.description.trim(),
-      features: (data.features ?? []).map((x) => x.trim()).filter(Boolean),
+      name: trimStr(data.name),
+      description: trimStr(data.description),
+      features: (data.features ?? []).map((x) => trimStr(x)).filter(Boolean),
+      brandId: trimStr(data.brandId),
+      categoryId: trimStr(data.categoryId),
     });
   };
 
-  // ✅ borrar imagen existente
-  const handleDeleteExisting = async (imageId: string) => {
+  const handleDeleteExisting = async (imageId: IdLike) => {
     if (!productId) return;
     if (!onDeleteExistingImage) return;
 
     const ok = confirm("¿Quitar esta imagen del producto?");
     if (!ok) return;
 
-    await onDeleteExistingImage(imageId);
-
-    // actualiza UI local
-    setGallery((prev) => prev.filter((x) => x.id !== imageId));
+    await onDeleteExistingImage(String(imageId));
+    setGallery((prev) => prev.filter((x) => String(x.id) !== String(imageId)));
   };
 
-  // ✅ reordenar (mover arriba/abajo)
   const moveExisting = async (from: number, to: number) => {
     if (!productId) return;
     if (!onReorderExistingImages) return;
-
     if (to < 0 || to >= gallery.length) return;
 
     const copy = [...gallery];
@@ -209,8 +232,7 @@ export default function ProductModal({
 
     setGallery(copy);
 
-    // manda nuevo orden al backend por ids
-    const ids = copy.map((x) => x.id);
+    const ids = copy.map((x) => String(x.id));
     await onReorderExistingImages(ids);
   };
 
@@ -239,7 +261,6 @@ export default function ProductModal({
         </div>
 
         <div className={styles.body}>
-          {/* ✅ IMÁGENES EXISTENTES (solo edición) */}
           {isEditing && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontWeight: 700, marginBottom: 8 }}>Imágenes actuales</div>
@@ -250,7 +271,7 @@ export default function ProductModal({
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   {gallery.map((img, idx) => (
                     <div
-                      key={img.id}
+                      key={String(img.id)}
                       style={{
                         width: 140,
                         borderRadius: 12,
@@ -265,7 +286,14 @@ export default function ProductModal({
                         style={{ width: "100%", height: 110, objectFit: "cover" }}
                       />
 
-                      <div style={{ padding: 8, display: "flex", gap: 6, justifyContent: "space-between" }}>
+                      <div
+                        style={{
+                          padding: 8,
+                          display: "flex",
+                          gap: 6,
+                          justifyContent: "space-between",
+                        }}
+                      >
                         <button
                           type="button"
                           className={styles.btnGhost}
@@ -320,7 +348,8 @@ export default function ProductModal({
                     supplementFlavor: e.target.value === "Suplementación" ? p.supplementFlavor : "",
                     supplementPresentation:
                       e.target.value === "Suplementación" ? p.supplementPresentation : "",
-                    supplementServings: e.target.value === "Suplementación" ? p.supplementServings : "",
+                    supplementServings:
+                      e.target.value === "Suplementación" ? p.supplementServings : "",
                     apparelSize: e.target.value === "Ropa" ? p.apparelSize : "",
                     apparelColor: e.target.value === "Ropa" ? p.apparelColor : "",
                     apparelMaterial: e.target.value === "Ropa" ? p.apparelMaterial : "",
@@ -341,38 +370,54 @@ export default function ProductModal({
               />
             </label>
 
-            <label className={styles.field}>
-              <span>Marca</span>
-              <select
-                value={data.brandId}
-                onChange={(e) => setData((p) => ({ ...p, brandId: e.target.value }))}
-                disabled={activeBrands.length === 0}
-              >
-                {activeBrands.length === 0 ? (
-                  <option value="">(No hay marcas activas)</option>
-                ) : (
-                  activeBrands.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))
-                )}
-              </select>
-            </label>
-
+            {/* ✅ Categoría (primero) */}
             <label className={styles.field}>
               <span>Categoría</span>
               <select
                 value={data.categoryId}
-                onChange={(e) => setData((p) => ({ ...p, categoryId: e.target.value }))}
+                onChange={(e) => {
+                  const newCategoryId = e.target.value;
+
+                  setData((p) => {
+                    const validBrands = activeBrandsAll.filter(
+                      (b) => trimStr(b.categoryId) === trimStr(newCategoryId)
+                    );
+
+                    return {
+                      ...p,
+                      categoryId: newCategoryId,
+                      brandId: validBrands[0]?.id != null ? String(validBrands[0].id) : "",
+                    };
+                  });
+                }}
                 disabled={activeCategories.length === 0}
               >
                 {activeCategories.length === 0 ? (
                   <option value="">(No hay categorías activas)</option>
                 ) : (
                   activeCategories.map((c) => (
-                    <option key={c.id} value={c.id}>
+                    <option key={String(c.id)} value={String(c.id)}>
                       {c.name}
+                    </option>
+                  ))
+                )}
+              </select>
+            </label>
+
+            {/* ✅ Marca (filtrada por categoría) */}
+            <label className={styles.field}>
+              <span>Marca</span>
+              <select
+                value={data.brandId}
+                onChange={(e) => setData((p) => ({ ...p, brandId: e.target.value }))}
+                disabled={brandsByCategory.length === 0}
+              >
+                {brandsByCategory.length === 0 ? (
+                  <option value="">(No hay marcas para esta categoría)</option>
+                ) : (
+                  brandsByCategory.map((b) => (
+                    <option key={String(b.id)} value={String(b.id)}>
+                      {b.name}
                     </option>
                   ))
                 )}
@@ -449,7 +494,9 @@ export default function ProductModal({
                   <span>Porciones</span>
                   <input
                     value={data.supplementServings || ""}
-                    onChange={(e) => setData((p) => ({ ...p, supplementServings: e.target.value }))}
+                    onChange={(e) =>
+                      setData((p) => ({ ...p, supplementServings: e.target.value }))
+                    }
                     placeholder="Ej. 30 servicios"
                   />
                 </label>
@@ -518,7 +565,6 @@ export default function ProductModal({
               </select>
             </label>
 
-            {/* ✅ archivos nuevos */}
             <label className={`${styles.field} ${styles.span2}`}>
               <span>Agregar nuevas imágenes (puedes seleccionar varias)</span>
               <input

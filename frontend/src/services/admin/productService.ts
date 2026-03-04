@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { API } from "../../api/api";
 
 export type ProductType = "Suplementación" | "Ropa";
@@ -10,22 +11,21 @@ export type ProductImageDTO = {
 };
 
 export type ProductDTO = {
-  id: string;
+  id: string; // id_producto como string
   name: string;
-  brandId: string;
-  categoryId: string;
+  brandId: string;     // id_marca
+  categoryId: string;  // id_categoria
   price: number;
   stock: number;
   status: ProductStatus;
 
   imageUrl?: string | null;
-
   productType: ProductType;
 
   description?: string | null;
   features?: string[] | string | null;
 
-  images?: ProductImageDTO[]; // ✅ NUEVO (galería)
+  images?: ProductImageDTO[];
 
   supplementFlavor?: string | null;
   supplementPresentation?: string | null;
@@ -39,36 +39,64 @@ export type ProductDTO = {
   updatedAt?: string;
 };
 
+type ProductApi = any;
+
+const mapProduct = (p: ProductApi): ProductDTO => ({
+  id: String(p.id_producto ?? p.id ?? ""),
+  name: p.name,
+  brandId: String(p.brandId ?? ""),
+  categoryId: String(p.categoryId ?? ""),
+  price: Number(p.price ?? 0),
+  stock: Number(p.stock ?? 0),
+  status: p.status,
+  imageUrl: p.imageUrl ?? null,
+  productType: p.productType,
+  description: p.description ?? null,
+  features: p.features ?? [],
+  images: Array.isArray(p.images)
+    ? p.images.map((img: any) => ({
+        id: String(img.id),
+        url: img.url,
+        order: Number(img.order ?? 0),
+      }))
+    : [],
+  supplementFlavor: p.supplementFlavor ?? null,
+  supplementPresentation: p.supplementPresentation ?? null,
+  supplementServings: p.supplementServings ?? null,
+  apparelSize: p.apparelSize ?? null,
+  apparelColor: p.apparelColor ?? null,
+  apparelMaterial: p.apparelMaterial ?? null,
+  createdAt: p.createdAt,
+  updatedAt: p.updatedAt,
+});
+
 export async function getProducts() {
-  const { data } = await API.get<ProductDTO[]>("/admin/products");
-  return data;
+  const { data } = await API.get<ProductApi[]>("/admin/products");
+  return data.map(mapProduct);
 }
 
-// multipart/form-data (images opcionales)
 export async function createProduct(form: FormData) {
-  const { data } = await API.post<ProductDTO>("/admin/products", form, {
+  const { data } = await API.post<ProductApi>("/admin/products", form, {
     headers: { "Content-Type": "multipart/form-data" },
   });
-  return data;
+  return mapProduct(data);
 }
 
 export async function updateProduct(id: string, form: FormData) {
-  const { data } = await API.put<ProductDTO>(`/admin/products/${id}`, form, {
+  const { data } = await API.put<ProductApi>(`/admin/products/${id}`, form, {
     headers: { "Content-Type": "multipart/form-data" },
   });
-  return data;
+  return mapProduct(data);
 }
 
 export async function deleteProduct(id: string) {
   await API.delete(`/admin/products/${id}`);
 }
 
-/** ✅ quitar una imagen existente */
 export async function deleteProductImage(productId: string, imageId: string) {
   await API.delete(`/admin/products/${productId}/images/${imageId}`);
 }
 
-/** ✅ reordenar imágenes existentes */
 export async function reorderProductImages(productId: string, order: string[]) {
   const { data } = await API.put<ProductImageDTO[]>(
     `/admin/products/${productId}/images/reorder`,
