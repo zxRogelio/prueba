@@ -1,120 +1,380 @@
-.wrap {
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+/* Variables de color */
+:root {
+  --primary: #db241c;
+  --primary-dark: #b71c1c;
+  --primary-light: rgba(219, 36, 28, 0.1);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-disabled: rgba(255, 255, 255, 0.4);
+  --bg-hover: rgba(255, 255, 255, 0.08);
+  --bg-active: rgba(219, 36, 28, 0.15);
+  --border-color: rgba(219, 36, 28, 0.3);
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
+/* Contenedor principal */
+.wrap {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #0f0f13 0%, #1a1a24 100%);
+  backdrop-filter: blur(10px);
+  border-right: 1px solid var(--border-color);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  box-shadow: var(--shadow);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Estado colapsado */
+.wrapCollapsed {
+  width: 80px !important;
+}
+
+.wrapCollapsed .brandTexts,
+.wrapCollapsed .label,
+.wrapCollapsed .chevron {
+  display: none !important;
+}
+
+.wrapCollapsed .brand {
+  padding: 20px 0;
+  display: flex;
+  justify-content: center;
+}
+
+.wrapCollapsed .brandLink {
+  justify-content: center;
+}
+
+.wrapCollapsed .brandLogo {
+  width: 40px;
+  height: 40px;
+}
+
+.wrapCollapsed .link,
+.wrapCollapsed .catalogToggle,
+.wrapCollapsed .subLink {
+  justify-content: center;
+  padding: 14px;
+}
+
+.wrapCollapsed .icon {
+  width: 24px;
+  height: 24px;
+  font-size: 20px;
+  margin: 0;
+}
+
+.wrapCollapsed .submenu {
+  padding-left: 0;
+  align-items: center;
+}
+
+/* Botón de colapso */
+.collapseButton {
+  position: absolute;
+  top: 20px;
+  right: -12px;
+  width: 24px;
+  height: 24px;
+  background: var(--primary);
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 100;
+  color: white;
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgba(219, 36, 28, 0.4);
+}
+
+.collapseButton:hover {
+  background: var(--primary-dark);
+  transform: scale(1.1);
+}
+
+.collapseIcon {
+  transition: transform 0.3s ease;
+}
+
+.collapseIconRotated {
+  transform: rotate(180deg);
+}
+
+/* Brand section */
 .brand {
-  padding: 14px 12px;
+  padding: 24px 20px;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 8px;
+}
+
+.brandLink {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.brandLink:hover {
+  opacity: 0.9;
+}
+
+.brandLogo {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+  transition: all 0.3s ease;
+}
+
+.brandTexts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .brandTitle {
-  display: block;
-  font-family: var(--font-display, "Bebas Neue", cursive);
-  letter-spacing: 2px;
-  font-size: 28px;
+  font-family: "Poppins", sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 1px;
+  color: var(--text-primary);
+  line-height: 1.2;
 }
 
+.brandSubtitle {
+  font-family: "Poppins", sans-serif;
+  font-size: 11px;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+}
+
+/* Navegación */
 .nav {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
+  padding: 0 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
+/* Secciones */
+.section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.sectionTitle {
+  padding: 0 12px 8px;
+  font-family: "Poppins", sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+/* Links */
 .link,
 .catalogToggle,
 .subLink {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px;
+  gap: 12px;
+  padding: 12px 16px;
   border-radius: 12px;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-secondary);
   text-decoration: none;
-  transition: 0.2s ease;
-}
-
-.catalogToggle {
-  width: 100%;
-  border: 1px solid rgba(239, 68, 68, 0.24);
-  background: rgba(255, 255, 255, 0.02);
+  transition: all 0.2s ease;
+  font-family: "Poppins", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid transparent;
   cursor: pointer;
-  justify-content: space-between;
-}
-
-.catalogLeft {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
 }
 
 .link:hover,
-.catalogToggle:hover,
 .subLink:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .active {
-  background: rgba(239, 68, 68, 0.18);
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  color: #fff;
+  background: var(--bg-active);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+  position: relative;
 }
 
-submenu {
+.active::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  background: var(--primary);
+  border-radius: 0 4px 4px 0;
+}
+
+/* Catalog Toggle */
+.catalogToggle {
+  justify-content: space-between;
+  background: transparent;
+  margin: 2px 0;
+}
+
+.catalogLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.catalogToggle.active {
+  background: var(--bg-active);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+/* Submenu */
+.submenu {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin: 2px 0 4px;
-  padding-left: 10px;
+  gap: 2px;
+  margin: 2px 0 4px 28px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border-color);
 }
 
 .subLink {
-  padding: 10px 12px;
-  border-radius: 10px;
-  color: rgba(255, 255, 255, 0.78);
+  padding: 10px 16px;
+  font-size: 13px;
 }
 
 .subActive {
-  background: rgba(239, 68, 68, 0.16);
-  border: 1px solid rgba(239, 68, 68, 0.24);
-  color: #fff;
+  background: var(--bg-active);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+  position: relative;
 }
 
+.subActive::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 16px;
+  background: var(--primary);
+  border-radius: 0 4px 4px 0;
+}
+
+/* Chevron */
 .chevron {
   display: inline-flex;
-  transition: transform 0.2s ease;
-  color: rgba(255, 255, 255, 0.8);
+  transition: transform 0.3s ease;
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 .chevronOpen {
   transform: rotate(90deg);
+  color: var(--primary);
 }
 
+/* Iconos */
 .icon {
-  width: 18px;
-  display: inline-flex;
-  justify-content: center;
-}
-
-.label {
-  font-weight: 600;
-  font-size: 14px;
-}
-
-/* New styles for brand link and logo */
-.brandLink {
+  width: 20px;
+  height: 20px;
   display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
-  text-decoration: none;
+  justify-content: center;
+  font-size: 16px;
+  transition: all 0.2s ease;
+  color: currentColor;
 }
 
-.brandLogo {
-  width: 200;
-  height: 50px;
-  object-fit: contain;
-  display: block;
-  filter: brightness(0) invert(1);
+.active .icon {
+  color: var(--primary);
+}
+
+.subActive .icon {
+  color: var(--primary);
+}
+
+/* Tooltips para modo colapsado */
+.wrapCollapsed [data-tooltip] {
+  position: relative;
+}
+
+.wrapCollapsed [data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--primary);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: "Poppins", sans-serif;
+  white-space: nowrap;
+  z-index: 1000;
+  margin-left: 8px;
+  box-shadow: var(--shadow);
+  pointer-events: none;
+}
+
+/* Scrollbar personalizada */
+.wrap::-webkit-scrollbar {
+  width: 4px;
+}
+
+.wrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.wrap::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+.wrap::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* Media queries */
+@media (max-width: 768px) {
+  .wrap {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 1000;
+  }
+
+  .wrapCollapsed {
+    transform: translateX(-100%);
+  }
+
+  .collapseButton {
+    right: -20px;
+  }
 }

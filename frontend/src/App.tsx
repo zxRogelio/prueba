@@ -35,6 +35,7 @@ import AdminSiteSettingsPage from "./pages/admin/AdminSiteSettingsPage";
 import AdminSuscripcionesPage from "./pages/admin/AdminSuscripcionesPage";
 import AdminBrandsPage from "./pages/admin/AdminBrandsPage";
 import AdminCategoriesPage from "./pages/admin/AdminCategoriesPage";
+import AdminSummaryPage from "./pages/admin/AdminSummaryPage";
 
 // Client Portal
 import ClientPortalLayout from "./components/layout/client/ClientPortalLayout/ClientPortalLayout";
@@ -87,7 +88,8 @@ export default function App() {
 
       {/* ✅ Admin (sin navbar público) */}
       <Route path="/admin" element={<AdminLayout />}>
-        <Route index element={<AdminDashboardPage />} />
+        <Route index element={<AdminSummaryPage />} />
+        <Route path="monitoring" element={<AdminDashboardPage />} />
         <Route path="products" element={<AdminProductsPage />} />
         <Route path="suscripciones" element={<AdminSuscripcionesPage />} />
         <Route path="settings" element={<AdminSiteSettingsPage />} />

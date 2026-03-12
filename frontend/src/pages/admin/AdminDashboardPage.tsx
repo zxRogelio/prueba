@@ -51,7 +51,10 @@ export default function AdminDashboardPage() {
     return ["all", ...values];
   }, [data]);
 
-  const handleFilterChange = (key: keyof MonitoringFilters, value: string | number) => {
+  const handleFilterChange = (
+    key: keyof MonitoringFilters,
+    value: string | number,
+  ) => {
     setFilters((prev) => ({
       ...prev,
       [key]: value,
@@ -80,12 +83,17 @@ export default function AdminDashboardPage() {
         <div>
           <h1>Panel Administrativo PostgreSQL</h1>
           <p>
-            Monitoreo avanzado por esquema, tabla, accesos, crecimiento, mantenimiento y uso.
+            Monitoreo avanzado por esquema, tabla, accesos, crecimiento,
+            mantenimiento y uso.
           </p>
         </div>
 
         <div className={styles.actions}>
-          <button className={styles.refresh} onClick={() => load(filters)} disabled={loading}>
+          <button
+            className={`${styles.button} ${styles.primary}`}
+            onClick={() => load(filters)}
+            disabled={loading}
+          >
             {loading ? "Actualizando..." : "Actualizar métricas"}
           </button>
         </div>
@@ -147,7 +155,12 @@ export default function AdminDashboardPage() {
             <label>Orden</label>
             <select
               value={filters.sortOrder}
-              onChange={(e) => handleFilterChange("sortOrder", e.target.value as "asc" | "desc")}
+              onChange={(e) =>
+                handleFilterChange(
+                  "sortOrder",
+                  e.target.value as "asc" | "desc",
+                )
+              }
             >
               <option value="desc">Descendente</option>
               <option value="asc">Ascendente</option>
@@ -158,7 +171,9 @@ export default function AdminDashboardPage() {
             <label>Límite</label>
             <select
               value={filters.limit}
-              onChange={(e) => handleFilterChange("limit", Number(e.target.value))}
+              onChange={(e) =>
+                handleFilterChange("limit", Number(e.target.value))
+              }
             >
               <option value={50}>50</option>
               <option value={100}>100</option>
@@ -170,10 +185,18 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className={styles.filterActions}>
-          <button className={styles.primaryBtn} onClick={applyFilters} disabled={loading}>
+          <button
+            className={`${styles.button} ${styles.primary}`}
+            onClick={applyFilters}
+            disabled={loading}
+          >
             Aplicar filtros
           </button>
-          <button className={styles.secondaryBtn} onClick={resetFilters} disabled={loading}>
+          <button
+            className={`${styles.button} ${styles.secondary}`}
+            onClick={resetFilters}
+            disabled={loading}
+          >
             Limpiar
           </button>
         </div>
@@ -259,12 +282,19 @@ export default function AdminDashboardPage() {
           <div className={styles.simpleList}>
             {data?.highlights?.hottestTables?.length ? (
               data.highlights.hottestTables.map((item) => (
-                <div key={`${item.schema}.${item.table}`} className={styles.simpleItem}>
+                <div
+                  key={`${item.schema}.${item.table}`}
+                  className={styles.simpleItem}
+                >
                   <div>
-                    <strong>{item.schema}.{item.table}</strong>
+                    <strong>
+                      {item.schema}.{item.table}
+                    </strong>
                     <span>{item.totalScans} accesos</span>
                   </div>
-                  <small>Seq: {item.seqScan} | Idx: {item.idxScan}</small>
+                  <small>
+                    Seq: {item.seqScan} | Idx: {item.idxScan}
+                  </small>
                 </div>
               ))
             ) : (
@@ -278,9 +308,14 @@ export default function AdminDashboardPage() {
           <div className={styles.simpleList}>
             {data?.highlights?.biggestTables?.length ? (
               data.highlights.biggestTables.map((item) => (
-                <div key={`${item.schema}.${item.table}`} className={styles.simpleItem}>
+                <div
+                  key={`${item.schema}.${item.table}`}
+                  className={styles.simpleItem}
+                >
                   <div>
-                    <strong>{item.schema}.{item.table}</strong>
+                    <strong>
+                      {item.schema}.{item.table}
+                    </strong>
                     <span>{item.totalMB} MB</span>
                   </div>
                   <small>{item.sizePct}% del total de tablas</small>
