@@ -44,6 +44,7 @@ import ClientProfilePage from "./pages/client/ClientProfilePage";
 import ClientSubscriptionPage from "./pages/client/ClientSubscriptionPage";
 import ClientPaymentsPage from "./pages/client/ClientPaymentsPage";
 import Configuracion2FA from "./pages/Configuracion2FA";
+import ProtectedRoute from "./components/routing/ProtectedRoute";
 
 export default function App() {
   return (
@@ -86,24 +87,28 @@ export default function App() {
         <Route path="/aviso-privacidad" element={<PrivacyPolicyPage />} />
       </Route>
 
-      {/* ✅ Admin (sin navbar público) */}
-      <Route path="/admin" element={<AdminLayout />}>
-        <Route index element={<AdminSummaryPage />} />
-        <Route path="monitoring" element={<AdminDashboardPage />} />
-        <Route path="products" element={<AdminProductsPage />} />
-        <Route path="suscripciones" element={<AdminSuscripcionesPage />} />
-        <Route path="settings" element={<AdminSiteSettingsPage />} />
-        <Route path="brands" element={<AdminBrandsPage />} />
-        <Route path="categories" element={<AdminCategoriesPage />} />
+      {/* ✅ Admin protegido por rol */}
+      <Route element={<ProtectedRoute allowedRoles={["administrador"]} />}>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminSummaryPage />} />
+          <Route path="monitoring" element={<AdminDashboardPage />} />
+          <Route path="products" element={<AdminProductsPage />} />
+          <Route path="suscripciones" element={<AdminSuscripcionesPage />} />
+          <Route path="settings" element={<AdminSiteSettingsPage />} />
+          <Route path="brands" element={<AdminBrandsPage />} />
+          <Route path="categories" element={<AdminCategoriesPage />} />
+        </Route>
       </Route>
 
-      {/* ✅ Cliente (sin navbar público) */}
-      <Route path="/cliente" element={<ClientPortalLayout />}>
-        <Route index element={<ClientDashboardPage />} />
-        <Route path="perfil" element={<ClientProfilePage />} />
-        <Route path="suscripcion" element={<ClientSubscriptionPage />} />
-        <Route path="pagos" element={<ClientPaymentsPage />} />
-        <Route path="configuracion" element={<Configuracion2FA />} />
+      {/* ✅ Cliente protegido por rol */}
+      <Route element={<ProtectedRoute allowedRoles={["cliente"]} />}>
+        <Route path="/cliente" element={<ClientPortalLayout />}>
+          <Route index element={<ClientDashboardPage />} />
+          <Route path="perfil" element={<ClientProfilePage />} />
+          <Route path="suscripcion" element={<ClientSubscriptionPage />} />
+          <Route path="pagos" element={<ClientPaymentsPage />} />
+          <Route path="configuracion" element={<Configuracion2FA />} />
+        </Route>
       </Route>
 
       {/* ✅ Not found al final */}

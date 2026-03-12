@@ -1,7 +1,11 @@
 import { Link } from "react-router-dom";
 import "../styles/notFound.css";
+import { useAuth } from "../context/AuthContext";
 
 export default function NotFoundPage() {
+  const { user } = useAuth();
+
+  const homeRoute = user?.rol === "administrador" ? "/admin" : "/";
   return (
     <div className="not-found-page">
       {/* Elementos decorativos sutiles */}
@@ -31,11 +35,11 @@ export default function NotFoundPage() {
 
         {/* Botones de acción */}
         <div className="not-found-actions">
-          <Link className="not-found-button primary" to="/">
-            IR AL INICIO
+          <Link className="not-found-button primary" to={homeRoute}>
+            Ir al Inicio
           </Link>
           <Link className="not-found-button secondary" to="/catalogue">
-            <span>VER CATÁLOGO</span>
+            <span>Ver Catálogo</span>
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -50,7 +54,6 @@ export default function NotFoundPage() {
             </svg>
           </Link>
         </div>
-        
       </main>
 
       {/* Footer */}
