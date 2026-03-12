@@ -214,29 +214,35 @@ export default function ProductImportExportPanel() {
       setLoading(false);
     }
   };
+const handleCommit = async () => {
+  if (!batchId) {
+    setMessage("No hay batchId.");
+    return;
+  }
 
-  const handleCommit = async () => {
-    if (!batchId) {
-      setMessage("No hay batchId.");
-      return;
-    }
+  try {
+    setLoading(true);
+    setMessage("");
 
-    try {
-      setLoading(true);
-      setMessage("");
+    const data = await commitProductsImport(batchId);
+    setMessage(data.message || "Importación aplicada correctamente.");
+  } catch (error: any) {
+    console.log("COMMIT ERROR FULL:", error);
 
-      const data = await commitProductsImport(batchId);
-      setMessage(data.message || "Importación aplicada correctamente.");
-    } catch (error: any) {
-      setMessage(
-        error?.response?.data?.error ||
-          error?.response?.data?.message ||
-          "Error aplicando importación."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+    const backendError =
+      error?.response?.data?.details ||
+      error?.response?.data?.error ||
+      error?.response?.data?.message ||
+      error?.details ||
+      error?.error ||
+      error?.message ||
+      "Error aplicando importación.";
+
+    setMessage(String(backendError));
+  } finally {
+    setLoading(false);
+  }
+};
 
   const getActionLabel = (action: PreviewRow["action"]) => {
     if (action === "NEW") return "Nuevo";

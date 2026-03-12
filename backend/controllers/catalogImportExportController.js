@@ -333,6 +333,7 @@ export const validateProductsImport = async (req, res) => {
       { replacements: { batchId } }
     );
 
+    // obligatorios
     await sequelizeImporter.query(
       `
       INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
@@ -399,6 +400,7 @@ export const validateProductsImport = async (req, res) => {
       { replacements: { batchId } }
     );
 
+    // rangos
     await sequelizeImporter.query(
       `
       INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
@@ -444,6 +446,7 @@ export const validateProductsImport = async (req, res) => {
       { replacements: { batchId } }
     );
 
+    // duplicado por id dentro del CSV
     await sequelizeImporter.query(
       `
       INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
@@ -463,10 +466,15 @@ export const validateProductsImport = async (req, res) => {
       { replacements: { batchId } }
     );
 
+    // duplicado lógico dentro del CSV
     await sequelizeImporter.query(
       `
       INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
-      SELECT p.batch_id, p.row_num, 'name', 'Producto duplicado en el archivo (mismo nombre + marca + categoría)'
+      SELECT
+        p.batch_id,
+        p.row_num,
+        'name',
+        'Producto duplicado en el archivo (mismo nombre + marca + categoría)'
       FROM staging.products_import p
       INNER JOIN (
         SELECT
@@ -490,6 +498,26 @@ export const validateProductsImport = async (req, res) => {
       { replacements: { batchId } }
     );
 
+    // duplicado lógico contra catálogo real
+    await sequelizeImporter.query(
+      `
+      INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
+      SELECT
+        p.batch_id,
+        p.row_num,
+        'name',
+        'Ya existe un producto en catálogo con el mismo nombre + marca + categoría'
+      FROM staging.products_import p
+      INNER JOIN core."Products" cp
+        ON lower(btrim(cp.name)) = lower(btrim(p.name))
+       AND cp."brandId" = p."brandId"
+       AND cp."categoryId" = p."categoryId"
+      WHERE p.batch_id = :batchId;
+      `,
+      { replacements: { batchId } }
+    );
+
+    // FKs
     await sequelizeImporter.query(
       `
       INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
@@ -828,11 +856,15 @@ export const commitProductsImport = async (req, res) => {
       batchId,
     });
   } catch (error) {
-    await transaction.rollback();
-    console.error("commitProductsImport error:", error);
-    return res.status(500).json({
-      error: "Error aplicando importación",
-      details: error.message,
-    });
-  }
-};
+  await transaction.rollback();
+  console.error("commitProductsImport error:", error);
+
+  return res.status(500).json({
+    error: "Error aplicando importación",
+    details:
+      error?.original?.message ||
+      error?.parent?.message ||
+      error?.message ||
+      "Error desconocido",
+  });
+}};
