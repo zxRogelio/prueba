@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactElement } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import styles from "./AdminSidebar.module.css";
 import {
@@ -11,7 +11,6 @@ import {
   FaTags,
   FaThLarge,
   FaChevronRight,
-  FaChevronLeft,
   FaBoxes,
   FaServer,
   FaDatabase,
@@ -40,9 +39,12 @@ const systemItems = [
   { to: "/admin/logs", label: "Logs del sistema", icon: <FaDatabase /> },
 ];
 
-export default function AdminSidebar() {
+interface Props {
+  collapsed: boolean;
+}
+
+export default function AdminSidebar({ collapsed }: Props) {
   const { pathname } = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
 
   const catalogActive = useMemo(
@@ -54,24 +56,11 @@ export default function AdminSidebar() {
     if (catalogActive) setCatalogOpen(true);
   }, [catalogActive]);
 
-  const toggleSidebar = () => {
-    setCollapsed(!collapsed);
-    // Guardar preferencia en localStorage
-    localStorage.setItem("sidebarCollapsed", JSON.stringify(!collapsed));
-  };
-
-  // Cargar preferencia guardada
-  useEffect(() => {
-    const saved = localStorage.getItem("sidebarCollapsed");
-    if (saved !== null) {
-      setCollapsed(JSON.parse(saved));
-    }
-  }, []);
 
   const renderLink = (item: {
     to: string;
     label: string;
-    icon: ReactElement;
+    icon: JSX.Element;
   }) => (
     <NavLink
       key={item.to}
@@ -89,17 +78,7 @@ export default function AdminSidebar() {
 
   return (
     <div className={`${styles.wrap} ${collapsed ? styles.wrapCollapsed : ""}`}>
-      <button
-        onClick={toggleSidebar}
-        className={styles.collapseButton}
-        aria-label={collapsed ? "Expandir sidebar" : "Colapsar sidebar"}
-      >
-        <FaChevronLeft
-          className={`${styles.collapseIcon} ${
-            collapsed ? styles.collapseIconRotated : ""
-          }`}
-        />
-      </button>
+     
 
       <div className={styles.brand}>
         <NavLink to="/admin" className={styles.brandLink}>

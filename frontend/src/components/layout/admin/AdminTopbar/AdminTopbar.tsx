@@ -1,5 +1,11 @@
 import styles from "./AdminTopbar.module.css";
-import { FaBell, FaQuestionCircle, FaSearch, FaSignOutAlt } from "react-icons/fa";
+import {
+  FaBars,
+  FaBell,
+  FaQuestionCircle,
+  FaSearch,
+  FaSignOutAlt,
+} from "react-icons/fa";
 import Logo from "../../../../assets/LogoP.png";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../../context/AuthContext";
@@ -11,6 +17,7 @@ interface Props {
 }
 
 export default function AdminTopbar({
+  onToggleSidebar,
   title = "HOME",
   breadcrumb = "DASHBOARD",
 }: Props) {
@@ -20,6 +27,14 @@ export default function AdminTopbar({
   return (
     <header className={styles.topbar}>
       <div className={styles.left}>
+        <button
+          type="button"
+          className={styles.menuBtn}
+          onClick={onToggleSidebar}
+          aria-label="Abrir o cerrar menú lateral"
+        >
+          <FaBars />
+        </button>
         <div className={styles.brand}>
           <img src={Logo} alt="Titanium" className={styles.brandLogo} />
         </div>
@@ -37,7 +52,11 @@ export default function AdminTopbar({
           <input className={styles.searchInput} placeholder="Buscar..." />
         </div>
 
-        <button className={styles.iconBtn} aria-label="Notificaciones" type="button">
+        <button
+          className={styles.iconBtn}
+          aria-label="Notificaciones"
+          type="button"
+        >
           <FaBell />
           <span className={styles.badge} />
         </button>

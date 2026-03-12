@@ -13,6 +13,23 @@
   top: 0;
   z-index: 50;
 }
+.menuBtn {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: white;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: 0.2s ease;
+  font-size: 16px;
+}
+
+.menuBtn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(239, 68, 68, 0.35);
+}
 
 .left {
   display: flex;
@@ -139,7 +156,7 @@
 .avatar {
   width: 36px;
   height: 36px;
-  border-radius: 12px;
+  border-radius: 50%; /* 👈 */
   background: #111;
   color: white;
   display: grid;
@@ -168,44 +185,57 @@
     display: flex;
   }
 }
-.profileWrap { position: relative; }
+.profileWrap {
+  position: relative;
+}
+@media (max-width: 768px) {
+  .brand {
+    display: none;
+  }
 
-.profileBtn{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  background:transparent;
-  border:none;
-  cursor:pointer;
-  padding:6px 8px;
-  border-radius:12px;
+  .breadcrumbs {
+    display: none;
+  }
 }
 
-.chev{ opacity:.75; }
+.profileBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 12px;
+}
 
-.dropdown{
-  position:absolute;
-  right:0;
+.chev {
+  opacity: 0.75;
+}
+
+.dropdown {
+  position: absolute;
+  right: 0;
   top: calc(100% + 10px);
-  background:#fff;
-  border:1px solid #eee;
-  border-radius:12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.08);
-  padding:8px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  padding: 8px;
   min-width: 200px;
   z-index: 50;
 }
 
-.dropdownItemDanger{
-  width:100%;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:10px 12px;
-  border-radius:10px;
+.dropdownItemDanger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
   border: none;
-  cursor:pointer;
-  background: rgba(239,68,68,.10);
-  color:#ef4444;
-  font-weight:800;
+  cursor: pointer;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  font-weight: 800;
 }
