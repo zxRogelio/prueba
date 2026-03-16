@@ -15,7 +15,7 @@ const exercises = [
       "La sentadilla es un ejercicio fundamental para desarrollar fuerza en piernas y glúteos. Es esencial para la potencia atlética y la estabilidad general.",
     images: [
       "https://hips.hearstapps.com/hmg-prod/images/sentadillas-2-1500285620.jpg?crop=1.00xw:0.601xh;0,0.178xh&resize=2048:*",
-      "http://imgfz.com/i/fvFnjQe.png",
+      "https://imgfz.com/i/fvFnjQe.png",
     ],
     steps: [
       "Coloca los pies al ancho de los hombros",
