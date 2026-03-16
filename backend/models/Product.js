@@ -10,18 +10,15 @@ export const Product = sequelize.define(
       primaryKey: true,
     },
 
-    // ✅ Clave de negocio
     id_producto: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       unique: true,
     },
 
     name: { type: DataTypes.STRING(160), allowNull: false },
-
-    // ✅ FKs por claves de negocio
-    brandId: { type: DataTypes.INTEGER, allowNull: false },     // -> Brand.id_marca
-    categoryId: { type: DataTypes.INTEGER, allowNull: false },  // -> Category.id_categoria
+    brandId: { type: DataTypes.INTEGER, allowNull: false },
+    categoryId: { type: DataTypes.INTEGER, allowNull: false },
 
     price: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
     stock: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
@@ -40,7 +37,6 @@ export const Product = sequelize.define(
     },
 
     description: { type: DataTypes.TEXT, allowNull: true },
-
     features: { type: DataTypes.TEXT, allowNull: true },
 
     supplementFlavor: { type: DataTypes.STRING(120), allowNull: true },

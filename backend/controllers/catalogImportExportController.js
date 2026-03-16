@@ -3,11 +3,70 @@ import { parse } from "csv-parse/sync";
 import { Parser } from "json2csv";
 import crypto from "crypto";
 
+const EXPORTABLE_FIELDS = [
+  "id_producto",
+  "name",
+  "brandId",
+  "brandName",
+  "categoryId",
+  "categoryName",
+  "price",
+  "stock",
+  "status",
+  "productType",
+  "description",
+  "features",
+  "imageUrl",
+  "supplementFlavor",
+  "supplementPresentation",
+  "supplementServings",
+  "apparelSize",
+  "apparelColor",
+  "apparelMaterial",
+  "createdAt",
+  "updatedAt",
+];
+
+const TEMPLATE_FIELDS = [
+  "name",
+  "brandId",
+  "brandName",
+  "categoryId",
+  "categoryName",
+  "price",
+  "stock",
+  "status",
+  "productType",
+  "description",
+  "features",
+  "imageUrl",
+  "supplementFlavor",
+  "supplementPresentation",
+  "supplementServings",
+  "apparelSize",
+  "apparelColor",
+  "apparelMaterial",
+];
+
+const resolveRequestedFields = (rawFields, fallbackFields) => {
+  if (!rawFields) return fallbackFields;
+
+  const requested = String(rawFields)
+    .split(",")
+    .map((f) => f.trim())
+    .filter(Boolean);
+
+  const valid = requested.filter((f) => EXPORTABLE_FIELDS.includes(f));
+  return valid.length ? valid : fallbackFields;
+};
+
 /* =========================================================
-   EXPORTAR CATÁLOGO A CSV
+   EXPORTAR CATÁLOGO A CSV CON CAMPOS SELECCIONABLES
 ========================================================= */
 export const exportProductsCsv = async (req, res) => {
   try {
+    const fields = resolveRequestedFields(req.query.fields, EXPORTABLE_FIELDS);
+
     const [rows] = await sequelizeReports.query(`
       SELECT
         p.id_producto,
@@ -44,37 +103,13 @@ export const exportProductsCsv = async (req, res) => {
       features: row.features ?? "[]",
     }));
 
-    const fields = [
-      "id_producto",
-      "name",
-      "brandId",
-      "brandName",
-      "categoryId",
-      "categoryName",
-      "price",
-      "stock",
-      "status",
-      "productType",
-      "description",
-      "features",
-      "imageUrl",
-      "supplementFlavor",
-      "supplementPresentation",
-      "supplementServings",
-      "apparelSize",
-      "apparelColor",
-      "apparelMaterial",
-      "createdAt",
-      "updatedAt",
-    ];
-
     const parser = new Parser({ fields });
     const csv = parser.parse(normalized);
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="catalogo_productos.csv"`,
+      `attachment; filename="catalogo_productos.csv"`
     );
 
     return res.status(200).send(csv);
@@ -88,10 +123,12 @@ export const exportProductsCsv = async (req, res) => {
 };
 
 /* =========================================================
-   EXPORTAR PLANTILLA DE IMPORTACIÓN (CAMPOS CLAVE)
+   EXPORTAR PLANTILLA DE IMPORTACIÓN CON CAMPOS SELECCIONABLES
 ========================================================= */
 export const exportProductsImportTemplateCsv = async (req, res) => {
   try {
+    const fields = resolveRequestedFields(req.query.fields, TEMPLATE_FIELDS);
+
     const [rows] = await sequelizeReports.query(`
       SELECT
         p.name,
@@ -104,7 +141,14 @@ export const exportProductsImportTemplateCsv = async (req, res) => {
         p.status,
         p."productType",
         p.description,
-        p.features
+        p.features,
+        p."imageUrl",
+        p."supplementFlavor",
+        p."supplementPresentation",
+        p."supplementServings",
+        p."apparelSize",
+        p."apparelColor",
+        p."apparelMaterial"
       FROM core."Products" p
       LEFT JOIN core."Brands" b
         ON p."brandId" = b.id_marca
@@ -118,27 +162,13 @@ export const exportProductsImportTemplateCsv = async (req, res) => {
       features: row.features ?? "[]",
     }));
 
-    const fields = [
-      "name",
-      "brandId",
-      "brandName",
-      "categoryId",
-      "categoryName",
-      "price",
-      "stock",
-      "status",
-      "productType",
-      "description",
-      "features",
-    ];
-
     const parser = new Parser({ fields });
     const csv = parser.parse(normalized);
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="plantilla_importacion_productos.csv"`,
+      `attachment; filename="plantilla_importacion_productos.csv"`
     );
 
     return res.status(200).send(csv);
@@ -150,6 +180,7 @@ export const exportProductsImportTemplateCsv = async (req, res) => {
     });
   }
 };
+
 /* =========================================================
    SUBIR CSV A STAGING
 ========================================================= */
@@ -172,15 +203,14 @@ export const uploadProductsCsv = async (req, res) => {
 
     const batchId = crypto.randomUUID();
 
-    // limpiar errores previos del lote por seguridad
     await sequelizeImporter.query(
       `DELETE FROM staging.import_errors WHERE batch_id = :batchId`,
-      { replacements: { batchId } },
+      { replacements: { batchId } }
     );
 
     const rows = records.map((row, index) => ({
       batch_id: batchId,
-      row_num: index + 2, // +2 por encabezado CSV
+      row_num: index + 2,
       id_producto:
         row.id_producto !== undefined && row.id_producto !== ""
           ? Number(row.id_producto)
@@ -195,9 +225,13 @@ export const uploadProductsCsv = async (req, res) => {
           ? Number(row.categoryId)
           : null,
       price:
-        row.price !== undefined && row.price !== "" ? Number(row.price) : null,
+        row.price !== undefined && row.price !== ""
+          ? Number(row.price)
+          : null,
       stock:
-        row.stock !== undefined && row.stock !== "" ? Number(row.stock) : null,
+        row.stock !== undefined && row.stock !== ""
+          ? Number(row.stock)
+          : null,
       status: row.status || null,
       productType: row.productType || null,
       imageUrl: row.imageUrl || null,
@@ -263,7 +297,7 @@ export const uploadProductsCsv = async (req, res) => {
           {
             transaction,
             replacements: row,
-          },
+          }
         );
       }
 
@@ -296,148 +330,244 @@ export const validateProductsImport = async (req, res) => {
 
     await sequelizeImporter.query(
       `DELETE FROM staging.import_errors WHERE batch_id = :batchId`,
-      { replacements: { batchId } },
+      { replacements: { batchId } }
     );
 
-    // 1) NULOS OBLIGATORIOS
-    await sequelizeImporter.query(`
+    // obligatorios
+    await sequelizeImporter.query(
+      `
       INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
       SELECT batch_id, row_num, 'name', 'Nombre obligatorio'
       FROM staging.products_import
-      WHERE batch_id = '${batchId}'
+      WHERE batch_id = :batchId
         AND (name IS NULL OR btrim(name) = '');
-    `);
+      `,
+      { replacements: { batchId } }
+    );
 
-    await sequelizeImporter.query(`
+    await sequelizeImporter.query(
+      `
       INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
       SELECT batch_id, row_num, 'brandId', 'Marca obligatoria'
       FROM staging.products_import
-      WHERE batch_id = '${batchId}'
+      WHERE batch_id = :batchId
         AND "brandId" IS NULL;
-    `);
+      `,
+      { replacements: { batchId } }
+    );
 
-    await sequelizeImporter.query(`
+    await sequelizeImporter.query(
+      `
       INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
       SELECT batch_id, row_num, 'categoryId', 'Categoría obligatoria'
       FROM staging.products_import
-      WHERE batch_id = '${batchId}'
+      WHERE batch_id = :batchId
         AND "categoryId" IS NULL;
-    `);
+      `,
+      { replacements: { batchId } }
+    );
 
-    await sequelizeImporter.query(`
+    await sequelizeImporter.query(
+      `
       INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
       SELECT batch_id, row_num, 'price', 'Precio obligatorio'
       FROM staging.products_import
-      WHERE batch_id = '${batchId}'
+      WHERE batch_id = :batchId
         AND price IS NULL;
-    `);
+      `,
+      { replacements: { batchId } }
+    );
 
-    await sequelizeImporter.query(`
+    await sequelizeImporter.query(
+      `
       INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
       SELECT batch_id, row_num, 'stock', 'Stock obligatorio'
       FROM staging.products_import
-      WHERE batch_id = '${batchId}'
+      WHERE batch_id = :batchId
         AND stock IS NULL;
-    `);
+      `,
+      { replacements: { batchId } }
+    );
 
-    await sequelizeImporter.query(`
+    await sequelizeImporter.query(
+      `
       INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
       SELECT batch_id, row_num, 'productType', 'Tipo de producto obligatorio'
       FROM staging.products_import
-      WHERE batch_id = '${batchId}'
+      WHERE batch_id = :batchId
         AND "productType" IS NULL;
-    `);
+      `,
+      { replacements: { batchId } }
+    );
 
-    // 2) TIPOS / RANGOS
-    await sequelizeImporter.query(`
+    // rangos
+    await sequelizeImporter.query(
+      `
       INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
       SELECT batch_id, row_num, 'price', 'Precio inválido'
       FROM staging.products_import
-      WHERE batch_id = '${batchId}'
+      WHERE batch_id = :batchId
         AND price < 0;
-    `);
+      `,
+      { replacements: { batchId } }
+    );
 
-    await sequelizeImporter.query(`
+    await sequelizeImporter.query(
+      `
       INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
       SELECT batch_id, row_num, 'stock', 'Stock inválido'
       FROM staging.products_import
-      WHERE batch_id = '${batchId}'
+      WHERE batch_id = :batchId
         AND stock < 0;
-    `);
+      `,
+      { replacements: { batchId } }
+    );
 
-    await sequelizeImporter.query(`
+    await sequelizeImporter.query(
+      `
       INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
       SELECT batch_id, row_num, 'status', 'Status inválido'
       FROM staging.products_import
-      WHERE batch_id = '${batchId}'
+      WHERE batch_id = :batchId
         AND status IS NOT NULL
         AND status NOT IN ('Activo', 'Inactivo');
-    `);
+      `,
+      { replacements: { batchId } }
+    );
 
-    await sequelizeImporter.query(`
+    await sequelizeImporter.query(
+      `
       INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
       SELECT batch_id, row_num, 'productType', 'Tipo de producto inválido'
       FROM staging.products_import
-      WHERE batch_id = '${batchId}'
+      WHERE batch_id = :batchId
         AND "productType" NOT IN ('Suplementación', 'Ropa');
-    `);
+      `,
+      { replacements: { batchId } }
+    );
 
-    // 3) DUPLICADOS EN EL ARCHIVO
-    await sequelizeImporter.query(`
+    // duplicado por id dentro del CSV
+    await sequelizeImporter.query(
+      `
       INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
       SELECT p.batch_id, p.row_num, 'id_producto', 'id_producto duplicado en el archivo'
       FROM staging.products_import p
       INNER JOIN (
         SELECT batch_id, id_producto
         FROM staging.products_import
-        WHERE batch_id = '${batchId}' AND id_producto IS NOT NULL
+        WHERE batch_id = :batchId
+          AND id_producto IS NOT NULL
         GROUP BY batch_id, id_producto
         HAVING COUNT(*) > 1
       ) d
       ON p.batch_id = d.batch_id
       AND p.id_producto = d.id_producto;
-    `);
+      `,
+      { replacements: { batchId } }
+    );
 
-    // 4) FK VÁLIDAS
-    await sequelizeImporter.query(`
+    // duplicado lógico dentro del CSV
+    await sequelizeImporter.query(
+      `
+      INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
+      SELECT
+        p.batch_id,
+        p.row_num,
+        'name',
+        'Producto duplicado en el archivo (mismo nombre + marca + categoría)'
+      FROM staging.products_import p
+      INNER JOIN (
+        SELECT
+          batch_id,
+          lower(btrim(name)) AS norm_name,
+          "brandId",
+          "categoryId"
+        FROM staging.products_import
+        WHERE batch_id = :batchId
+          AND name IS NOT NULL
+          AND "brandId" IS NOT NULL
+          AND "categoryId" IS NOT NULL
+        GROUP BY batch_id, lower(btrim(name)), "brandId", "categoryId"
+        HAVING COUNT(*) > 1
+      ) d
+      ON p.batch_id = d.batch_id
+      AND lower(btrim(p.name)) = d.norm_name
+      AND p."brandId" = d."brandId"
+      AND p."categoryId" = d."categoryId";
+      `,
+      { replacements: { batchId } }
+    );
+
+    // duplicado lógico contra catálogo real
+    await sequelizeImporter.query(
+      `
+      INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
+      SELECT
+        p.batch_id,
+        p.row_num,
+        'name',
+        'Ya existe un producto en catálogo con el mismo nombre + marca + categoría'
+      FROM staging.products_import p
+      INNER JOIN core."Products" cp
+        ON lower(btrim(cp.name)) = lower(btrim(p.name))
+       AND cp."brandId" = p."brandId"
+       AND cp."categoryId" = p."categoryId"
+      WHERE p.batch_id = :batchId;
+      `,
+      { replacements: { batchId } }
+    );
+
+    // FKs
+    await sequelizeImporter.query(
+      `
       INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
       SELECT p.batch_id, p.row_num, 'brandId', 'Marca no existe'
       FROM staging.products_import p
       LEFT JOIN core."Brands" b
         ON p."brandId" = b.id_marca
-      WHERE p.batch_id = '${batchId}'
+      WHERE p.batch_id = :batchId
         AND p."brandId" IS NOT NULL
         AND b.id_marca IS NULL;
-    `);
+      `,
+      { replacements: { batchId } }
+    );
 
-    await sequelizeImporter.query(`
+    await sequelizeImporter.query(
+      `
       INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
       SELECT p.batch_id, p.row_num, 'categoryId', 'Categoría no existe'
       FROM staging.products_import p
       LEFT JOIN core."Categories" c
         ON p."categoryId" = c.id_categoria
-      WHERE p.batch_id = '${batchId}'
+      WHERE p.batch_id = :batchId
         AND p."categoryId" IS NOT NULL
         AND c.id_categoria IS NULL;
-    `);
+      `,
+      { replacements: { batchId } }
+    );
 
-    const [errors] = await sequelizeImporter.query(`
+    const [errors] = await sequelizeImporter.query(
+      `
       SELECT *
       FROM staging.import_errors
-      WHERE batch_id = '${batchId}'
+      WHERE batch_id = :batchId
       ORDER BY row_num ASC, error_id ASC;
-    `);
+      `,
+      { replacements: { batchId } }
+    );
 
-    const [[summary]] = await sequelizeImporter.query(`
-      SELECT
-        COUNT(*)::int AS total_rows
+    const [[summary]] = await sequelizeImporter.query(
+      `
+      SELECT COUNT(*)::int AS total_rows
       FROM staging.products_import
-      WHERE batch_id = '${batchId}';
-    `);
+      WHERE batch_id = :batchId;
+      `,
+      { replacements: { batchId } }
+    );
 
     return res.json({
       batchId,
-      totalRows: summary.total_rows,
+      totalRows: Number(summary.total_rows || 0),
       errorsCount: errors.length,
       errors,
     });
@@ -451,18 +581,155 @@ export const validateProductsImport = async (req, res) => {
 };
 
 /* =========================================================
+   PREVIEW / COMPARACIÓN DEL LOTE
+========================================================= */
+export const previewProductsImport = async (req, res) => {
+  try {
+    const { batchId } = req.params;
+
+    const [[summary]] = await sequelizeImporter.query(
+      `
+      WITH staged AS (
+        SELECT
+          p.*,
+          lower(btrim(p.name)) AS norm_name
+        FROM staging.products_import p
+        WHERE p.batch_id = :batchId
+      ),
+      matched AS (
+        SELECT
+          s.row_num,
+          s.id_producto,
+          s.name,
+          s."brandId",
+          s."categoryId",
+          s.price,
+          s.stock,
+          s.status,
+          s."productType",
+          cp.id_producto AS core_match_by_id,
+          cp2.id_producto AS core_match_by_logic
+        FROM staged s
+        LEFT JOIN core."Products" cp
+          ON s.id_producto IS NOT NULL
+         AND cp.id_producto = s.id_producto
+        LEFT JOIN core."Products" cp2
+          ON lower(btrim(cp2.name)) = s.norm_name
+         AND cp2."brandId" = s."brandId"
+         AND cp2."categoryId" = s."categoryId"
+      )
+      SELECT
+        COUNT(*)::int AS total_rows,
+        COUNT(*) FILTER (
+          WHERE core_match_by_id IS NULL AND core_match_by_logic IS NULL
+        )::int AS new_rows,
+        COUNT(*) FILTER (
+          WHERE core_match_by_id IS NOT NULL
+             OR (core_match_by_id IS NULL AND core_match_by_logic IS NOT NULL)
+        )::int AS matched_existing_rows,
+        COUNT(*) FILTER (
+          WHERE core_match_by_id IS NULL AND core_match_by_logic IS NOT NULL
+        )::int AS duplicate_by_name_brand_category
+      FROM matched;
+      `,
+      { replacements: { batchId } }
+    );
+
+    const [comparisonRows] = await sequelizeImporter.query(
+      `
+      WITH staged AS (
+        SELECT
+          p.*,
+          lower(btrim(p.name)) AS norm_name
+        FROM staging.products_import p
+        WHERE p.batch_id = :batchId
+      )
+      SELECT
+        s.row_num,
+        s.id_producto,
+        s.name,
+        s."brandId",
+        b.name AS "brandName",
+        s."categoryId",
+        c.name AS "categoryName",
+        s.price,
+        s.stock,
+        s.status,
+        s."productType",
+        coreById.id_producto AS core_id_match,
+        coreByLogic.id_producto AS core_logic_match,
+        coreByLogic.name AS core_logic_name,
+        CASE
+          WHEN coreById.id_producto IS NOT NULL THEN 'UPDATE_BY_ID'
+          WHEN coreById.id_producto IS NULL AND coreByLogic.id_producto IS NOT NULL THEN 'DUPLICATE_LOGICAL'
+          ELSE 'NEW'
+        END AS action
+      FROM staged s
+      LEFT JOIN core."Brands" b
+        ON s."brandId" = b.id_marca
+      LEFT JOIN core."Categories" c
+        ON s."categoryId" = c.id_categoria
+      LEFT JOIN core."Products" coreById
+        ON s.id_producto IS NOT NULL
+       AND coreById.id_producto = s.id_producto
+      LEFT JOIN core."Products" coreByLogic
+        ON lower(btrim(coreByLogic.name)) = s.norm_name
+       AND coreByLogic."brandId" = s."brandId"
+       AND coreByLogic."categoryId" = s."categoryId"
+      ORDER BY s.row_num ASC;
+      `,
+      { replacements: { batchId } }
+    );
+
+    const [errorRows] = await sequelizeImporter.query(
+      `
+      SELECT *
+      FROM staging.import_errors
+      WHERE batch_id = :batchId
+      ORDER BY row_num ASC, error_id ASC;
+      `,
+      { replacements: { batchId } }
+    );
+
+    return res.json({
+      batchId,
+      summary: {
+        totalRows: Number(summary.total_rows || 0),
+        newRows: Number(summary.new_rows || 0),
+        matchedExistingRows: Number(summary.matched_existing_rows || 0),
+        duplicateByNameBrandCategory: Number(
+          summary.duplicate_by_name_brand_category || 0
+        ),
+        errorsCount: errorRows.length,
+      },
+      comparison: comparisonRows,
+      errors: errorRows,
+    });
+  } catch (error) {
+    console.error("previewProductsImport error:", error);
+    return res.status(500).json({
+      error: "Error generando preview del lote",
+      details: error.message,
+    });
+  }
+};
+
+/* =========================================================
    CONSULTAR ERRORES DEL LOTE
 ========================================================= */
 export const getImportErrors = async (req, res) => {
   try {
     const { batchId } = req.params;
 
-    const [errors] = await sequelizeImporter.query(`
+    const [errors] = await sequelizeImporter.query(
+      `
       SELECT *
       FROM staging.import_errors
-      WHERE batch_id = '${batchId}'
+      WHERE batch_id = :batchId
       ORDER BY row_num ASC, error_id ASC;
-    `);
+      `,
+      { replacements: { batchId } }
+    );
 
     return res.json({
       batchId,
@@ -480,7 +747,6 @@ export const getImportErrors = async (req, res) => {
 
 /* =========================================================
    COMMIT FINAL A core.Products
-   Aquí uso UPSERT por id_producto
 ========================================================= */
 export const commitProductsImport = async (req, res) => {
   const transaction = await sequelizeImporter.transaction();
@@ -497,14 +763,14 @@ export const commitProductsImport = async (req, res) => {
       {
         replacements: { batchId },
         transaction,
-      },
+      }
     );
 
-    if (errorsSummary.total_errors > 0) {
+    if (Number(errorsSummary.total_errors) > 0) {
       await transaction.rollback();
       return res.status(400).json({
         error: "No se puede aplicar la importación porque existen errores",
-        totalErrors: errorsSummary.total_errors,
+        totalErrors: Number(errorsSummary.total_errors),
       });
     }
 
@@ -532,27 +798,30 @@ export const commitProductsImport = async (req, res) => {
         "updatedAt"
       )
       SELECT
-        id_producto,
-        name,
-        "brandId",
-        "categoryId",
-        price,
-        stock,
-        COALESCE(status, 'Activo'),
-        "productType",
-        "imageUrl",
-        description,
-        COALESCE(features, '[]'),
-        "supplementFlavor",
-        "supplementPresentation",
-        "supplementServings",
-        "apparelSize",
-        "apparelColor",
-        "apparelMaterial",
+        COALESCE(
+          s.id_producto,
+          nextval('core.products_id_producto_seq'::regclass)
+        ) AS id_producto,
+        s.name,
+        s."brandId",
+        s."categoryId",
+        s.price,
+        s.stock,
+        COALESCE(s.status, 'Activo')::public."enum_Products_status",
+        s."productType"::public."enum_Products_productType",
+        s."imageUrl",
+        s.description,
+        COALESCE(s.features, '[]')::text,
+        s."supplementFlavor",
+        s."supplementPresentation",
+        s."supplementServings",
+        s."apparelSize",
+        s."apparelColor",
+        s."apparelMaterial",
         NOW(),
         NOW()
-      FROM staging.products_import
-      WHERE batch_id = :batchId
+      FROM staging.products_import s
+      WHERE s.batch_id = :batchId
       ON CONFLICT (id_producto)
       DO UPDATE SET
         name = EXCLUDED.name,
@@ -576,7 +845,7 @@ export const commitProductsImport = async (req, res) => {
       {
         replacements: { batchId },
         transaction,
-      },
+      }
     );
 
     await transaction.commit();
@@ -587,11 +856,15 @@ export const commitProductsImport = async (req, res) => {
       batchId,
     });
   } catch (error) {
-    await transaction.rollback();
-    console.error("commitProductsImport error:", error);
-    return res.status(500).json({
-      error: "Error aplicando importación",
-      details: error.message,
-    });
-  }
-};
+  await transaction.rollback();
+  console.error("commitProductsImport error:", error);
+
+  return res.status(500).json({
+    error: "Error aplicando importación",
+    details:
+      error?.original?.message ||
+      error?.parent?.message ||
+      error?.message ||
+      "Error desconocido",
+  });
+}};

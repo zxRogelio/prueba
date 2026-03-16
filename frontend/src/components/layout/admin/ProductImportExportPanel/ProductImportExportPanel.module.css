@@ -182,3 +182,53 @@
   font-size: 0.78rem;
   letter-spacing: 0.45px;
 }
+.fieldList {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 8px 14px;
+  margin: 12px 0 16px;
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.previewWrap {
+  margin-top: 18px;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 14px 0 18px;
+}
+
+.summaryCard {
+  background: #fff7f5;
+  border: 1px solid #f2d3cb;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.summaryCard span {
+  font-size: 12px;
+  color: #7b4b40;
+}
+
+.summaryCard strong {
+  font-size: 22px;
+  color: #101828;
+}
+
+.info {
+  background: #eef6ff;
+  color: #0b63c9;
+  border: 1px solid #bfdcff;
+}

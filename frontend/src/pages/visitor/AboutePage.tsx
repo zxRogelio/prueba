@@ -1,17 +1,16 @@
 import React from "react";
-import "../styles/AboutUs.css";
-import Footer from "../components/layout/Footer";
-import Navbar from "../components/layout/Navbar/Navbar";
-
+import "./AboutePage.module.css";
+import Footer from "../../components/layout/Footer";
+import Navbar from "../../components/layout/Navbar/Navbar";
 // Importa tus imágenes (ajusta las rutas según tu estructura)
 
-import missionImage from "../assets/mision1.jpg";
-import visionImage from "../assets/vision.jpg";
-import valuesImage from "../assets/valores.jpg";
-import team1Image from "../assets/1.jpg";
-import team2Image from "../assets/2.jpg";
-import team3Image from "../assets/3.jpg";
-import gymInterior from "../assets/abaout1.jpg";
+import missionImage from "../../assets/mision1.jpg";
+import visionImage from "../../assets/vision.jpg";
+import valuesImage from "../../assets/valores.jpg";
+import team1Image from "../../assets/1.jpg";
+import team2Image from "../../assets/2.jpg";
+import team3Image from "../../assets/3.jpg";
+import gymInterior from "../../assets/abaout1.jpg";
 
 const AboutUs: React.FC = () => {
   return (

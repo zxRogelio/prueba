@@ -16,6 +16,7 @@ import {
   exportProductsImportTemplateCsv,
   uploadProductsCsv,
   validateProductsImport,
+  previewProductsImport,
   getImportErrors,
   commitProductsImport,
 } from "../../controllers/catalogImportExportController.js";
@@ -24,9 +25,6 @@ const router = Router();
 
 router.use(requireAuth, requireAdmin);
 
-/* =========================
-   CRUD normal
-========================= */
 router.get("/", listProducts);
 router.post("/", upload.array("images", 8), createProduct);
 router.put("/:id", upload.array("images", 8), updateProduct);
@@ -34,14 +32,12 @@ router.delete("/:id", deleteProduct);
 router.delete("/:id/images/:imageId", deleteProductImage);
 router.put("/:id/images/reorder", reorderProductImages);
 
-/* =========================
-   EXPORT / IMPORT CSV
-========================= */
 router.get("/export/csv", exportProductsCsv);
 router.get("/import/template/csv", exportProductsImportTemplateCsv);
 
 router.post("/import/upload", upload.single("file"), uploadProductsCsv);
 router.post("/import/:batchId/validate", validateProductsImport);
+router.get("/import/:batchId/preview", previewProductsImport);
 router.get("/import/:batchId/errors", getImportErrors);
 router.post("/import/:batchId/commit", commitProductsImport);
 

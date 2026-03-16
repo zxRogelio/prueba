@@ -56,7 +56,7 @@ export default function AdminTopbar({
           </div>
         </div>
 
-        {/* ✅ LOGOUT */}
+        {/*LOGOUT */}
         <button
           className={styles.iconBtn}
           aria-label="Cerrar sesión"
