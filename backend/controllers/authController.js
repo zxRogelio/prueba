@@ -238,10 +238,23 @@ export const login = async (req, res) => {
   }
 };
 
-  /* ================================
-    🔵 VERIFICAR OTP
-  ================================= */
+ /* ================================
+   🔵 VERIFICAR OTP
+================================= */
 // controllers/authController.js
+
+const maskEmailForLog = (value = "") => {
+  const clean = String(value).replace(/[\r\n\t]/g, "").trim();
+  const atIndex = clean.indexOf("@");
+
+  if (atIndex <= 1) return "[correo-invalido]";
+
+  const name = clean.slice(0, atIndex);
+  const domain = clean.slice(atIndex);
+
+  return `${name[0]}***${domain}`;
+};
+
 export const verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -252,15 +265,16 @@ export const verifyOTP = async (req, res) => {
         .json({ error: "Correo y código OTP son requeridos" });
     }
 
+    const safeEmail = maskEmailForLog(email);
     const user = await User.findOne({ where: { email } });
 
     if (!user) {
-      console.warn(" Usuario no encontrado para OTP:", email);
+      console.warn("Usuario no encontrado para OTP:", safeEmail);
       return res.status(401).json({ error: "OTP inválido o expirado" });
     }
 
     if (!user.otp || !user.otpExpires) {
-      console.warn(" Usuario sin OTP activo:", email, "otp:", user.otp);
+      console.warn("Usuario sin OTP activo:", safeEmail);
       return res.status(401).json({ error: "OTP inválido o expirado" });
     }
 
@@ -271,21 +285,19 @@ export const verifyOTP = async (req, res) => {
     const codeStored = String(user.otp).trim();
 
     if (codeStored !== codeReceived) {
-      console.warn(" Código OTP incorrecto para:", email);
+      console.warn("Código OTP incorrecto para:", safeEmail);
       return res.status(401).json({ error: "OTP inválido o expirado" });
     }
 
     if (expiresAt.getTime() < now.getTime()) {
-      console.warn(" OTP expirado para:", email);
+      console.warn("OTP expirado para:", safeEmail);
       return res.status(401).json({ error: "OTP inválido o expirado" });
     }
 
-    // ✅ OTP válido → limpiamos campos
     user.otp = null;
     user.otpExpires = null;
     await user.save();
 
-    // 🚨 IMPORTANTE: ESTA SESIÓN ES LOCAL, NO GOOGLE
     const loginMethod = "local";
 
     const accessToken = jwt.sign(
@@ -317,7 +329,7 @@ export const verifyOTP = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("❌ Error al verificar OTP:", err);
+    console.error("Error al verificar OTP");
     res.status(500).json({ error: "Error al verificar OTP" });
   }
 };
