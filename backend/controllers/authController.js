@@ -1,4 +1,5 @@
   import bcrypt from "bcrypt";
+  import crypto from "crypto";
   import jwt from "jsonwebtoken";
   import { User } from "../models/User.js";
   import {
@@ -154,13 +155,16 @@ export const login = async (req, res) => {
 
     // Flujo 2FA
     switch (user.authMethod) {
-      case "otp": {
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+           case "otp": {
+        const otp = crypto.randomInt(100000, 1000000).toString();
         const expires = new Date(Date.now() + 10 * 60 * 1000);
+      
         user.otp = otp;
         user.otpExpires = expires;
+      
         await user.save();
         await sendOTP(email, otp);
+      
         return res.status(200).json({
           message: "OTP enviado al correo",
           twoFactorRequired: true,
