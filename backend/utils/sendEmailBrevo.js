@@ -25,7 +25,6 @@ export const sendOTP = async (email, otpCode) => {
     };
 
     await apiInstance.sendTransacEmail(emailData);
-    console.log(`✅ OTP enviado a ${email}`);
   } catch (error) {
     console.error('❌ Error al enviar OTP con Brevo:', error.response?.text || error.message);
     throw error;
@@ -55,7 +54,6 @@ export const sendConfirmationEmail = async (email, token) => {
     };
 
     await apiInstance.sendTransacEmail(emailData);
-    console.log(`✅ Correo de confirmación enviado a ${email}`);
   } catch (error) {
     console.error('❌ Error al enviar correo de confirmación:', error.response?.text || error.message);
     throw error;
@@ -85,7 +83,6 @@ export const sendVerificationEmail = async (email, token) => {
     };
 
     await apiInstance.sendTransacEmail(emailData);
-    console.log(`✅ Correo de verificación enviado a ${email}`);
   } catch (error) {
     console.error('❌ Error al enviar correo de verificación:', error.response?.text || error.message);
     throw error;
