@@ -16,10 +16,5 @@ export const forceHTTPS = (req, res, next) => {
     return next();
   }
 
-  try {
-    const redirectUrl = new URL(req.originalUrl || "/", baseUrl).toString();
-    return res.redirect(301, redirectUrl);
-  } catch {
-    return next();
-  }
+  return res.redirect(301, baseUrl);
 };
