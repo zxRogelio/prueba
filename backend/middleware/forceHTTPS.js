@@ -1,6 +1,25 @@
 export const forceHTTPS = (req, res, next) => {
-  if (process.env.NODE_ENV === "production" && req.headers["x-forwarded-proto"] !== "https") {
-    return res.redirect("https://" + req.headers.host + req.url);
+  if (process.env.NODE_ENV !== "production") {
+    return next();
   }
-  next();
+
+  const isHttps =
+    req.secure || req.headers["x-forwarded-proto"] === "https";
+
+  if (isHttps) {
+    return next();
+  }
+
+  const baseUrl = process.env.APP_BASE_URL;
+
+  if (!baseUrl) {
+    return next();
+  }
+
+  try {
+    const redirectUrl = new URL(req.originalUrl || "/", baseUrl).toString();
+    return res.redirect(301, redirectUrl);
+  } catch {
+    return next();
+  }
 };
