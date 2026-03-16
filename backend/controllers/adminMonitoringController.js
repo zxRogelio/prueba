@@ -2,6 +2,38 @@ import { sequelize } from "../config/sequelize.js";
 
 const bytesToMB = (bytes = 0) => Number(bytes / (1024 * 1024)).toFixed(2);
 
+const SORT_COLUMNS = Object.freeze({
+  schema: "st.schemaname",
+  table_name: "st.relname",
+  est_rows: "st.n_live_tup",
+  dead_rows: "st.n_dead_tup",
+  table_bytes: "pg_relation_size(st.relid)",
+  index_bytes: "pg_indexes_size(st.relid)",
+  total_bytes: "pg_total_relation_size(st.relid)",
+  seq_scan: "st.seq_scan",
+  idx_scan: "st.idx_scan",
+  total_scans: "(st.seq_scan + st.idx_scan)",
+  inserts: "st.n_tup_ins",
+  updates: "st.n_tup_upd",
+  deletes: "st.n_tup_del",
+  hot_updates: "st.n_tup_hot_upd",
+  cache_hit_ratio: `
+    CASE
+      WHEN COALESCE(io.heap_blks_hit, 0) + COALESCE(io.heap_blks_read, 0) = 0 THEN 0
+      ELSE ROUND(
+        (COALESCE(io.heap_blks_hit, 0)::numeric /
+        (COALESCE(io.heap_blks_hit, 0) + COALESCE(io.heap_blks_read, 0))) * 100, 2
+      )
+    END
+  `,
+  size_pct: `
+    CASE
+      WHEN db_totals.all_tables_bytes = 0 THEN 0
+      ELSE ROUND((pg_total_relation_size(st.relid)::numeric / db_totals.all_tables_bytes) * 100, 2)
+    END
+  `,
+});
+
 export const getPostgresMonitoring = async (req, res) => {
   try {
     const {
@@ -12,32 +44,16 @@ export const getPostgresMonitoring = async (req, res) => {
       limit = "200",
     } = req.query;
 
-    const allowedSorts = new Set([
-      "schema",
-      "table_name",
-      "est_rows",
-      "dead_rows",
-      "table_bytes",
-      "index_bytes",
-      "total_bytes",
-      "seq_scan",
-      "idx_scan",
-      "total_scans",
-      "inserts",
-      "updates",
-      "deletes",
-      "hot_updates",
-      "cache_hit_ratio",
-      "size_pct",
-    ]);
+    const requestedSortBy = String(sortBy);
+    const requestedSortOrder = String(sortOrder).toLowerCase();
 
-    const safeSortBy = allowedSorts.has(String(sortBy)) ? String(sortBy) : "total_bytes";
-    const safeSortOrder = String(sortOrder).toLowerCase() === "asc" ? "ASC" : "DESC";
+    const safeSortBy = SORT_COLUMNS[requestedSortBy] || SORT_COLUMNS.total_bytes;
+    const safeSortOrder = requestedSortOrder === "asc" ? "ASC" : "DESC";
     const safeLimit = Math.min(Math.max(Number(limit) || 200, 1), 1000);
 
     const replacements = {
-      schema,
-      search: `%${search}%`,
+      schema: String(schema),
+      search: `%${String(search)}%`,
       limit: safeLimit,
     };
 
@@ -77,8 +93,7 @@ export const getPostgresMonitoring = async (req, res) => {
       { replacements }
     );
 
-    const [tableRows] = await sequelize.query(
-      `
+    const tableQuery = `
       WITH db_totals AS (
         SELECT COALESCE(SUM(pg_total_relation_size(st.relid)), 0)::numeric AS all_tables_bytes
         FROM pg_stat_user_tables st
@@ -124,9 +139,9 @@ export const getPostgresMonitoring = async (req, res) => {
         AND (:search = '%%' OR st.relname ILIKE :search)
       ORDER BY ${safeSortBy} ${safeSortOrder}
       LIMIT :limit;
-      `,
-      { replacements }
-    );
+    `;
+
+    const [tableRows] = await sequelize.query(tableQuery, { replacements });
 
     const summary = summaryRows[0] || {};
 
@@ -191,7 +206,7 @@ export const getPostgresMonitoring = async (req, res) => {
       filters: {
         schema,
         search,
-        sortBy: safeSortBy,
+        sortBy: requestedSortBy in SORT_COLUMNS ? requestedSortBy : "total_bytes",
         sortOrder: safeSortOrder.toLowerCase(),
         limit: safeLimit,
       },
