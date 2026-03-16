@@ -1,5 +1,6 @@
   import bcrypt from "bcrypt";
   import crypto from "crypto";
+  import { randomInt } from "crypto";
   import jwt from "jsonwebtoken";
   import { User } from "../models/User.js";
   import {
@@ -329,20 +330,17 @@ export const verifyOTP = async (req, res) => {
 export const forgotPassword = async (req, res) => {
   const { email } = req.body;
 
-  // Mensaje genérico para no revelar si el correo existe o no
   const genericMessage =
     "Si el correo está registrado, se ha enviado un código de recuperación";
 
   try {
     const user = await User.findOne({ where: { email } });
 
-    // Si NO existe el usuario, respondemos igual pero sin hacer nada
     if (!user) {
       return res.status(200).json({ message: genericMessage });
     }
 
-    // Si SÍ existe, generamos OTP y lo enviamos
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = randomInt(100000, 1000000).toString();
     const expires = new Date(Date.now() + 10 * 60 * 1000);
 
     user.otp = otp;
@@ -351,14 +349,12 @@ export const forgotPassword = async (req, res) => {
 
     await sendOTP(email, otp);
 
-    // Respondemos el mismo mensaje genérico
     return res.status(200).json({ message: genericMessage });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Error al procesar la solicitud" });
   }
 };
-
 
   /* ================================
     🧾 VERIFICAR CÓDIGO RESET
@@ -701,21 +697,19 @@ export const resendLoginOTP = async (req, res) => {
     const user = await User.findOne({ where: { email } });
 
     if (!user) {
-      // respuesta genérica para no filtrar si el correo existe o no
       return res.status(200).json({
         message: "Si el correo está registrado, se ha reenviado el código.",
       });
     }
 
-    // Solo reenviamos si su método es OTP
     if (user.authMethod !== "otp") {
       return res
         .status(400)
         .json({ error: "Este usuario no tiene activo el método OTP para login." });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
+    const otp = randomInt(100000, 1000000).toString();
+    const expires = new Date(Date.now() + 10 * 60 * 1000);
 
     user.otp = otp;
     user.otpExpires = expires;
