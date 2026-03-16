@@ -66,8 +66,8 @@ export default function PaymentPage() {
 
   // Generar ID de transacción simulado
   const generateTransactionId = () => {
-    return "TXN-" + Math.random().toString(36).substr(2, 9).toUpperCase();
-  };
+  return `TXN-${crypto.randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase()}`;
+};
 
   const formatCardNumber = (value) => {
     const v = value.replace(/\s+/g, "").replace(/[^0-9]/gi, "");
