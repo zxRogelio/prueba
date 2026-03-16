@@ -15,12 +15,35 @@ import monitoringRoutes from "./routes/admin/monitoringRoutes.js";
 
 dotenv.config();
 const app = express();
-app.use(cors());
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://tudominio.com",
+];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("No permitido por CORS"));
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
+
 app.use(helmet());
 app.use(express.json());
-app.use(secureHeaders); // cabeceras de seguridad
-app.use(forceHTTPS); // redirección a HTTPS (solo en producción)
-// Conectar a SQL Server y sincronizar
+app.use(secureHeaders);
+app.use(forceHTTPS);
+
 sequelize
   .authenticate()
   .then(() => {
@@ -32,7 +55,7 @@ sequelize
 
 app.use("/api/products", productRoutes);
 app.use("/api/auth", authRoutes);
-app.use("/api/user", userRoutes); // ahora tienes /api/user/perfil y /api/user/admin-dashboard
+app.use("/api/user", userRoutes);
 app.use("/api/dev", devRoutes);
 app.use("/api/admin/brands", brandRoutes);
 app.use("/api/admin/categories", categoryRoutes);
