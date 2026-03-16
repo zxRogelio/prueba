@@ -30,8 +30,22 @@ export default function RegisterPage() {
     symbol: false,
   });
 
-  const validateEmail = (value: string) =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  const validateEmail = (value: string) => {
+    if (!value || value.length > 254) return false;
+  
+    const atIndex = value.indexOf("@");
+    if (atIndex <= 0 || atIndex !== value.lastIndexOf("@")) return false;
+  
+    const local = value.slice(0, atIndex);
+    const domain = value.slice(atIndex + 1);
+  
+    if (!local || !domain) return false;
+    if (domain.startsWith(".") || domain.endsWith(".")) return false;
+    if (!domain.includes(".")) return false;
+    if (/\s/.test(value)) return false;
+  
+    return true;
+  };
 
   const passwordRegex =
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
