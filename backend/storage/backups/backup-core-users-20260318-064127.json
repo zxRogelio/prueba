@@ -1,0 +1,33 @@
+{
+  "generatedAt": "2026-03-18T06:41:27.608Z",
+  "scope": "table",
+  "database": "neondb",
+  "tables": [
+    {
+      "schema": "core",
+      "table": "Users",
+      "rowCount": 1,
+      "rows": [
+        {
+          "id": "e2b8251c-a695-40d9-aafc-5cd838525c53",
+          "email": "admin@titanium.com",
+          "password": "$2b$10$m1NFF4wNJ/gTrXzz2Cw3telkpHFBFsfTFeHJplMR07157oSQJcTJy",
+          "otp": null,
+          "otpExpires": null,
+          "isVerified": true,
+          "isPendingApproval": false,
+          "accessToken": null,
+          "totpSecret": null,
+          "authMethod": "normal",
+          "role": "administrador",
+          "provider": "local",
+          "providerId": null,
+          "passwordChangesCount": 0,
+          "passwordChangesDate": null,
+          "createdAt": "2026-03-04T05:02:30.840Z",
+          "updatedAt": "2026-03-04T05:02:30.840Z"
+        }
+      ]
+    }
+  ]
+}

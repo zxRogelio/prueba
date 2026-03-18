@@ -1,5 +1,13 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import styles from "./AdminSiteSettingsPage.module.css";
+import {
+  createBackup,
+  downloadBackupFile,
+  getBackupOptions,
+  listBackups,
+  type BackupRecord,
+  type BackupScope,
+} from "../../services/admin/backupService";
 
 type SiteSettings = {
   slogan: string;
@@ -31,13 +39,111 @@ const initial: SiteSettings = {
   logoUrl: "",
 };
 
+const formatDate = (value: string) => new Date(value).toLocaleString();
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (typeof error === "object" && error !== null) {
+    const maybeResponse = (
+      error as { response?: { data?: { error?: string } } }
+    ).response;
+    if (maybeResponse?.data?.error) return maybeResponse.data.error;
+  }
+
+  return fallback;
+};
+
 export default function AdminSiteSettingsPage() {
   const [data, setData] = useState<SiteSettings>(initial);
+  const [scope, setScope] = useState<BackupScope>("full");
+  const [selectedTable, setSelectedTable] = useState("");
+  const [uploadToCloudinary, setUploadToCloudinary] = useState(false);
+  const [cloudinaryEnabled, setCloudinaryEnabled] = useState(false);
+  const [backupsPath, setBackupsPath] = useState("");
+  const [tables, setTables] = useState<
+    Array<{ schema: string; table: string }>
+  >([]);
+  const [backups, setBackups] = useState<BackupRecord[]>([]);
+  const [loadingBackups, setLoadingBackups] = useState(true);
+  const [creatingBackup, setCreatingBackup] = useState(false);
+  const [backupMessage, setBackupMessage] = useState("");
+  const [backupError, setBackupError] = useState("");
 
   const onSave = () => {
     // Luego lo conectamos a backend
     console.log("Guardando settings:", data);
     alert("Guardado (demo). Luego lo conectamos al backend 😉");
+  };
+
+  const loadBackupsData = async () => {
+    setLoadingBackups(true);
+    setBackupError("");
+
+    try {
+      const [optionsResponse, backupsResponse] = await Promise.all([
+        getBackupOptions(),
+        listBackups(),
+      ]);
+
+      setTables(optionsResponse.tables);
+      setCloudinaryEnabled(optionsResponse.cloudinaryEnabled);
+      setBackupsPath(optionsResponse.backupsPath);
+      setBackups(backupsResponse.backups);
+      if (optionsResponse.tables.length > 0 && !selectedTable) {
+        setSelectedTable(
+          `${optionsResponse.tables[0].schema}.${optionsResponse.tables[0].table}`,
+        );
+      }
+    } catch (error: unknown) {
+      setBackupError(
+        getErrorMessage(
+          error,
+          "No se pudo cargar la configuración de respaldos.",
+        ),
+      );
+    } finally {
+      setLoadingBackups(false);
+    }
+  };
+
+  useEffect(() => {
+    loadBackupsData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const tableOptions = useMemo(
+    () =>
+      tables.map((item) => ({
+        value: `${item.schema}.${item.table}`,
+        label: `${item.schema}.${item.table}`,
+      })),
+    [tables],
+  );
+
+  const handleCreateBackup = async () => {
+    setCreatingBackup(true);
+    setBackupError("");
+    setBackupMessage("");
+
+    try {
+      const [schema, table] = selectedTable.split(".");
+      const payload =
+        scope === "table"
+          ? { scope, schema, table, uploadToCloudinary }
+          : { scope, uploadToCloudinary };
+
+      const response = await createBackup(payload);
+      setBackupMessage(response.message);
+      await loadBackupsData();
+
+      await downloadBackupFile(
+        response.backup.downloadUrl,
+        response.backup.filename,
+      );
+    } catch (error: unknown) {
+      setBackupError(getErrorMessage(error, "No se pudo generar el backup."));
+    } finally {
+      setCreatingBackup(false);
+    }
   };
 
   return (
@@ -46,8 +152,8 @@ export default function AdminSiteSettingsPage() {
         <div>
           <h1 className={styles.title}>Gestión del sitio</h1>
           <p className={styles.subtitle}>
-            Edita la información pública: filosofía, misión/visión, contacto e
-            imágenes.
+            Edita la información pública y administra respaldos descargables de
+            la base de datos desde el panel admin.
           </p>
         </div>
 
@@ -57,7 +163,6 @@ export default function AdminSiteSettingsPage() {
       </div>
 
       <div className={styles.grid}>
-        {/* Contenido */}
         <section className={styles.card}>
           <h2 className={styles.cardTitle}>Contenido</h2>
 
@@ -237,6 +342,168 @@ export default function AdminSiteSettingsPage() {
                 <div className={styles.previewEmpty}>Sin imagen</div>
               )}
             </div>
+          </div>
+        </section>
+
+        <section className={styles.card}>
+          <div className={styles.backupHeader}>
+            <div>
+              <h2 className={styles.cardTitle}>Backups de base de datos</h2>
+              <p className={styles.cardDescription}>
+                Genera respaldos completos o por tabla, descárgalos desde la web
+                y opcionalmente súbelos a Cloudinary como archivo JSON.
+              </p>
+            </div>
+            <button
+              className={styles.secondaryBtn}
+              onClick={loadBackupsData}
+              disabled={loadingBackups}
+            >
+              {loadingBackups ? "Actualizando..." : "Recargar historial"}
+            </button>
+          </div>
+
+          <div className={styles.backupInfoGrid}>
+            <div className={styles.infoBox}>
+              <strong>Guardado local</strong>
+              <span>{backupsPath || "Se detectará al cargar"}</span>
+            </div>
+            <div className={styles.infoBox}>
+              <strong>Cloudinary</strong>
+              <span>{cloudinaryEnabled ? "Disponible" : "No configurado"}</span>
+            </div>
+          </div>
+
+          {backupMessage && (
+            <div className={styles.success}>{backupMessage}</div>
+          )}
+          {backupError && <div className={styles.error}>{backupError}</div>}
+
+          <div className={styles.backupControls}>
+            <div className={styles.inlineFieldGroup}>
+              <label className={styles.field}>
+                <span>Tipo de backup</span>
+                <select
+                  value={scope}
+                  onChange={(e) => setScope(e.target.value as BackupScope)}
+                >
+                  <option value="full">Base de datos completa</option>
+                  <option value="table">Tabla específica</option>
+                </select>
+              </label>
+
+              <label className={styles.field}>
+                <span>Tabla</span>
+                <select
+                  value={selectedTable}
+                  onChange={(e) => setSelectedTable(e.target.value)}
+                  disabled={scope !== "table" || tableOptions.length === 0}
+                >
+                  {tableOptions.length === 0 ? (
+                    <option value="">No hay tablas disponibles</option>
+                  ) : (
+                    tableOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </label>
+            </div>
+
+            <label className={styles.checkboxRow}>
+              <input
+                type="checkbox"
+                checked={uploadToCloudinary}
+                onChange={(e) => setUploadToCloudinary(e.target.checked)}
+                disabled={!cloudinaryEnabled}
+              />
+              <span>
+                Subir también a Cloudinary
+                {!cloudinaryEnabled && " (configuración faltante en backend)"}
+              </span>
+            </label>
+
+            <div className={styles.backupActions}>
+              <button
+                className={styles.primaryBtn}
+                onClick={handleCreateBackup}
+                disabled={
+                  creatingBackup ||
+                  loadingBackups ||
+                  (scope === "table" && !selectedTable)
+                }
+              >
+                {creatingBackup
+                  ? "Generando backup..."
+                  : "Generar y descargar backup"}
+              </button>
+            </div>
+          </div>
+
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Tipo</th>
+                  <th>Contenido</th>
+                  <th>Tamaño</th>
+                  <th>Cloudinary</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {backups.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className={styles.emptyRow}>
+                      Aún no hay respaldos generados.
+                    </td>
+                  </tr>
+                ) : (
+                  backups.map((backup) => (
+                    <tr key={backup.id}>
+                      <td>{formatDate(backup.createdAt)}</td>
+                      <td>{backup.scope === "full" ? "Completo" : "Tabla"}</td>
+                      <td>
+                        {backup.scope === "full"
+                          ? `${backup.tablesIncluded} tablas / ${backup.rowsIncluded} filas`
+                          : `${backup.schema}.${backup.table} / ${backup.rowsIncluded} filas`}
+                      </td>
+                      <td>{backup.sizeKB} KB</td>
+                      <td>
+                        {backup.cloudinary?.url ? (
+                          <a
+                            href={backup.cloudinary.url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Ver archivo
+                          </a>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className={styles.downloadButton}
+                          onClick={() =>
+                            downloadBackupFile(
+                              backup.downloadUrl,
+                              backup.filename,
+                            )
+                          }
+                        >
+                          Descargar
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </section>
       </div>

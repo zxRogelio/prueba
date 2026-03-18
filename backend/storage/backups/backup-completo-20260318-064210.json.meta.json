@@ -1,0 +1,15 @@
+{
+  "id": "backup-completo-20260318-064210.json",
+  "filename": "backup-completo-20260318-064210.json",
+  "filePath": "C:\\Users\\castr\\OneDrive\\Escritorio\\prueba\\backend\\storage\\backups\\backup-completo-20260318-064210.json",
+  "createdAt": "2026-03-18T06:42:09.606Z",
+  "scope": "full",
+  "schema": null,
+  "table": null,
+  "tablesIncluded": 6,
+  "rowsIncluded": 98,
+  "sizeBytes": 64225,
+  "sizeKB": "62.72",
+  "downloadUrl": "/api/admin/backups/download/backup-completo-20260318-064210.json",
+  "cloudinary": null
+}

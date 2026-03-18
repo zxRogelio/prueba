@@ -12,6 +12,8 @@ import brandRoutes from "./routes/admin/brandRoutes.js";
 import categoryRoutes from "./routes/admin/categoryRoutes.js";
 import productRoutes from "./routes/admin/productRoutes.js";
 import monitoringRoutes from "./routes/admin/monitoringRoutes.js";
+// Funciones para el controlador de backup
+import backupRoutes from "./routes/admin/backupRoutes.js";
 
 dotenv.config();
 const app = express();
@@ -38,6 +40,7 @@ app.use("/api/admin/brands", brandRoutes);
 app.use("/api/admin/categories", categoryRoutes);
 app.use("/api/admin/products", productRoutes);
 app.use("/api/admin/monitoring", monitoringRoutes);
+app.use("/api/admin/backups", backupRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Servidor en puerto ${PORT}`));
