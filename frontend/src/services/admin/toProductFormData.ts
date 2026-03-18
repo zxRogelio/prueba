@@ -13,7 +13,7 @@ export function toProductFormData(payload: ProductFormData): FormData {
 
   form.append("productType", payload.productType);
 
-  // ✅ nuevos campos
+  //nuevos campos
   form.append("description", payload.description ?? "");
   form.append("features", JSON.stringify(payload.features ?? []));
 
