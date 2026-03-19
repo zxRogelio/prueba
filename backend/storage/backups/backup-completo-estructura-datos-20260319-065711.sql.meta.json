@@ -1,0 +1,37 @@
+{
+  "id": "backup-completo-estructura-datos-20260319-065711.sql",
+  "filename": "backup-completo-estructura-datos-20260319-065711.sql",
+  "filePath": "C:\\Users\\Roger\\Desktop\\prueba\\backend\\storage\\backups\\backup-completo-estructura-datos-20260319-065711.sql",
+  "createdAt": "2026-03-19T06:57:21.390Z",
+  "scope": "full",
+  "schema": null,
+  "table": null,
+  "mode": "schema-and-data",
+  "source": "local",
+  "engine": "postgresql",
+  "backupProvider": "spawn-pg_dump-auto",
+  "tablesIncluded": 6,
+  "rowsIncluded": 109,
+  "sizeBytes": 118511,
+  "sizeKB": "115.73",
+  "format": "sql",
+  "downloadUrl": "/api/admin/backups/download/backup-completo-estructura-datos-20260319-065711.sql",
+  "restoreGuide": {
+    "type": "Restauración de estructura + datos",
+    "notes": [
+      "Este backup fue generado con pg_dump en formato SQL plano.",
+      "Se restaura con psql.",
+      "El respaldo corresponde a la base completa o a múltiples tablas."
+    ],
+    "commands": {
+      "restoreSameDatabase": "psql \"postgresql://neondb_owner@ep-dark-flower-akyaoknb-pooler.c-3.us-west-2.aws.neon.tech:5432/neondb?sslmode=require\" -f \"backup-completo-estructura-datos-20260319-065711.sql\"",
+      "restoreOtherDatabase": "psql \"postgresql://neondb_owner@ep-dark-flower-akyaoknb-pooler.c-3.us-west-2.aws.neon.tech:5432/TU_BASE_DESTINO?sslmode=require\" -f \"backup-completo-estructura-datos-20260319-065711.sql\""
+    }
+  },
+  "cloudinary": {
+    "assetId": "a784ce51e97bb5d67272b1403c347f78",
+    "publicId": "titanium/backups/backup-completo-estructura-datos-20260319-065711.sql",
+    "url": "https://res.cloudinary.com/dqf9pdcte/raw/upload/v1773903442/titanium/backups/backup-completo-estructura-datos-20260319-065711.sql",
+    "bytes": 118511
+  }
+}

@@ -1,6 +1,8 @@
 import { API } from "../../api/api";
 
 export type BackupScope = "full" | "table";
+export type BackupMode = "data-only" | "schema-and-data";
+export type BackupSource = "local" | "cloudinary";
 
 export type BackupTableOption = {
   schema: string;
@@ -10,17 +12,21 @@ export type BackupTableOption = {
 export type BackupRecord = {
   id: string;
   filename: string;
-  filePath: string;
+  filePath: string | null;
   createdAt: string;
-  scope: BackupScope;
+  scope: BackupScope | string;
   schema: string | null;
   table: string | null;
-  tablesIncluded: number;
-  rowsIncluded: number;
+  mode?: BackupMode | "unknown" | string | null;
+  source?: BackupSource | string | null;
+  tablesIncluded: number | null;
+  rowsIncluded: number | null;
   sizeBytes: number;
   sizeKB: string;
-  format?: "sql";
-  downloadUrl: string;
+  format?: string;
+  downloadUrl: string | null;
+  engine?: string;
+  backupProvider?: string;
   cloudinary: null | {
     assetId: string;
     publicId: string;
@@ -34,7 +40,11 @@ export type BackupOptionsResponse = {
   tables: BackupTableOption[];
   cloudinaryEnabled: boolean;
   backupsPath: string;
-  backupFormat: "sql"; 
+  backupFormat: string;
+  engine?: string;
+  backupProvider?: string;
+  supportedScopes?: Array<{ value: string; label: string }>;
+  supportedModes?: Array<{ value: string; label: string }>;
 };
 
 export type BackupListResponse = {
@@ -55,6 +65,7 @@ export async function listBackups() {
 
 export async function createBackup(payload: {
   scope: BackupScope;
+  mode?: BackupMode;
   schema?: string;
   table?: string;
   uploadToCloudinary?: boolean;
@@ -66,7 +77,9 @@ export async function createBackup(payload: {
   return data;
 }
 
-const normalizeBackupDownloadPath = (downloadUrl: string) => {
+const normalizeBackupDownloadPath = (downloadUrl: string | null | undefined) => {
+  if (!downloadUrl) return null;
+
   const baseURL = String(API.defaults.baseURL || "").replace(/\/$/, "");
 
   if (/^https?:\/\//i.test(downloadUrl)) {
@@ -84,7 +97,9 @@ const normalizeBackupDownloadPath = (downloadUrl: string) => {
   const apiPrefixMatch = baseURL.match(/(\/api)\/?$/i);
   if (
     apiPrefixMatch &&
-    normalizedDownloadUrl.toLowerCase().startsWith(apiPrefixMatch[1].toLowerCase())
+    normalizedDownloadUrl
+      .toLowerCase()
+      .startsWith(apiPrefixMatch[1].toLowerCase())
   ) {
     return normalizedDownloadUrl.slice(apiPrefixMatch[1].length) || "/";
   }
@@ -92,9 +107,11 @@ const normalizeBackupDownloadPath = (downloadUrl: string) => {
   return normalizedDownloadUrl;
 };
 
-export const getBackupDownloadUrl = (downloadUrl: string) => {
+export const getBackupDownloadUrl = (downloadUrl: string | null | undefined) => {
   const normalizedPath = normalizeBackupDownloadPath(downloadUrl);
   const baseURL = String(API.defaults.baseURL || "").replace(/\/$/, "");
+
+  if (!normalizedPath) return null;
 
   if (/^https?:\/\//i.test(normalizedPath)) {
     return normalizedPath;
@@ -104,10 +121,16 @@ export const getBackupDownloadUrl = (downloadUrl: string) => {
 };
 
 export async function downloadBackupFile(
-  downloadUrl: string,
+  downloadUrl: string | null | undefined,
   filename: string,
 ) {
-const response = await API.get(normalizeBackupDownloadPath(downloadUrl), {
+  const normalizedPath = normalizeBackupDownloadPath(downloadUrl);
+
+  if (!normalizedPath) {
+    throw new Error("Este respaldo no tiene una ruta de descarga disponible.");
+  }
+
+  const response = await API.get(normalizedPath, {
     responseType: "blob",
   });
 
