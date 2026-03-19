@@ -221,29 +221,11 @@ export default function AdminBackupsPage() {
       pushToast(
         "success",
         "Backup generado",
-        response.message || "El respaldo se generó correctamente.",
+        response.message ||
+          "El respaldo se generó correctamente y se guardó en el servidor.",
       );
 
       await loadBackupsData(false);
-
-      if (response.backup?.downloadUrl) {
-        await downloadBackupFile(
-          response.backup.downloadUrl,
-          response.backup.filename,
-        );
-
-        pushToast(
-          "info",
-          "Descarga iniciada",
-          `Se descargó el archivo ${response.backup.filename}.`,
-        );
-      } else {
-        pushToast(
-          "info",
-          "Backup generado",
-          "El respaldo se creó correctamente, pero no tiene ruta de descarga disponible.",
-        );
-      }
     } catch (error: unknown) {
       pushToast(
         "error",
@@ -312,12 +294,30 @@ export default function AdminBackupsPage() {
         ))}
       </div>
 
+      {creatingBackup ? (
+        <div
+          className={styles.loadingOverlay}
+          role="status"
+          aria-live="assertive"
+        >
+          <div className={styles.loadingModal}>
+            <div className={styles.spinner} aria-hidden="true" />
+            <strong>Realizando backup</strong>
+            <p>
+              Espera un momento mientras el respaldo se guarda en el servidor.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>Respaldos</h1>
           <p className={styles.subtitle}>
-            Genera, consulta y descarga respaldos de base de datos desde una
-            sección dedicada.
+            Genera y consulta respaldos del sistema. Puedes crear backups por
+            tabla o de base completa, con soporte para Cloudinary y
+            visualización del historial. El archivo se guarda primero en el
+            servidor y después puedes descargarlo desde el historial.
           </p>
         </div>
       </div>
@@ -371,7 +371,7 @@ export default function AdminBackupsPage() {
 
           <div className={styles.backupInfoGrid}>
             <div className={styles.infoBox}>
-              <strong>Guardado local</strong>
+              <strong>Guardado en el Servidor</strong>
               <span>{backupsPath || "Se detectará al cargar"}</span>
             </div>
             <div className={styles.infoBox}>
@@ -464,9 +464,7 @@ export default function AdminBackupsPage() {
                   (scope === "table" && !selectedTable)
                 }
               >
-                {creatingBackup
-                  ? "Generando backup..."
-                  : "Generar y descargar backup"}
+                {creatingBackup ? "Generando backup..." : "Generar backup"}
               </button>
             </div>
           </div>
