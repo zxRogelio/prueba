@@ -1,0 +1,18 @@
+[
+  {
+    "enabled": true,
+    "cronExpression": "0 3 * * *",
+    "scope": "full",
+    "schema": "core",
+    "table": null,
+    "mode": "schema-and-data",
+    "uploadToCloudinary": true,
+    "timezone": "America/Mexico_City",
+    "lastRunAt": "2026-03-23T06:02:02.855Z",
+    "lastRunStatus": "success",
+    "lastRunMessage": "Backup generado: backup-completo-estructura-datos-20260323-060153.sql",
+    "createdAt": "2026-03-23T06:01:40.407Z",
+    "updatedAt": "2026-03-23T06:02:02.855Z",
+    "id": "sched_1774245700407_xugeh0"
+  }
+]

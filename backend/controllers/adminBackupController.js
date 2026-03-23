@@ -15,8 +15,8 @@ const DEFAULT_SCHEMA = "public";
 const isCloudinaryConfigured = () =>
   Boolean(
     process.env.CLOUDINARY_CLOUD_NAME &&
-    process.env.CLOUDINARY_API_KEY &&
-    process.env.CLOUDINARY_API_SECRET,
+      process.env.CLOUDINARY_API_KEY &&
+      process.env.CLOUDINARY_API_SECRET,
   );
 
 const ensureBackupsDir = async () => {
@@ -64,7 +64,11 @@ const validateIdentifier = (value, fieldName) => {
 };
 
 const parseDatabaseUrl = () => {
-  const databaseUrl = process.env.DATABASE_URL;
+  const databaseUrl =
+    process.env.DATABASE_URL_RUNTIME ||
+    process.env.DATABASE_URL_ADMIN_DIRECT ||
+    process.env.DATABASE_URL;
+
   if (!databaseUrl) return null;
 
   try {
@@ -144,7 +148,6 @@ const getDbConfig = () => {
 
 const getCandidatePgDumpPaths = () => {
   const candidates = [];
-
   const homeDir =
     process.env.USERPROFILE || process.env.HOME || os.homedir() || null;
 
@@ -196,7 +199,6 @@ const getCandidatePgDumpPaths = () => {
   }
 
   candidates.push("pg_dump");
-
   return [...new Set(candidates)];
 };
 
@@ -214,12 +216,10 @@ const resolvePgDumpBin = async () => {
 
   for (const candidate of candidates) {
     if (candidate === "pg_dump") {
-      console.log("🔎 Probando pg_dump desde PATH...");
       return candidate;
     }
 
     if (await fileExists(candidate)) {
-      console.log("🔎 Binario encontrado:", candidate);
       return candidate;
     }
   }
@@ -272,9 +272,7 @@ const ensurePgDumpAvailable = async () => {
   const pgDumpBin = await resolvePgDumpBin();
 
   try {
-    const result = await spawnCommand(pgDumpBin, ["--version"]);
-    console.log("✅ pg_dump encontrado en:", pgDumpBin);
-    console.log("✅ pg_dump version:", result.stdout || result.stderr);
+    await spawnCommand(pgDumpBin, ["--version"]);
     return pgDumpBin;
   } catch (error) {
     const customError = new Error(
@@ -424,8 +422,6 @@ const runPgDump = async ({ outputPath, scope, schema, table, mode }) => {
   }
 
   try {
-    console.log("📦 Ejecutando pg_dump con args:", args);
-
     await spawnCommand(pgDumpBin, args, {
       env: {
         ...process.env,
@@ -460,6 +456,7 @@ const uploadBackupToCloudinary = async ({ buffer, filename, metadata }) => {
           metadata.schema || "all",
           metadata.mode || "schema-and-data",
           "sql",
+          metadata.origin || "manual",
         ],
       },
       (error, response) => {
@@ -511,6 +508,7 @@ const readCloudinaryBackups = async () => {
           ? "schema-and-data"
           : "unknown",
       source: "cloudinary",
+      origin: "scheduled",
       tablesIncluded: null,
       rowsIncluded: null,
       sizeBytes: item.bytes || 0,
@@ -547,6 +545,7 @@ const readBackupIndex = async () => {
           source: parsed.source || "local",
           mode: parsed.mode || "schema-and-data",
           engine: parsed.engine || "postgresql",
+          origin: parsed.origin || "manual",
         };
       }),
   );
@@ -554,6 +553,92 @@ const readBackupIndex = async () => {
   return backups.sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
+};
+
+export const performBackup = async ({
+  scope = "full",
+  schema = DEFAULT_SCHEMA,
+  table = null,
+  uploadToCloudinary = false,
+  mode = "schema-and-data",
+  origin = "manual",
+} = {}) => {
+  if (!["full", "table"].includes(scope)) {
+    const error = new Error("El tipo de backup debe ser 'full' o 'table'.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!["data-only", "schema-and-data"].includes(mode)) {
+    const error = new Error(
+      "El modo de backup debe ser 'data-only' o 'schema-and-data'.",
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (scope === "table" && !table) {
+    const error = new Error("Debes indicar la tabla a respaldar.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  await ensurePgDumpAvailable();
+  await ensureBackupsDir();
+
+  const statsInfo = await getBackupTableStats({ scope, schema, table });
+  const filename = getBackupFilename({ scope, schema, table, mode });
+  const filePath = path.join(backupsDir, filename);
+
+  await runPgDump({
+    outputPath: filePath,
+    scope,
+    schema,
+    table,
+    mode,
+  });
+
+  const buffer = await fs.readFile(filePath);
+  const stats = await fs.stat(filePath);
+
+  const metadata = {
+    id: filename,
+    filename,
+    filePath,
+    createdAt: new Date().toISOString(),
+    scope,
+    schema: scope === "table" ? schema : null,
+    table: scope === "table" ? table : null,
+    mode,
+    source: "local",
+    origin,
+    engine: "postgresql",
+    backupProvider: "spawn-pg_dump-auto",
+    tablesIncluded: statsInfo.tablesIncluded,
+    rowsIncluded: statsInfo.rowsIncluded,
+    sizeBytes: stats.size,
+    sizeKB: bytesToKB(stats.size),
+    format: "sql",
+    downloadUrl: `/api/admin/backups/download/${encodeURIComponent(filename)}`,
+    restoreGuide: getRestoreGuide({ filename, mode, scope, schema, table }),
+    cloudinary: null,
+  };
+
+  if (uploadToCloudinary) {
+    metadata.cloudinary = await uploadBackupToCloudinary({
+      buffer,
+      filename,
+      metadata,
+    });
+  }
+
+  await fs.writeFile(
+    `${filePath}.meta.json`,
+    JSON.stringify(metadata, null, 2),
+    "utf8",
+  );
+
+  return metadata;
 };
 
 export const getBackupOptions = async (_req, res) => {
@@ -617,89 +702,14 @@ export const listBackups = async (_req, res) => {
 
 export const createBackup = async (req, res) => {
   try {
-    const {
-      scope = "full",
-      schema = DEFAULT_SCHEMA,
-      table = null,
-      uploadToCloudinary = false,
-      mode = "schema-and-data",
-    } = req.body || {};
-
-    if (!["full", "table"].includes(scope)) {
-      return res.status(400).json({
-        error: "El tipo de backup debe ser 'full' o 'table'.",
-      });
-    }
-
-    if (!["data-only", "schema-and-data"].includes(mode)) {
-      return res.status(400).json({
-        error: "El modo de backup debe ser 'data-only' o 'schema-and-data'.",
-      });
-    }
-
-    if (scope === "table" && !table) {
-      return res.status(400).json({
-        error: "Debes indicar la tabla a respaldar.",
-      });
-    }
-
-    await ensurePgDumpAvailable();
-    await ensureBackupsDir();
-
-    const statsInfo = await getBackupTableStats({ scope, schema, table });
-    const filename = getBackupFilename({ scope, schema, table, mode });
-    const filePath = path.join(backupsDir, filename);
-
-    await runPgDump({
-      outputPath: filePath,
-      scope,
-      schema,
-      table,
-      mode,
+    const metadata = await performBackup({
+      ...(req.body || {}),
+      origin: "manual",
     });
-
-    const buffer = await fs.readFile(filePath);
-    const stats = await fs.stat(filePath);
-
-    const metadata = {
-      id: filename,
-      filename,
-      filePath,
-      createdAt: new Date().toISOString(),
-      scope,
-      schema: scope === "table" ? schema : null,
-      table: scope === "table" ? table : null,
-      mode,
-      source: "local",
-      engine: "postgresql",
-      backupProvider: "spawn-pg_dump-auto",
-      tablesIncluded: statsInfo.tablesIncluded,
-      rowsIncluded: statsInfo.rowsIncluded,
-      sizeBytes: stats.size,
-      sizeKB: bytesToKB(stats.size),
-      format: "sql",
-      downloadUrl: `/api/admin/backups/download/${encodeURIComponent(filename)}`,
-      restoreGuide: getRestoreGuide({ filename, mode, scope, schema, table }),
-      cloudinary: null,
-    };
-
-    if (uploadToCloudinary) {
-      metadata.cloudinary = await uploadBackupToCloudinary({
-        buffer,
-        filename,
-        metadata,
-      });
-    }
-
-    await fs.writeFile(
-      `${filePath}.meta.json`,
-      JSON.stringify(metadata, null, 2),
-      "utf8",
-    );
 
     return res.status(201).json({
       message:
-        mode === "data-only"
+        metadata.mode === "data-only"
           ? "Backup SQL de datos generado correctamente."
           : "Backup SQL de estructura + datos generado correctamente.",
       backup: metadata,

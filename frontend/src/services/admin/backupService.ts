@@ -1,13 +1,7 @@
-import { API } from "../../api/api";
+import {API} from "../../api/api";
 
 export type BackupScope = "full" | "table";
 export type BackupMode = "data-only" | "schema-and-data";
-export type BackupSource = "local" | "cloudinary";
-
-export type BackupTableOption = {
-  schema: string;
-  table: string;
-};
 
 export type BackupRecord = {
   id: string;
@@ -17,129 +11,151 @@ export type BackupRecord = {
   scope: BackupScope | string;
   schema: string | null;
   table: string | null;
-  mode?: BackupMode | "unknown" | string | null;
-  source?: BackupSource | string | null;
-  tablesIncluded: number | null;
-  rowsIncluded: number | null;
-  sizeBytes: number;
-  sizeKB: string;
+  mode: BackupMode | string;
+  source: "local" | "cloudinary" | string;
+  origin?: "manual" | "scheduled" | string;
+  tablesIncluded?: number | null;
+  rowsIncluded?: number | null;
+  sizeBytes?: number;
+  sizeKB?: string;
   format?: string;
-  downloadUrl: string | null;
   engine?: string;
-  backupProvider?: string;
-  cloudinary: null | {
-    assetId: string;
-    publicId: string;
-    url: string;
-    bytes: number;
-    format: string;
-  };
+  downloadUrl?: string | null;
+  cloudinary?: {
+    assetId?: string;
+    publicId?: string;
+    url?: string;
+    bytes?: number;
+    format?: string;
+  } | null;
 };
 
 export type BackupOptionsResponse = {
-  tables: BackupTableOption[];
+  tables: Array<{ schema: string; table: string }>;
   cloudinaryEnabled: boolean;
   backupsPath: string;
   backupFormat: string;
-  engine?: string;
-  backupProvider?: string;
-  supportedScopes?: Array<{ value: string; label: string }>;
-  supportedModes?: Array<{ value: string; label: string }>;
+  engine: string;
+  backupProvider: string;
+  supportedScopes: Array<{ value: BackupScope; label: string }>;
+  supportedModes: Array<{ value: BackupMode; label: string }>;
 };
 
-export type BackupListResponse = {
+export type ListBackupsResponse = {
   backups: BackupRecord[];
 };
 
-export async function getBackupOptions() {
-  const { data } = await API.get<BackupOptionsResponse>(
-    "/admin/backups/options",
-  );
-  return data;
-}
-
-export async function listBackups() {
-  const { data } = await API.get<BackupListResponse>("/admin/backups");
-  return data;
-}
-
-export async function createBackup(payload: {
+export type CreateBackupPayload = {
   scope: BackupScope;
-  mode?: BackupMode;
   schema?: string;
   table?: string;
   uploadToCloudinary?: boolean;
-}) {
-  const { data } = await API.post<{ message: string; backup: BackupRecord }>(
-    "/admin/backups",
-    payload,
-  );
+  mode?: BackupMode;
+};
+
+export type CreateBackupResponse = {
+  message: string;
+  backup: BackupRecord;
+};
+
+export type BackupSchedule = {
+  id: string;
+  enabled: boolean;
+  cronExpression: string;
+  scope: BackupScope;
+  schema: string;
+  table: string | null;
+  mode: BackupMode;
+  uploadToCloudinary: boolean;
+  timezone: string;
+  lastRunAt: string | null;
+  lastRunStatus: "success" | "error" | null;
+  lastRunMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BackupSchedulesResponse = {
+  schedules: BackupSchedule[];
+};
+
+export type SaveBackupSchedulePayload = {
+  enabled: boolean;
+  cronExpression: string;
+  scope: BackupScope;
+  schema: string;
+  table: string | null;
+  mode: BackupMode;
+  uploadToCloudinary: boolean;
+  timezone: string;
+};
+
+export const getBackupOptions = async (): Promise<BackupOptionsResponse> => {
+  const { data } = await API.get("/admin/backups/options");
   return data;
-}
-
-const normalizeBackupDownloadPath = (downloadUrl: string | null | undefined) => {
-  if (!downloadUrl) return null;
-
-  const baseURL = String(API.defaults.baseURL || "").replace(/\/$/, "");
-
-  if (/^https?:\/\//i.test(downloadUrl)) {
-    return downloadUrl;
-  }
-
-  const normalizedDownloadUrl = downloadUrl.startsWith("/")
-    ? downloadUrl
-    : `/${downloadUrl}`;
-
-  if (!baseURL) {
-    return normalizedDownloadUrl;
-  }
-
-  const apiPrefixMatch = baseURL.match(/(\/api)\/?$/i);
-  if (
-    apiPrefixMatch &&
-    normalizedDownloadUrl
-      .toLowerCase()
-      .startsWith(apiPrefixMatch[1].toLowerCase())
-  ) {
-    return normalizedDownloadUrl.slice(apiPrefixMatch[1].length) || "/";
-  }
-
-  return normalizedDownloadUrl;
 };
 
-export const getBackupDownloadUrl = (downloadUrl: string | null | undefined) => {
-  const normalizedPath = normalizeBackupDownloadPath(downloadUrl);
-  const baseURL = String(API.defaults.baseURL || "").replace(/\/$/, "");
-
-  if (!normalizedPath) return null;
-
-  if (/^https?:\/\//i.test(normalizedPath)) {
-    return normalizedPath;
-  }
-
-  return `${baseURL}${normalizedPath}`;
+export const listBackups = async (): Promise<ListBackupsResponse> => {
+  const { data } = await API.get("/admin/backups");
+  return data;
 };
 
-export async function downloadBackupFile(
-  downloadUrl: string | null | undefined,
+export const createBackup = async (
+  payload: CreateBackupPayload,
+): Promise<CreateBackupResponse> => {
+  const { data } = await API.post("/admin/backups", payload);
+  return data;
+};
+
+export const downloadBackupFile = async (
+  downloadUrl: string,
   filename: string,
-) {
-  const normalizedPath = normalizeBackupDownloadPath(downloadUrl);
-
-  if (!normalizedPath) {
-    throw new Error("Este respaldo no tiene una ruta de descarga disponible.");
-  }
-
-  const response = await API.get(normalizedPath, {
+): Promise<void> => {
+  const response = await API.get(downloadUrl, {
     responseType: "blob",
   });
 
-  const blobUrl = window.URL.createObjectURL(response.data);
+  const blob = new Blob([response.data], { type: "application/sql" });
+  const objectUrl = window.URL.createObjectURL(blob);
   const link = document.createElement("a");
-  link.href = blobUrl;
+  link.href = objectUrl;
   link.download = filename;
   document.body.appendChild(link);
   link.click();
   link.remove();
-  window.URL.revokeObjectURL(blobUrl);
-}
+  window.URL.revokeObjectURL(objectUrl);
+};
+
+export const listBackupSchedules = async (): Promise<BackupSchedulesResponse> => {
+  const { data } = await API.get("/admin/backup-schedule");
+  return data;
+};
+
+export const createBackupSchedule = async (
+  payload: SaveBackupSchedulePayload,
+): Promise<{ message: string; schedule: BackupSchedule }> => {
+  const { data } = await API.post("/admin/backup-schedule", payload);
+  return data;
+};
+
+export const updateBackupSchedule = async (
+  id: string,
+  payload: SaveBackupSchedulePayload,
+): Promise<{ message: string; schedule: BackupSchedule }> => {
+  const { data } = await API.put(`/admin/backup-schedule/${id}`, payload);
+  return data;
+};
+
+export const deleteBackupSchedule = async (
+  id: string,
+): Promise<{ message: string; schedule: BackupSchedule }> => {
+  const { data } = await API.delete(`/admin/backup-schedule/${id}`);
+  return data;
+};
+
+export const runBackupScheduleNow = async (
+  id: string,
+): Promise<{ message: string; schedule: BackupSchedule }> => {
+  const { data } = await API.post(`/admin/backup-schedule/${id}/run-now`);
+  return data;
+};
