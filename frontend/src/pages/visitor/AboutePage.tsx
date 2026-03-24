@@ -1,8 +1,5 @@
-import React from "react";
-import "./AboutePage.module.css";
-import Footer from "../../components/layout/Footer";
-import Navbar from "../../components/layout/Navbar/Navbar";
-// Importa tus imágenes (ajusta las rutas según tu estructura)
+import { Link } from "react-router-dom";
+import styles from "./AboutePage.module.css";
 
 import missionImage from "../../assets/mision1.jpg";
 import visionImage from "../../assets/vision.jpg";
@@ -12,24 +9,26 @@ import team2Image from "../../assets/2.jpg";
 import team3Image from "../../assets/3.jpg";
 import gymInterior from "../../assets/abaout1.jpg";
 
-const AboutUs: React.FC = () => {
+const cx = (...names: string[]) =>
+  names
+    .map((name) => styles[name])
+    .filter(Boolean)
+    .join(" ");
+
+export default function AboutUs() {
   return (
-    <section className="about-us-section">
-      {/* USAMOS EN COMPONENTE NAVBAR*/}
-      <Navbar scrolled={false} onToggleMobile={() => {}} />
-      {/* Background Animation */}
-      <div className="bg-animation">
-        <div className="bg-grid"></div>
-        <div className="bg-glow bg-glow-1"></div>
-        <div className="bg-glow bg-glow-2"></div>
+    <section className={cx("about-us-section")}>
+      <div className={cx("bg-animation")}>
+        <div className={cx("bg-grid")} />
+        <div className={cx("bg-glow", "bg-glow-1")} />
+        <div className={cx("bg-glow", "bg-glow-2")} />
       </div>
 
-      <div className="page-container">
-        {/* Breadcrumbs */}
-        <nav className="breadcrumbs">
-          <ul className="breadcrumb-list">
-            <li className="breadcrumb-item">
-              <a href="/" className="breadcrumb-link">
+      <div className={cx("page-container")}>
+        <nav className={cx("breadcrumbs")}>
+          <ul className={cx("breadcrumb-list")}>
+            <li className={cx("breadcrumb-item")}>
+              <Link to="/" className={cx("breadcrumb-link")}>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
@@ -44,86 +43,86 @@ const AboutUs: React.FC = () => {
                   />
                 </svg>
                 Inicio
-              </a>
+              </Link>
             </li>
-            <li className="breadcrumb-separator">/</li>
-            <li className="breadcrumb-item">
-              <span className="breadcrumb-current">Acerca de Nosotros</span>
+            <li className={cx("breadcrumb-separator")}>/</li>
+            <li className={cx("breadcrumb-item")}>
+              <span className={cx("breadcrumb-current")}>
+                Acerca de Nosotros
+              </span>
             </li>
           </ul>
         </nav>
 
-        {/* Main Content */}
-        <div className="about-container">
-          {/* Header con imagen de fondo */}
-          <div className="about-header">
-            <div className="header-image-container">
+        <div className={cx("about-container")}>
+          <div className={cx("about-header")}>
+            <div className={cx("header-image-container")}>
               <img
                 src={gymInterior}
                 alt="Interior de Titanium Sport Gym"
-                className="header-background-image"
+                className={cx("header-background-image")}
               />
-              <div className="header-overlay"></div>
-              <div className="header-content">
-                <span className="about-label">Nuestra Historia</span>
-                <h1 className="brush-title">
-                  Acerca de <span className="text-red">Nosotros</span>
+              <div className={cx("header-overlay")} />
+              <div className={cx("header-content")}>
+                <span className={cx("about-label")}>Nuestra Historia</span>
+                <h1 className={cx("brush-title")}>
+                  Acerca de <span className={cx("text-red")}>Nosotros</span>
                 </h1>
-                <p className="about-subtitle">
-                  Somos más que un gimnasio, somos una comunidad comprometida
-                  con tu bienestar físico y emocional. En Titanium Sport Gym,
+                <p className={cx("about-subtitle")}>
+                  Somos mas que un gimnasio, somos una comunidad comprometida
+                  con tu bienestar fisico y emocional. En Titanium Sport Gym,
                   creemos en el poder transformador del fitness.
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Sección de Introducción con imagen */}
-          <div className="intro-section">
-            <div className="intro-content">
-              <h2 className="brush-title">
-                Nuestra <span className="text-red">Pasión</span> por el Fitness
+          <div className={cx("intro-section")}>
+            <div className={cx("intro-content")}>
+              <h2 className={cx("brush-title")}>
+                Nuestra <span className={cx("text-red")}>Pasion</span> por el
+                Fitness
               </h2>
-              <p className="intro-text">
+              <p className={cx("intro-text")}>
                 En Titanium Sport Gym, hemos creado un espacio donde cada
-                persona puede alcanzar su máximo potencial. Con instalaciones de
+                persona puede alcanzar su maximo potencial. Con instalaciones de
                 vanguardia y un equipo de profesionales apasionados,
-                transformamos vidas a través del deporte y la salud.
+                transformamos vidas a traves del deporte y la salud.
               </p>
-              <div className="intro-stats">
-                <div className="stat-item">
-                  <span className="stat-value">500+</span>
-                  <span className="stat-label">Miembros Activos</span>
+              <div className={cx("intro-stats")}>
+                <div className={cx("stat-item")}>
+                  <span className={cx("stat-value")}>500+</span>
+                  <span className={cx("stat-label")}>Miembros Activos</span>
                 </div>
-                <div className="stat-item">
-                  <span className="stat-value">15+</span>
-                  <span className="stat-label">Entrenadores Certificados</span>
+                <div className={cx("stat-item")}>
+                  <span className={cx("stat-value")}>15+</span>
+                  <span className={cx("stat-label")}>
+                    Entrenadores Certificados
+                  </span>
                 </div>
-                <div className="stat-item">
-                  <span className="stat-value">00</span>
-                  <span className="stat-label">Horario de Servicio</span>
+                <div className={cx("stat-item")}>
+                  <span className={cx("stat-value")}>00</span>
+                  <span className={cx("stat-label")}>Horario de Servicio</span>
                 </div>
               </div>
             </div>
-            <div className="intro-image">
+            <div className={cx("intro-image")}>
               <img
                 src="https://scontent.fpaz3-1.fna.fbcdn.net/v/t39.30808-6/514033271_1502149935245019_4079469184684701198_n.jpg?stp=cp6_dst-jpg_tt6&_nc_cat=101&ccb=1-7&_nc_sid=86c6b0&_nc_ohc=IG6HDzeASdkQ7kNvwGRmx3i&_nc_oc=Adncuo-sUcBAT1u0Q0C_dfYZiEkwBFDnrhoD_OGYJdqWf8TbAuOXNugI5Y7G4T7AxX0&_nc_zt=23&_nc_ht=scontent.fpaz3-1.fna&_nc_gid=ifR4XMggztGZHis9Jtfcsg&oh=00_AfpONNfHPLn4RHFUvDno7axq3yOWlftFbPcMdHLO0XhLOw&oe=69825EF0"
                 alt="Gimnasio moderno con equipos"
-                className="intro-img"
+                className={cx("intro-img")}
               />
             </div>
           </div>
 
-          {/* Mission, Vision & Values */}
-          <div className="mv-grid">
-            {/* Misión */}
-            <div className="mv-card">
-              <div className="mv-glow"></div>
-              <div className="mv-image">
-                <img src={missionImage} alt="Misión de Titanium Sport Gym" />
+          <div className={cx("mv-grid")}>
+            <div className={cx("mv-card")}>
+              <div className={cx("mv-glow")} />
+              <div className={cx("mv-image")}>
+                <img src={missionImage} alt="Mision de Titanium Sport Gym" />
               </div>
-              <div className="mv-content">
-                <div className="mv-icon">
+              <div className={cx("mv-content")}>
+                <div className={cx("mv-icon")}>
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     fill="none"
@@ -138,25 +137,24 @@ const AboutUs: React.FC = () => {
                     />
                   </svg>
                 </div>
-                <h3 className="mv-title">Misión</h3>
-                <p className="mv-description">
+                <h3 className={cx("mv-title")}>Mision</h3>
+                <p className={cx("mv-description")}>
                   Ofrecer un entorno acogedor, inclusivo y seguro donde nuestros
                   socios se inspiren y motiven a lograr sus metas de bienestar
-                  físico y emocional. Nos comprometemos a tener instalaciones a
+                  fisico y emocional. Nos comprometemos a tener instalaciones a
                   la vanguardia y a un equipo de profesionales enfocados en
                   apoyar a cada socio en su camino hacia una vida saludable.
                 </p>
               </div>
             </div>
 
-            {/* Visión */}
-            <div className="mv-card">
-              <div className="mv-glow"></div>
-              <div className="mv-image">
-                <img src={visionImage} alt="Visión de Titanium Sport Gym" />
+            <div className={cx("mv-card")}>
+              <div className={cx("mv-glow")} />
+              <div className={cx("mv-image")}>
+                <img src={visionImage} alt="Vision de Titanium Sport Gym" />
               </div>
-              <div className="mv-content">
-                <div className="mv-icon">
+              <div className={cx("mv-content")}>
+                <div className={cx("mv-icon")}>
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     fill="none"
@@ -177,8 +175,8 @@ const AboutUs: React.FC = () => {
                     />
                   </svg>
                 </div>
-                <h3 className="mv-title">Visión</h3>
-                <p className="mv-description">
+                <h3 className={cx("mv-title")}>Vision</h3>
+                <p className={cx("mv-description")}>
                   Ser el gimnasio favorito de la comunidad, reconocidos por
                   nuestro compromiso con el bienestar integral y la excelencia
                   en el servicio.
@@ -186,14 +184,13 @@ const AboutUs: React.FC = () => {
               </div>
             </div>
 
-            {/* Valores */}
-            <div className="mv-card">
-              <div className="mv-glow"></div>
-              <div className="mv-image">
+            <div className={cx("mv-card")}>
+              <div className={cx("mv-glow")} />
+              <div className={cx("mv-image")}>
                 <img src={valuesImage} alt="Valores de Titanium Sport Gym" />
               </div>
-              <div className="mv-content">
-                <div className="mv-icon">
+              <div className={cx("mv-content")}>
+                <div className={cx("mv-icon")}>
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     fill="none"
@@ -208,58 +205,59 @@ const AboutUs: React.FC = () => {
                     />
                   </svg>
                 </div>
-                <h3 className="mv-title">Valores</h3>
-                <div className="values-list">
-                  <div className="value-item">
-                    <span className="value-dot"></span>
-                    <span>Pasión por el fitness y la salud</span>
+                <h3 className={cx("mv-title")}>Valores</h3>
+                <div className={cx("values-list")}>
+                  <div className={cx("value-item")}>
+                    <span className={cx("value-dot")} />
+                    <span>Pasion por el fitness y la salud</span>
                   </div>
-                  <div className="value-item">
-                    <span className="value-dot"></span>
+                  <div className={cx("value-item")}>
+                    <span className={cx("value-dot")} />
                     <span>Integridad y respeto</span>
                   </div>
-                  <div className="value-item">
-                    <span className="value-dot"></span>
+                  <div className={cx("value-item")}>
+                    <span className={cx("value-dot")} />
                     <span>Compromiso con nuestros socios</span>
                   </div>
-                  <div className="value-item">
-                    <span className="value-dot"></span>
-                    <span>Innovación y excelencia</span>
+                  <div className={cx("value-item")}>
+                    <span className={cx("value-dot")} />
+                    <span>Innovacion y excelencia</span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Detailed Values */}
-          <div className="values-section">
-            <h2 className="brush-title">
-              Nuestros <span className="text-red">Valores</span> en Detalle
+          <div className={cx("values-section")}>
+            <h2 className={cx("brush-title")}>
+              Nuestros <span className={cx("text-red")}>Valores</span> en
+              Detalle
             </h2>
 
-            <div className="values-grid">
+            <div className={cx("values-grid")}>
               {valuesData.map((value, index) => (
-                <div key={index} className="value-card">
-                  <div className="value-icon">{value.icon}</div>
-                  <div className="value-content">
-                    <h4 className="value-title">{value.title}</h4>
-                    <p className="value-description">{value.description}</p>
+                <div key={index} className={cx("value-card")}>
+                  <div className={cx("value-icon")}>{value.icon}</div>
+                  <div className={cx("value-content")}>
+                    <h4 className={cx("value-title")}>{value.title}</h4>
+                    <p className={cx("value-description")}>
+                      {value.description}
+                    </p>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Team */}
-          <div className="team-section">
-            <h2 className="brush-title">
-              Nuestro <span className="text-red">Equipo</span>
+          <div className={cx("team-section")}>
+            <h2 className={cx("brush-title")}>
+              Nuestro <span className={cx("text-red")}>Equipo</span>
             </h2>
 
-            <div className="team-grid">
+            <div className={cx("team-grid")}>
               {teamData.map((member, index) => (
-                <div key={index} className="team-card">
-                  <div className="team-image">
+                <div key={index} className={cx("team-card")}>
+                  <div className={cx("team-image")}>
                     <img
                       src={
                         index === 0
@@ -270,14 +268,16 @@ const AboutUs: React.FC = () => {
                       }
                       alt={member.name}
                     />
-                    <div className="team-overlay"></div>
+                    <div className={cx("team-overlay")} />
                   </div>
-                  <div className="team-content">
-                    <h4 className="team-name">{member.name}</h4>
-                    <p className="team-role">{member.role}</p>
-                    <p className="team-description">{member.description}</p>
-                    <div className="team-social">
-                      <a href="#" className="social-icon">
+                  <div className={cx("team-content")}>
+                    <h4 className={cx("team-name")}>{member.name}</h4>
+                    <p className={cx("team-role")}>{member.role}</p>
+                    <p className={cx("team-description")}>
+                      {member.description}
+                    </p>
+                    <div className={cx("team-social")}>
+                      <a href="#" className={cx("social-icon")}>
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           viewBox="0 0 24 24"
@@ -286,7 +286,7 @@ const AboutUs: React.FC = () => {
                           <path d="M18.72 4.2H5.28A1.08 1.08 0 004.2 5.28v13.44a1.08 1.08 0 001.08 1.08h6.12v-5.88H9.6V11.4h1.8V9.48c0-1.8 1.08-2.76 2.64-2.76.72 0 1.44.12 1.44.12v1.68h-.84c-.84 0-1.08.48-1.08 1.08v1.32h1.92l-.36 1.92h-1.56v5.88h3.24a1.08 1.08 0 001.08-1.08V5.28a1.08 1.08 0 00-1.08-1.08z" />
                         </svg>
                       </a>
-                      <a href="#" className="social-icon">
+                      <a href="#" className={cx("social-icon")}>
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           viewBox="0 0 24 24"
@@ -295,7 +295,7 @@ const AboutUs: React.FC = () => {
                           <path d="M23.44 4.83c-.8.36-1.66.6-2.56.71.92-.55 1.63-1.42 1.96-2.46-.86.51-1.82.88-2.83 1.08-.81-.86-1.96-1.4-3.24-1.4-2.45 0-4.44 1.99-4.44 4.44 0 .35.04.69.12 1.01-3.69-.19-6.96-1.95-9.15-4.64-.38.66-.6 1.42-.6 2.24 0 1.54.78 2.9 1.96 3.7-.72-.02-1.4-.22-2-.55v.06c0 2.15 1.53 3.95 3.56 4.36-.37.1-.76.16-1.16.16-.28 0-.56-.03-.83-.08.56 1.75 2.18 3.02 4.1 3.06-1.5 1.18-3.4 1.88-5.46 1.88-.36 0-.71-.02-1.06-.06 1.96 1.26 4.29 2 6.79 2 8.14 0 12.59-6.74 12.59-12.59 0-.19 0-.38-.01-.57.86-.62 1.61-1.4 2.21-2.29z" />
                         </svg>
                       </a>
-                      <a href="#" className="social-icon">
+                      <a href="#" className={cx("social-icon")}>
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           viewBox="0 0 24 24"
@@ -311,20 +311,21 @@ const AboutUs: React.FC = () => {
             </div>
           </div>
 
-          {/* CTA */}
-          <div className="cta-section-about">
-            <div className="cta-card">
-              <div className="cta-bg-1"></div>
-              <div className="cta-bg-2"></div>
-              <div className="cta-content">
-                <h3 className="brush-text">¿Listo para transformar tu vida?</h3>
-                <p className="cta-description">
-                  Únete a nuestra comunidad y comienza tu viaje hacia una vida
-                  más saludable y activa. En Titanium Sport Gym, te ayudamos a
+          <div className={cx("cta-section-about")}>
+            <div className={cx("cta-card")}>
+              <div className={cx("cta-bg-1")} />
+              <div className={cx("cta-bg-2")} />
+              <div className={cx("cta-content")}>
+                <h3 className={cx("brush-text")}>
+                  Listo para transformar tu vida?
+                </h3>
+                <p className={cx("cta-description")}>
+                  Unete a nuestra comunidad y comienza tu viaje hacia una vida
+                  mas saludable y activa. En Titanium Sport Gym, te ayudamos a
                   alcanzar tus metas de fitness.
                 </p>
-                <div className="cta-info">
-                  <div className="info-item">
+                <div className={cx("cta-info")}>
+                  <div className={cx("info-item")}>
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 24 24"
@@ -333,11 +334,11 @@ const AboutUs: React.FC = () => {
                       <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z" />
                     </svg>
                     <span>
-                      Av. Corona del Rosal N° 15. Col. 5 de mayo. Huejutla,
-                      Hidalgo México.
+                      Av. Corona del Rosal N 15. Col. 5 de mayo. Huejutla,
+                      Hidalgo Mexico.
                     </span>
                   </div>
-                  <div className="info-item">
+                  <div className={cx("info-item")}>
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 24 24"
@@ -348,15 +349,15 @@ const AboutUs: React.FC = () => {
                     <span>771 197 6803</span>
                   </div>
                 </div>
-                <div className="cta-buttons">
-                  <a href="/contacto" className="cta-btn-primary">
-                    Contáctanos
+                <div className={cx("cta-buttons")}>
+                  <a href="/contacto" className={cx("cta-btn-primary")}>
+                    Contactanos
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
-                      className="btn-arrow"
+                      className={cx("btn-arrow")}
                     >
                       <path
                         strokeLinecap="round"
@@ -366,7 +367,7 @@ const AboutUs: React.FC = () => {
                       />
                     </svg>
                   </a>
-                  <a href="/servicios" className="cta-btn-secondary">
+                  <a href="/servicios" className={cx("cta-btn-secondary")}>
                     Ver Servicios
                   </a>
                 </div>
@@ -374,15 +375,11 @@ const AboutUs: React.FC = () => {
             </div>
           </div>
         </div>
-
-        {/* USAMOS EN COMPONENTE FOOTER*/}
-        <Footer />
       </div>
     </section>
   );
-};
+}
 
-// Data arrays
 const valuesData = [
   {
     icon: (
@@ -400,9 +397,9 @@ const valuesData = [
         />
       </svg>
     ),
-    title: "Pasión por el Fitness",
+    title: "Pasion por el Fitness",
     description:
-      "Vivimos y respiramos fitness. Nuestra energía contagiosa motiva a cada miembro a superar sus límites.",
+      "Vivimos y respiramos fitness. Nuestra energia contagiosa motiva a cada miembro a superar sus limites.",
   },
   {
     icon: (
@@ -422,7 +419,7 @@ const valuesData = [
     ),
     title: "Excelencia",
     description:
-      "Buscamos la máxima calidad en cada servicio, desde nuestras instalaciones hasta la atención personalizada.",
+      "Buscamos la maxima calidad en cada servicio, desde nuestras instalaciones hasta la atencion personalizada.",
   },
   {
     icon: (
@@ -460,9 +457,9 @@ const valuesData = [
         />
       </svg>
     ),
-    title: "Innovación",
+    title: "Innovacion",
     description:
-      "Implementamos las últimas tendencias y tecnologías en fitness para ofrecerte la mejor experiencia.",
+      "Implementamos las ultimas tendencias y tecnologias en fitness para ofrecerte la mejor experiencia.",
   },
   {
     icon: (
@@ -482,7 +479,7 @@ const valuesData = [
     ),
     title: "Compromiso",
     description:
-      "Nos dedicamos al éxito de cada miembro. Tu progreso es nuestra mayor satisfacción.",
+      "Nos dedicamos al exito de cada miembro. Tu progreso es nuestra mayor satisfaccion.",
   },
   {
     icon: (
@@ -508,7 +505,7 @@ const valuesData = [
     ),
     title: "Transparencia",
     description:
-      "Actuamos con honestidad y claridad en cada interacción. Tu confianza es nuestro activo más valioso.",
+      "Actuamos con honestidad y claridad en cada interaccion. Tu confianza es nuestro activo mas valioso.",
   },
 ];
 
@@ -517,20 +514,18 @@ const teamData = [
     name: "Carlos Mendoza",
     role: "CEO & Entrenador Principal",
     description:
-      "Con más de 15 años de experiencia en fitness, lidera la visión estratégica y el entrenamiento personalizado.",
+      "Con mas de 15 anos de experiencia en fitness, lidera la vision estrategica y el entrenamiento personalizado.",
   },
   {
-    name: "María González",
-    role: "Directora de Nutrición",
+    name: "Maria Gonzalez",
+    role: "Directora de Nutricion",
     description:
-      "Especialista en nutrición deportiva con certificación internacional. Diseña planes alimenticios personalizados.",
+      "Especialista en nutricion deportiva con certificacion internacional. Disena planes alimenticios personalizados.",
   },
   {
-    name: "Alex Rodríguez",
+    name: "Alex Rodriguez",
     role: "Coordinador de Entrenamiento",
     description:
-      "Experto en programación de entrenamientos y recuperación deportiva. Certificado en entrenamiento funcional.",
+      "Experto en programacion de entrenamientos y recuperacion deportiva. Certificado en entrenamiento funcional.",
   },
 ];
-
-export default AboutUs;

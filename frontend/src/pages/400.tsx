@@ -249,7 +249,7 @@ export default function Error400Page() {
       </main>
 
       {/* Footer */}
-      <footer className="not-found-footer">
+      {false && <footer className="not-found-footer">
         <div className="not-found-footer-content">
           <div className="not-found-footer-info">
             <div className="not-found-footer-brand">Titanium Sport Gym</div>
@@ -280,7 +280,7 @@ export default function Error400Page() {
             repórtalo para que podamos corregirlo.
           </div>
         </div>
-      </footer>
+      </footer>}
     </div>
   );
 }

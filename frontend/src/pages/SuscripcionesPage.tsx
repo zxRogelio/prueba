@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import "../styles/suscripciones.css";
 import { Link } from "react-router-dom";
 import Navbar from "../components/layout/Navbar/Navbar";
-import Footer from "../components/layout/Footer";
 
 // Datos de las membresías
 const memberships = [
@@ -614,7 +613,6 @@ export default function ServicesPage() {
         </div>
       </section>
 
-      <Footer />
     </div>
   );
 }

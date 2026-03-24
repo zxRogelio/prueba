@@ -334,7 +334,7 @@ export default function ConfirmationPage() {
       </div>
 
       {/* Footer */}
-      <footer className="smart-footer">
+      {false && <footer className="smart-footer">
         <div className="footer-main">
           <div className="footer-content">
             <div className="footer-brand">
@@ -454,7 +454,7 @@ export default function ConfirmationPage() {
             </p>
           </div>
         </div>
-      </footer>
+      </footer>}
     </div>
   );
 }

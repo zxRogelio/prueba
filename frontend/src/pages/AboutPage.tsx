@@ -557,7 +557,7 @@ const Routines = () => {
       </section>
 
       {/* Footer */}
-      <footer className="routines-footer">
+      {false && <footer className="routines-footer">
         <div className="routines-footer-main">
           <div className="routines-footer-content">
             <div className="routines-footer-brand">
@@ -680,7 +680,7 @@ const Routines = () => {
             </p>
           </div>
         </div>
-      </footer>
+      </footer>}
     </div>
   );
 };

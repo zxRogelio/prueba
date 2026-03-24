@@ -766,7 +766,7 @@ export default function CheckoutPage() {
       </div>
 
       {/* Footer */}
-      <footer className="smart-footer">
+      {false && <footer className="smart-footer">
         <div className="footer-main">
           <div className="footer-content">
             <div className="footer-brand">
@@ -886,7 +886,7 @@ export default function CheckoutPage() {
             </p>
           </div>
         </div>
-      </footer>
+      </footer>}
     </div>
   );
 }
