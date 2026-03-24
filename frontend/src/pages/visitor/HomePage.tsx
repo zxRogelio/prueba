@@ -18,14 +18,21 @@ import {
   FaStar,
   FaUsers,
 } from "react-icons/fa";
-import "../styles/home.css";
+import styles from "./HomePage.module.css";
 
-import HeroExterior from "../assets/SliderTitanuim.jpg";
-import HeroTeam from "../assets/abaout1.jpg";
-import HeroCoaching from "../assets/vision.jpg";
-import TrainerCarlos from "../assets/1.jpg";
-import TrainerMaria from "../assets/2.jpg";
-import TrainerAlex from "../assets/3.jpg";
+import HeroExterior from "../../assets/SliderTitanuim.jpg";
+import HeroTeam from "../../assets/abaout1.jpg";
+import HeroCoaching from "../../assets/vision.jpg";
+import TrainerCarlos from "../../assets/1.jpg";
+import TrainerMaria from "../../assets/2.jpg";
+import TrainerAlex from "../../assets/3.jpg";
+
+const cx = (...names: Array<string | null | undefined | false>) =>
+  names
+    .flatMap((name) => (name ? name.split(" ") : []))
+    .map((name) => styles[name])
+    .filter(Boolean)
+    .join(" ");
 
 type HeroSlide = {
   label: string;
@@ -441,45 +448,41 @@ export default function HomePage() {
   };
 
   return (
-    <main className="home-page">
-      <section className="home-hero">
-        <div className="home-hero__media" aria-hidden="true">
+    <main className={cx("home-page")}>
+      <section className={cx("home-hero")}>
+        <div className={cx("home-hero__media")} aria-hidden="true">
           {heroSlides.map((slide, index) => (
             <div
               key={slide.title}
-              className={`home-hero__slide ${
-                index === currentSlide ? "is-active" : ""
-              }`}
+              className={cx("home-hero__slide", index === currentSlide && "is-active")}
               style={{ backgroundImage: `url(${slide.image})` }}
             />
           ))}
         </div>
 
-        <div className="home-hero__overlay" />
+        <div className={cx("home-hero__overlay")} />
 
-        <div className="home-shell home-hero__inner">
-          <span className="home-hero__label">{activeSlide.label}</span>
-          <h1 className="home-hero__title">{activeSlide.title}</h1>
-          <p className="home-hero__accent">{activeSlide.accent}</p>
-          <p className="home-hero__description">{activeSlide.description}</p>
+        <div className={cx("home-shell home-hero__inner")}>
+          <span className={cx("home-hero__label")}>{activeSlide.label}</span>
+          <h1 className={cx("home-hero__title")}>{activeSlide.title}</h1>
+          <p className={cx("home-hero__accent")}>{activeSlide.accent}</p>
+          <p className={cx("home-hero__description")}>{activeSlide.description}</p>
 
-          <div className="home-hero__actions">
-            <Link to="/register" className="home-button home-button--solid">
+          <div className={cx("home-hero__actions")}>
+            <Link to="/register" className={cx("home-button home-button--solid")}>
               SUSCRIBETE
             </Link>
-            <Link to="/AboutePage" className="home-button home-button--outline">
+            <Link to="/AboutePage" className={cx("home-button home-button--outline")}>
               CONOCE MAS
             </Link>
           </div>
 
-          <div className="home-hero__dots">
+          <div className={cx("home-hero__dots")}>
             {heroSlides.map((slide, index) => (
               <button
                 key={slide.title}
                 type="button"
-                className={`home-hero__dot ${
-                  index === currentSlide ? "is-active" : ""
-                }`}
+                className={cx("home-hero__dot", index === currentSlide && "is-active")}
                 onClick={() => setCurrentSlide(index)}
                 aria-label={`Ir al slide ${index + 1}`}
               />
@@ -488,39 +491,39 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="home-stats">
-        <div className="home-shell home-stats__grid">
+      <section className={cx("home-stats")}>
+        <div className={cx("home-shell home-stats__grid")}>
           {stats.map((item) => {
             const Icon = item.icon;
 
             return (
-              <article key={item.label} className="home-stats__item">
-                <span className="home-stats__icon">
+              <article key={item.label} className={cx("home-stats__item")}>
+                <span className={cx("home-stats__icon")}>
                   <Icon />
                 </span>
-                <strong className="home-stats__value">{item.value}</strong>
-                <h2 className="home-stats__label">{item.label}</h2>
-                <p className="home-stats__description">{item.description}</p>
+                <strong className={cx("home-stats__value")}>{item.value}</strong>
+                <h2 className={cx("home-stats__label")}>{item.label}</h2>
+                <p className={cx("home-stats__description")}>{item.description}</p>
               </article>
             );
           })}
         </div>
       </section>
 
-      <section className="home-store">
-        <div className="home-shell">
-          <div className="home-section-head home-section-head--row">
+      <section className={cx("home-store")}>
+        <div className={cx("home-shell")}>
+          <div className={cx("home-section-head home-section-head--row")}>
             <div>
-              <h2 className="home-section-title home-section-title--left">
+              <h2 className={cx("home-section-title home-section-title--left")}>
                 TIENDA <span>ONLINE</span>
               </h2>
-              <span className="home-section-line" />
+              <span className={cx("home-section-line")} />
             </div>
 
-            <div className="home-section-controls">
+            <div className={cx("home-section-controls")}>
               <button
                 type="button"
-                className="home-control-button"
+                className={cx("home-control-button")}
                 onClick={() => scrollProducts(-1)}
                 aria-label="Productos anteriores"
               >
@@ -528,7 +531,7 @@ export default function HomePage() {
               </button>
               <button
                 type="button"
-                className="home-control-button"
+                className={cx("home-control-button")}
                 onClick={() => scrollProducts(1)}
                 aria-label="Productos siguientes"
               >
@@ -537,51 +540,51 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div ref={productTrackRef} className="home-store__track">
+          <div ref={productTrackRef} className={cx("home-store__track")}>
             {products.map((product) => (
-              <article key={product.name} className="home-product-card">
-                <div className="home-product-card__image-wrap">
+              <article key={product.name} className={cx("home-product-card")}>
+                <div className={cx("home-product-card__image-wrap")}>
                   {product.badge && (
-                    <span className="home-product-card__badge">{product.badge}</span>
+                    <span className={cx("home-product-card__badge")}>{product.badge}</span>
                   )}
                   <img
                     src={product.image}
                     alt={product.name}
-                    className="home-product-card__image"
+                    className={cx("home-product-card__image")}
                   />
                 </div>
 
-                <div className="home-product-card__body">
-                  <h3 className="home-product-card__name">{product.name}</h3>
-                  <div className="home-product-card__rating">
-                    <div className="home-product-card__stars" aria-hidden="true">
+                <div className={cx("home-product-card__body")}>
+                  <h3 className={cx("home-product-card__name")}>{product.name}</h3>
+                  <div className={cx("home-product-card__rating")}>
+                    <div className={cx("home-product-card__stars")} aria-hidden="true">
                       {Array.from({ length: 5 }).map((_, index) => (
                         <FaStar
                           key={`${product.name}-${index}`}
-                          className={
+                          className={cx(
                             index < product.rating ? "is-filled" : "is-empty"
-                          }
+                          )}
                         />
                       ))}
                     </div>
                     <span>({product.reviews})</span>
                   </div>
-                  <div className="home-product-card__price-row">
+                  <div className={cx("home-product-card__price-row")}>
                     {product.oldPrice && (
-                      <span className="home-product-card__old-price">
+                      <span className={cx("home-product-card__old-price")}>
                         ${product.oldPrice.toFixed(2)}
                       </span>
                     )}
-                    <span className="home-product-card__price">
+                    <span className={cx("home-product-card__price")}>
                       ${product.price.toFixed(2)}
                     </span>
                   </div>
-                  <div className="home-product-card__actions">
-                    <Link to="/catalogue" className="home-product-card__action home-product-card__action--primary">
+                  <div className={cx("home-product-card__actions")}>
+                    <Link to="/catalogue" className={cx("home-product-card__action home-product-card__action--primary")}>
                       <FaShoppingCart />
                       Add to cart
                     </Link>
-                    <Link to="/catalogue" className="home-product-card__action home-product-card__action--secondary">
+                    <Link to="/catalogue" className={cx("home-product-card__action home-product-card__action--secondary")}>
                       <FaRegEye />
                       Quick View
                     </Link>
@@ -593,32 +596,32 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="home-plans">
-        <div className="home-shell">
-          <div className="home-section-head home-section-head--center">
-            <h2 className="home-section-title">
+      <section className={cx("home-plans")}>
+        <div className={cx("home-shell")}>
+          <div className={cx("home-section-head home-section-head--center")}>
+            <h2 className={cx("home-section-title")}>
               NUESTROS <span>PLANES</span>
             </h2>
-            <p className="home-section-text">
+            <p className={cx("home-section-text")}>
               Elige el plan que mejor se adapte a tus objetivos y estilo de vida
             </p>
           </div>
 
-          <div className="home-plans__grid">
+          <div className={cx("home-plans__grid")}>
             {plans.map((plan) => (
               <article
                 key={plan.name}
-                className={`home-plan-card ${plan.popular ? "is-popular" : ""}`}
+                className={cx("home-plan-card", plan.popular && "is-popular")}
               >
                 {plan.popular && (
-                  <span className="home-plan-card__popular">Popular</span>
+                  <span className={cx("home-plan-card__popular")}>Popular</span>
                 )}
-                <h3 className="home-plan-card__title">{plan.level}</h3>
-                <div className="home-plan-card__price">
+                <h3 className={cx("home-plan-card__title")}>{plan.level}</h3>
+                <div className={cx("home-plan-card__price")}>
                   <strong>${plan.price}</strong>
                   <span>MXN/mes</span>
                 </div>
-                <ul className="home-plan-card__features">
+                <ul className={cx("home-plan-card__features")}>
                   {plan.features.map((feature) => (
                     <li key={feature}>
                       <FaCheck />
@@ -628,9 +631,7 @@ export default function HomePage() {
                 </ul>
                 <Link
                   to="/suscripciones"
-                  className={`home-plan-card__button ${
-                    plan.popular ? "is-popular" : ""
-                  }`}
+                  className={cx("home-plan-card__button", plan.popular && "is-popular")}
                 >
                   Elegir Plan
                 </Link>
@@ -640,32 +641,32 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="home-trainers">
-        <div className="home-shell">
-          <div className="home-section-head home-section-head--center">
-            <h2 className="home-section-title">
+      <section className={cx("home-trainers")}>
+        <div className={cx("home-shell")}>
+          <div className={cx("home-section-head home-section-head--center")}>
+            <h2 className={cx("home-section-title")}>
               NUESTROS <span>ENTRENADORES</span>
             </h2>
-            <p className="home-section-text">
+            <p className={cx("home-section-text")}>
               Un equipo visible, cercano y alineado al tipo de experiencia que
               quieres transmitir en todo el home.
             </p>
           </div>
 
-          <div className="home-trainers__grid">
+          <div className={cx("home-trainers__grid")}>
             {trainers.map((trainer) => (
-              <article key={trainer.name} className="home-trainer-card">
-                <div className="home-trainer-card__media">
+              <article key={trainer.name} className={cx("home-trainer-card")}>
+                <div className={cx("home-trainer-card__media")}>
                   <img
                     src={trainer.image}
                     alt={trainer.name}
-                    className="home-trainer-card__image"
+                    className={cx("home-trainer-card__image")}
                   />
                 </div>
-                <div className="home-trainer-card__body">
-                  <span className="home-trainer-card__role">{trainer.role}</span>
-                  <h3 className="home-trainer-card__name">{trainer.name}</h3>
-                  <p className="home-trainer-card__description">
+                <div className={cx("home-trainer-card__body")}>
+                  <span className={cx("home-trainer-card__role")}>{trainer.role}</span>
+                  <h3 className={cx("home-trainer-card__name")}>{trainer.name}</h3>
+                  <p className={cx("home-trainer-card__description")}>
                     {trainer.description}
                   </p>
                 </div>
@@ -675,26 +676,24 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="home-schedule">
-        <div className="home-shell">
-          <div className="home-section-head home-section-head--center home-section-head--light">
-            <h2 className="home-section-title home-section-title--light">
+      <section className={cx("home-schedule")}>
+        <div className={cx("home-shell")}>
+          <div className={cx("home-section-head home-section-head--center home-section-head--light")}>
+            <h2 className={cx("home-section-title home-section-title--light")}>
               HORARIOS DE <span>CLASES</span>
             </h2>
-            <p className="home-section-text home-section-text--light">
+            <p className={cx("home-section-text home-section-text--light")}>
               Planifica tu semana con nuestras clases grupales dirigidas por
               entrenadores certificados
             </p>
           </div>
 
-          <div className="home-schedule__tabs">
+          <div className={cx("home-schedule__tabs")}>
             {scheduleDays.map((day) => (
               <button
                 key={day}
                 type="button"
-                className={`home-schedule__tab ${
-                  day === selectedDay ? "is-active" : ""
-                }`}
+                className={cx("home-schedule__tab", day === selectedDay && "is-active")}
                 onClick={() => setSelectedDay(day)}
               >
                 {day}
@@ -702,8 +701,8 @@ export default function HomePage() {
             ))}
           </div>
 
-          <div className="home-schedule__table-wrap">
-            <table className="home-schedule__table">
+          <div className={cx("home-schedule__table-wrap")}>
+            <table className={cx("home-schedule__table")}>
               <thead>
                 <tr>
                   <th>
@@ -720,12 +719,15 @@ export default function HomePage() {
               <tbody>
                 {activeSchedule.map((row) => (
                   <tr key={`${selectedDay}-${row.time}-${row.className}`}>
-                    <td className="home-schedule__time">{row.time}</td>
-                    <td className="home-schedule__class">{row.className}</td>
-                    <td className="home-schedule__trainer">{row.trainer}</td>
+                    <td className={cx("home-schedule__time")}>{row.time}</td>
+                    <td className={cx("home-schedule__class")}>{row.className}</td>
+                    <td className={cx("home-schedule__trainer")}>{row.trainer}</td>
                     <td>
                       <span
-                        className={`home-schedule__level home-schedule__level--${row.level}`}
+                        className={cx(
+                          "home-schedule__level",
+                          `home-schedule__level--${row.level}`
+                        )}
                       >
                         {row.level === "all" && "Todos los niveles"}
                         {row.level === "beginner" && "Principiante"}
@@ -733,12 +735,12 @@ export default function HomePage() {
                         {row.level === "advanced" && "Avanzado"}
                       </span>
                     </td>
-                    <td className="home-schedule__spots">
+                    <td className={cx("home-schedule__spots")}>
                       <strong>{row.spots}</strong>
                       <span>disponibles</span>
                     </td>
                     <td>
-                      <Link to="/suscripciones" className="home-schedule__button">
+                      <Link to="/suscripciones" className={cx("home-schedule__button")}>
                         Reservar
                       </Link>
                     </td>
@@ -748,11 +750,11 @@ export default function HomePage() {
             </table>
           </div>
 
-          <div className="home-schedule__legend" aria-label="Niveles de clase">
+          <div className={cx("home-schedule__legend")} aria-label="Niveles de clase">
             {scheduleLegend.map((item) => (
-              <div key={item.label} className="home-schedule__legend-item">
+              <div key={item.label} className={cx("home-schedule__legend-item")}>
                 <span
-                  className={`home-schedule__legend-dot ${item.className}`}
+                  className={cx("home-schedule__legend-dot", item.className)}
                   aria-hidden="true"
                 />
                 <span>{item.label}</span>
@@ -762,63 +764,63 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="home-cta">
-        <div className="home-shell home-cta__inner">
-          <div className="home-cta__content">
-            <span className="home-cta__eyebrow">Titanium Sport Gym</span>
-            <h2 className="home-cta__title">
+      <section className={cx("home-cta")}>
+        <div className={cx("home-shell home-cta__inner")}>
+          <div className={cx("home-cta__content")}>
+            <span className={cx("home-cta__eyebrow")}>Titanium Sport Gym</span>
+            <h2 className={cx("home-cta__title")}>
               Listo para comenzar tu transformacion?
             </h2>
-            <p className="home-cta__description">
+            <p className={cx("home-cta__description")}>
               Unete a la comunidad Titanium y empieza a ver resultados desde el
               primer dia. Nuestros entrenadores te guiaran en cada paso del
               camino.
             </p>
 
-            <div className="home-cta__actions">
-              <Link to="/register" className="home-button home-button--light">
+            <div className={cx("home-cta__actions")}>
+              <Link to="/register" className={cx("home-button home-button--light")}>
                 Comenzar Ahora
                 <FaArrowRight />
               </Link>
               <a
                 href="mailto:tsghuejutla@gmail.com"
-                className="home-button home-button--ghost-light"
+                className={cx("home-button home-button--ghost-light")}
               >
                 Contactanos
               </a>
             </div>
           </div>
 
-          <div className="home-cta__cards">
-            <a href="tel:7711976803" className="home-cta__card">
-              <span className="home-cta__card-icon">
+          <div className={cx("home-cta__cards")}>
+            <a href="tel:7711976803" className={cx("home-cta__card")}>
+              <span className={cx("home-cta__card-icon")}>
                 <FaPhoneAlt />
               </span>
-              <span className="home-cta__card-copy">
-                <span className="home-cta__card-label">Llamanos</span>
-                <strong className="home-cta__card-value">771 197 6803</strong>
+              <span className={cx("home-cta__card-copy")}>
+                <span className={cx("home-cta__card-label")}>Llamanos</span>
+                <strong className={cx("home-cta__card-value")}>771 197 6803</strong>
               </span>
             </a>
 
-            <a href="mailto:tsghuejutla@gmail.com" className="home-cta__card">
-              <span className="home-cta__card-icon">
+            <a href="mailto:tsghuejutla@gmail.com" className={cx("home-cta__card")}>
+              <span className={cx("home-cta__card-icon")}>
                 <FaEnvelope />
               </span>
-              <span className="home-cta__card-copy">
-                <span className="home-cta__card-label">Escribenos</span>
-                <strong className="home-cta__card-value">
+              <span className={cx("home-cta__card-copy")}>
+                <span className={cx("home-cta__card-label")}>Escribenos</span>
+                <strong className={cx("home-cta__card-value")}>
                   tsghuejutla@gmail.com
                 </strong>
               </span>
             </a>
 
-            <div className="home-cta__card">
-              <span className="home-cta__card-icon">
+            <div className={cx("home-cta__card")}>
+              <span className={cx("home-cta__card-icon")}>
                 <FaMapMarkerAlt />
               </span>
-              <span className="home-cta__card-copy">
-                <span className="home-cta__card-label">Visitanos</span>
-                <strong className="home-cta__card-value">
+              <span className={cx("home-cta__card-copy")}>
+                <span className={cx("home-cta__card-label")}>Visitanos</span>
+                <strong className={cx("home-cta__card-value")}>
                   Av. Corona del Rosal N 15, Huejutla, Hidalgo
                 </strong>
               </span>

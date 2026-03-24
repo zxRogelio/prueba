@@ -1,15 +1,15 @@
 import { Routes, Route } from "react-router-dom";
 import PublicLayout from "./components/layout/PublicLayout/PublicLayout";
 
-import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
-import CatalogePage from "./pages/CatalogePage";
-import SuscripcionesPage from "./pages/SuscripcionesPage";
-import AboutPage from "./pages/AboutPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import PaymentPage from "./pages/PaymentPage";
 import ConfirmationPage from "./pages/ConfirmationPage";
+import HomePage from "./pages/visitor/HomePage";
+import CatalogePage from "./pages/visitor/CatalogePage";
+import CatalogProductPage from "./pages/visitor/CatalogProductPage";
+import SuscripcionesPage from "./pages/visitor/SuscripcionesPage";
 import AboutePage from "./pages/visitor/AboutePage";
 import NotFoundPage from "./pages/NotFoundPage";
 import Error500Page from "./pages/Page500";
@@ -54,9 +54,10 @@ export default function App() {
       <Route element={<PublicLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/catalogue" element={<CatalogePage />} />
+        <Route path="/catalogue/:productId" element={<CatalogProductPage />} />
         <Route path="/suscripciones" element={<SuscripcionesPage />} />
-        <Route path="/about" element={<AboutPage />} />
-        <Route path="/AboutPage" element={<AboutPage />} />
+        <Route path="/about" element={<AboutePage />} />
+        <Route path="/AboutPage" element={<AboutePage />} />
         <Route path="/AboutePage" element={<AboutePage />} />
 
         <Route path="/checkout" element={<CheckoutPage />} />
