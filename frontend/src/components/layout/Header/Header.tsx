@@ -23,9 +23,8 @@ import {
 
 import { useAuth } from "../../../context/AuthContext";
 import { useCart } from "../../../context/CartContext";
+import { getPortalRoute, normalizeAppRole } from "../../../utils/authRouting";
 import CartDrawer from "../../cart/CartDrawer";
-
-type Role = "cliente" | "entrenador" | "administrador";
 
 type NavItem = {
   to: string;
@@ -46,7 +45,7 @@ export default function Header() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const { itemCount, openCart } = useCart();
-  const role = (user?.rol ?? null) as Role | null;
+  const role = normalizeAppRole(user?.rol);
 
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -79,10 +78,7 @@ export default function Header() {
   const isTransparentHomeHeader = location.pathname === "/" && !scrolled;
 
   const goPortal = () => {
-    if (!role) return navigate("/login");
-    if (role === "administrador") return navigate("/admin");
-    if (role === "cliente") return navigate("/cliente");
-    return navigate("/entrenador");
+    navigate(getPortalRoute(role));
   };
 
   const handleCartClick = () => {
@@ -192,7 +188,7 @@ export default function Header() {
                         type="button"
                         onClick={goPortal}
                       >
-                        <FaUserCircle /> Mi portal
+                        <FaUserCircle /> Ir al portal
                       </button>
 
                       {role === "cliente" && (

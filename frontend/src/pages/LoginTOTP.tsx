@@ -1,9 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/pages/LoginTOTP.tsx
-import { useState, useEffect } from "react";
-import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { API } from "../api/api";
 import { useAuth } from "../context/AuthContext";
+import {
+  buildAuthUser,
+  getDefaultAuthenticatedRoute,
+} from "../utils/authRouting";
 
 export default function LoginTOTP() {
   const [code, setCode] = useState("");
@@ -14,60 +17,50 @@ export default function LoginTOTP() {
   const [searchParams] = useSearchParams();
   const { setUser } = useAuth();
 
-  // 🔹 Email puede venir del estado (login normal) o de la query (?email=...&oauth=1)
   const emailFromState = (location.state as any)?.email;
   const emailFromQuery = searchParams.get("email");
   const email = emailFromState || emailFromQuery || "";
 
-  // 🔹 Si no tenemos email de ningún lado, regresamos al login
   useEffect(() => {
     if (!email) {
       navigate("/login");
     }
   }, [email, navigate]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) return; // seguridad extra
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!email) return;
 
     setLoading(true);
-    try {
-      const res = await API.post("/auth/verify-totp", { email, code });
 
-      const token = res.data.token;
-      if (!token) throw new Error("Token no recibido");
+    try {
+      const response = await API.post("/auth/verify-totp", { email, code });
+      const token = response.data.token;
+
+      if (!token) {
+        throw new Error("Token no recibido");
+      }
 
       const payload = JSON.parse(atob(token.split(".")[1]));
-
-      const user = {
-        id: payload.id,
-        rol: payload.role,
-        email,
-        // Si el backend manda loginMethod en el JWT, lo usamos; si no, asumimos "local"
-        loginMethod: (payload.loginMethod as "local" | "google") || "local",
-      };
+      const user = buildAuthUser(
+        {
+          id: payload.id,
+          email,
+          role: payload.role,
+          loginMethod:
+            (payload.loginMethod as "local" | "google" | undefined) || "local",
+        },
+        email
+      );
 
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
       setUser(user);
 
-      switch (user.rol) {
-        case "cliente":
-          navigate("/cliente");
-          break;
-        case "entrenador":
-          navigate("/entrenador");
-          break;
-        case "admin":
-        case "administrador":
-          navigate("/admin");
-          break;
-        default:
-          navigate("/");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Código incorrecto o expirado.");
+      navigate(getDefaultAuthenticatedRoute(user.rol));
+    } catch (error) {
+      console.error(error);
+      alert("Codigo incorrecto o expirado.");
     } finally {
       setLoading(false);
     }
@@ -102,7 +95,7 @@ export default function LoginTOTP() {
             color: "#333",
           }}
         >
-          Verificación por Código TOTP
+          Verificacion por Codigo TOTP
         </h2>
         <form
           onSubmit={handleSubmit}
@@ -111,13 +104,13 @@ export default function LoginTOTP() {
           <label
             style={{ marginBottom: "8px", fontSize: "15px", color: "#333" }}
           >
-            Ingresa el código de 6 dígitos:
+            Ingresa el codigo de 6 digitos:
           </label>
           <input
             type="text"
             maxLength={6}
             value={code}
-            onChange={(e) => setCode(e.target.value)}
+            onChange={(event) => setCode(event.target.value)}
             required
             style={{
               padding: "10px",

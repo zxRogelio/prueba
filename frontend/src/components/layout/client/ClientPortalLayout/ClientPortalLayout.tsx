@@ -1,59 +1,46 @@
-import { NavLink, Outlet } from "react-router-dom";
-import {
-  CreditCard,
-  LayoutGrid,
-  ShieldCheck,
-  UserRound,
-  Wallet,
-} from "lucide-react";
-import Header from "../../Header/Header";
-import Footer from "../../Footer";
+import { useEffect, useState } from "react";
+import { Outlet, useLocation } from "react-router-dom";
+import ClientSidebar from "../ClientSidebar/ClientSidebar";
+import ClientTopbar from "../ClientTopbar/ClientTopbar";
+import { getClientPortalMeta } from "../clientPortalNavigation";
 import styles from "./ClientPortalLayout.module.css";
 
-const clientLinks = [
-  { to: "/cliente", label: "Resumen", icon: <LayoutGrid size={18} /> },
-  { to: "/cliente/perfil", label: "Mi perfil", icon: <UserRound size={18} /> },
-  {
-    to: "/cliente/suscripcion",
-    label: "Mi suscripcion",
-    icon: <CreditCard size={18} />,
-  },
-  { to: "/cliente/pagos", label: "Pagos", icon: <Wallet size={18} /> },
-  {
-    to: "/cliente/configuracion",
-    label: "Configuracion (2FA)",
-    icon: <ShieldCheck size={18} />,
-  },
-];
-
 export default function ClientPortalLayout() {
+  const [collapsed, setCollapsed] = useState(false);
+  const location = useLocation();
+  const meta = getClientPortalMeta(location.pathname);
+
+  useEffect(() => {
+    const savedValue = localStorage.getItem("clientSidebarCollapsed");
+    if (savedValue !== null) {
+      setCollapsed(JSON.parse(savedValue));
+    }
+  }, []);
+
+  const toggleSidebar = () => {
+    const nextValue = !collapsed;
+    setCollapsed(nextValue);
+    localStorage.setItem("clientSidebarCollapsed", JSON.stringify(nextValue));
+  };
+
   return (
-    <div className={styles.page}>
-      <Header />
+    <div
+      className={`${styles.shell} ${collapsed ? styles.shellCollapsed : ""}`}
+    >
+      <aside className={styles.sidebar}>
+        <ClientSidebar collapsed={collapsed} />
+      </aside>
 
       <main className={styles.main}>
-        <section className={styles.clientNav}>
-          {clientLinks.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === "/cliente"}
-              className={({ isActive }) =>
-                `${styles.link} ${isActive ? styles.active : ""}`
-              }
-            >
-              <span className={styles.linkIcon}>{item.icon}</span>
-              <span className={styles.linkLabel}>{item.label}</span>
-            </NavLink>
-          ))}
-        </section>
-
-        <section className={styles.content}>
+        <ClientTopbar
+          title={meta.title}
+          description={meta.description}
+          onToggleSidebar={toggleSidebar}
+        />
+        <div className={styles.content}>
           <Outlet />
-        </section>
+        </div>
       </main>
-
-      <Footer />
     </div>
   );
 }

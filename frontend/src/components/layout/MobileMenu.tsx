@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { FaShoppingCart } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
+import { getPortalRoute, normalizeAppRole } from "../../utils/authRouting";
 import menuStyles from "./MobileMenu.module.css";
 import navStyles from "./Navbar/Navbar.module.css";
 
@@ -13,14 +14,10 @@ const MobileMenu = ({ onClose }: Props) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { itemCount, openCart } = useCart();
-  const role = user?.rol ?? null;
+  const role = normalizeAppRole(user?.rol);
 
   const handlePortalNavigation = () => {
-    if (role === "administrador") navigate("/admin");
-    else if (role === "cliente") navigate("/cliente");
-    else if (role === "entrenador") navigate("/entrenador");
-    else navigate("/login");
-
+    navigate(getPortalRoute(role));
     onClose();
   };
 
@@ -92,8 +89,17 @@ const MobileMenu = ({ onClose }: Props) => {
                 className={`${navStyles.btnOutline} ${menuStyles.actionButton}`}
                 onClick={handlePortalNavigation}
               >
-                MI PORTAL
+                IR AL PORTAL
               </button>
+              {role === "cliente" && (
+                <Link
+                  to="/cliente/perfil"
+                  className={`${navStyles.btnOutline} ${menuStyles.actionButton}`}
+                  onClick={onClose}
+                >
+                  MI PERFIL
+                </Link>
+              )}
               {role === "cliente" && (
                 <Link
                   to="/cliente/configuracion"

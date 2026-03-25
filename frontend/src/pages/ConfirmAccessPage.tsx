@@ -3,6 +3,10 @@ import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
+import {
+  buildAuthUser,
+  getDefaultAuthenticatedRoute,
+} from "../utils/authRouting";
 
 export default function ConfirmAccessPage() {
   const location = useLocation();
@@ -11,70 +15,64 @@ export default function ConfirmAccessPage() {
   const token = new URLSearchParams(location.search).get("token");
 
   useEffect(() => {
-    const confirmarAcceso = async () => {
+    const confirmAccess = async () => {
       if (!token) {
-        alert("Token inválido");
+        alert("Token invalido");
         navigate("/login", { replace: true });
         return;
       }
 
       try {
-        const res = await axios.post(
+        const response = await axios.post(
           `${import.meta.env.VITE_API_URL}/auth/confirm-access`,
           { token }
         );
 
-        const accessToken = res.data.token;
-        if (!accessToken) throw new Error("Token inválido");
+        const accessToken = response.data.token;
+        if (!accessToken) {
+          throw new Error("Token invalido");
+        }
 
-        // Guardar token final de sesión
         localStorage.setItem("token", accessToken);
 
         const payload = JSON.parse(atob(accessToken.split(".")[1]));
-
-        const user = {
+        const user = buildAuthUser({
           id: payload.id,
-          rol: payload.role,
           email: payload.email,
-          // si en el JWT viene loginMethod, lo podrías leer así:
-          // loginMethod: (payload.loginMethod as "local" | "google") || "local",
-        };
+          role: payload.role,
+          loginMethod: payload.loginMethod,
+        });
 
         localStorage.setItem("user", JSON.stringify(user));
-        setUser(user as any);
+        setUser(user);
 
-        alert("✅ Acceso confirmado correctamente");
+        alert("Acceso confirmado correctamente");
 
         setTimeout(() => {
-          if (user.rol === "cliente") navigate("/cliente", { replace: true });
-          else if (user.rol === "entrenador")
-            navigate("/entrenador", { replace: true });
-          else if (user.rol === "admin" || user.rol === "administrador")
-            navigate("/admin", { replace: true });
-          else navigate("/", { replace: true });
+          navigate(getDefaultAuthenticatedRoute(user.rol), { replace: true });
         }, 1000);
-      } catch (err: any) {
+      } catch (error: any) {
         console.error(
-          "❌ Error al confirmar acceso (frontend):",
-          err.response?.data || err
+          "Error al confirmar acceso (frontend):",
+          error.response?.data || error
         );
 
-        const msg: string = err?.response?.data?.error || "";
+        const message: string = error?.response?.data?.error || "";
 
-        if (msg.toLowerCase().includes("expirado")) {
-          alert("El enlace expiró, vuelve a iniciar sesión.");
-        } else if (msg) {
-          alert(`Error al confirmar acceso: ${msg}`);
+        if (message.toLowerCase().includes("expirado")) {
+          alert("El enlace expiro, vuelve a iniciar sesion.");
+        } else if (message) {
+          alert(`Error al confirmar acceso: ${message}`);
         } else {
-          alert("El enlace es inválido o ya fue utilizado.");
+          alert("El enlace es invalido o ya fue utilizado.");
         }
 
         navigate("/login", { replace: true });
       }
     };
 
-    confirmarAcceso();
-  }, [token, navigate, setUser]);
+    confirmAccess();
+  }, [navigate, setUser, token]);
 
   return (
     <div style={{ padding: "3rem", textAlign: "center" }}>

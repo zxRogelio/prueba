@@ -1,17 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/pages/VerificarOTP.tsx
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { API } from "../api/api";
 import { useAuth } from "../context/AuthContext";
+import {
+  buildAuthUser,
+  getDefaultAuthenticatedRoute,
+} from "../utils/authRouting";
 
 export default function VerificarOTP() {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // 🔁 Estados para reenviar código
   const [resendLoading, setResendLoading] = useState(false);
-  const [cooldown, setCooldown] = useState(30); // segundos
+  const [cooldown, setCooldown] = useState(30);
   const [canResend, setCanResend] = useState(false);
 
   const location = useLocation();
@@ -19,76 +20,69 @@ export default function VerificarOTP() {
   const { setUser } = useAuth();
   const [searchParams] = useSearchParams();
 
-  // 🟣 Email puede venir del state (login normal) o de la query (?email=...&oauth=1)
   const emailFromState = (location.state as any)?.email;
   const emailFromQuery = searchParams.get("email");
   const email = emailFromState || emailFromQuery || "";
 
-  // ⏱️ Manejo del temporizador de 30s
   useEffect(() => {
-    // al montar, empezamos el cooldown en 30s
     setCooldown(30);
     setCanResend(false);
 
-    const interval = setInterval(() => {
-      setCooldown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
+    const interval = window.setInterval(() => {
+      setCooldown((previous) => {
+        if (previous <= 1) {
+          window.clearInterval(interval);
           setCanResend(true);
           return 0;
         }
-        return prev - 1;
+
+        return previous - 1;
       });
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => window.clearInterval(interval);
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setLoading(true);
 
     if (!email) {
-      alert("No se detectó el correo del usuario. Intenta iniciar sesión de nuevo.");
+      alert("No se detecto el correo del usuario. Intenta iniciar sesion de nuevo.");
       setLoading(false);
       navigate("/login");
       return;
     }
 
     try {
-      const res = await API.post("/auth/verify-otp", { email, otp });
+      const response = await API.post("/auth/verify-otp", { email, otp });
+      const { accessToken, user } = response.data;
+      const authUser = buildAuthUser(
+        {
+          id: user?.id,
+          email: user?.email,
+          role: user?.role ?? user?.rol,
+          loginMethod: user?.loginMethod,
+        },
+        email
+      );
 
-      const { accessToken, user } = res.data;
       localStorage.setItem("token", accessToken);
-      localStorage.setItem("user", JSON.stringify(user));
-      setUser(user);
+      localStorage.setItem("user", JSON.stringify(authUser));
+      setUser(authUser);
 
-      switch (user.rol) {
-        case "cliente":
-          navigate("/cliente");
-          break;
-        case "entrenador":
-          navigate("/entrenador");
-          break;
-        case "admin":
-        case "administrador":
-          navigate("/admin");
-          break;
-        default:
-          navigate("/");
-      }
-    } catch (err) {
-      console.error("❌ Error verificando OTP:", err);
-      alert("Código incorrecto o expirado.");
+      navigate(getDefaultAuthenticatedRoute(authUser.rol));
+    } catch (error) {
+      console.error("Error verificando OTP:", error);
+      alert("Codigo incorrecto o expirado.");
     } finally {
       setLoading(false);
     }
   };
 
-  // 🔁 Reenviar código OTP (login)
   const handleResendOTP = async () => {
     if (!email) {
-      alert("No se detectó el correo del usuario. Intenta iniciar sesión de nuevo.");
+      alert("No se detecto el correo del usuario. Intenta iniciar sesion de nuevo.");
       navigate("/login");
       return;
     }
@@ -100,25 +94,23 @@ export default function VerificarOTP() {
       setCanResend(false);
       setCooldown(30);
 
-      // 🔴 IMPORTANTE: este endpoint lo definimos en el backend (abajo)
       await API.post("/auth/resend-login-otp", { email });
+      alert(`Se ha enviado un nuevo codigo a: ${email}`);
 
-      alert(`Se ha enviado un nuevo código a: ${email}`);
-
-      // Reinicia el temporizador
-      const interval = setInterval(() => {
-        setCooldown((prev) => {
-          if (prev <= 1) {
-            clearInterval(interval);
+      const interval = window.setInterval(() => {
+        setCooldown((previous) => {
+          if (previous <= 1) {
+            window.clearInterval(interval);
             setCanResend(true);
             return 0;
           }
-          return prev - 1;
+
+          return previous - 1;
         });
       }, 1000);
-    } catch (err) {
-      console.error("❌ Error reenviando OTP:", err);
-      alert("No se pudo reenviar el código. Inténtalo de nuevo más tarde.");
+    } catch (error) {
+      console.error("Error reenviando OTP:", error);
+      alert("No se pudo reenviar el codigo. Intentalo de nuevo mas tarde.");
       setCanResend(true);
       setCooldown(0);
     } finally {
@@ -155,7 +147,7 @@ export default function VerificarOTP() {
             color: "#333",
           }}
         >
-          Verificación por Código (OTP)
+          Verificacion por Codigo (OTP)
         </h2>
 
         {email && (
@@ -167,7 +159,7 @@ export default function VerificarOTP() {
               color: "#555",
             }}
           >
-            Se envió un código a: <strong>{email}</strong>
+            Se envio un codigo a: <strong>{email}</strong>
           </p>
         )}
 
@@ -178,13 +170,13 @@ export default function VerificarOTP() {
           <label
             style={{ marginBottom: "8px", fontSize: "15px", color: "#333" }}
           >
-            Ingresa el código que recibiste por correo:
+            Ingresa el codigo que recibiste por correo:
           </label>
           <input
             type="text"
             maxLength={6}
             value={otp}
-            onChange={(e) => setOtp(e.target.value)}
+            onChange={(event) => setOtp(event.target.value)}
             required
             style={{
               padding: "10px",
@@ -217,7 +209,6 @@ export default function VerificarOTP() {
           </button>
         </form>
 
-        {/* 🔁 Sección de reenvío */}
         <div style={{ textAlign: "center", marginTop: "10px" }}>
           <button
             type="button"
@@ -237,7 +228,7 @@ export default function VerificarOTP() {
             {resendLoading
               ? "Reenviando..."
               : canResend
-              ? "Reenviar código"
+              ? "Reenviar codigo"
               : `Reenviar en ${cooldown}s`}
           </button>
 
@@ -248,7 +239,7 @@ export default function VerificarOTP() {
               color: "#777",
             }}
           >
-            Solo puedes solicitar un nuevo código cada 30 segundos.
+            Solo puedes solicitar un nuevo codigo cada 30 segundos.
           </p>
         </div>
       </div>

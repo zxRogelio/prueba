@@ -1,10 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";     // ✅ para axios.isAxiosError
-import { API } from "../api/api"; // ✅ tu instancia
-
+import axios from "axios";
+import { API } from "../api/api";
 import { useAuth } from "../context/AuthContext";
+import {
+  buildAuthUser,
+  getDefaultAuthenticatedRoute,
+} from "../utils/authRouting";
 import "../styles/auth.css";
 import GoogleLogo from "../assets/google-logo.svg";
 
@@ -15,26 +18,12 @@ interface LoginLock {
 
 const LOGIN_LOCK_KEY = "loginLock";
 
-type AppRol = "cliente" | "entrenador" | "administrador";
-
-function normalizeRole(raw: unknown): AppRol {
-  const r = String(raw ?? "").toLowerCase();
-
-  // Backends suelen mandar "admin"
-  if (r === "admin" || r === "administrador") return "administrador";
-  if (r === "entrenador" || r === "trainer") return "entrenador";
-  return "cliente";
-}
-
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // 🔒 bloqueo
   const [lockSeconds, setLockSeconds] = useState<number | null>(null);
   const [lockedEmail, setLockedEmail] = useState<string | null>(null);
 
@@ -44,7 +33,6 @@ export default function LoginPage() {
   const isLocked =
     lockSeconds !== null && lockSeconds > 0 && lockedEmail === email;
 
-  // 🔄 cargar bloqueo desde localStorage
   useEffect(() => {
     const raw = localStorage.getItem(LOGIN_LOCK_KEY);
     if (!raw) return;
@@ -65,7 +53,6 @@ export default function LoginPage() {
     }
   }, []);
 
-  // ⏱️ contador
   useEffect(() => {
     if (!lockSeconds || lockSeconds <= 0) return;
 
@@ -75,6 +62,7 @@ export default function LoginPage() {
           localStorage.removeItem(LOGIN_LOCK_KEY);
           return null;
         }
+
         return prev - 1;
       });
     }, 1000);
@@ -82,9 +70,8 @@ export default function LoginPage() {
     return () => window.clearInterval(interval);
   }, [lockSeconds]);
 
-  // 🚀 LOGIN
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
     setErrorMessage("");
 
     if (isLocked) {
@@ -95,11 +82,10 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await API.post("/auth/login", { email, password });
+      const response = await API.post("/auth/login", { email, password });
 
-      // 🔐 2FA
-      if (res.data?.twoFactorRequired) {
-        const method = String(res.data?.method ?? "").toLowerCase();
+      if (response.data?.twoFactorRequired) {
+        const method = String(response.data?.method ?? "").toLowerCase();
 
         if (method === "totp") {
           navigate("/login-totp", { state: { email } });
@@ -117,61 +103,49 @@ export default function LoginPage() {
         }
       }
 
-      // 🟢 login normal
-      const accessToken = res.data?.accessToken;
-      const user = res.data?.user;
+      const accessToken = response.data?.accessToken;
+      const user = response.data?.user;
 
       if (!accessToken || !user) {
-        setErrorMessage("Respuesta inválida del servidor.");
+        setErrorMessage("Respuesta invalida del servidor.");
         return;
       }
 
-      const role: AppRol = normalizeRole(user.role ?? user.rol);
-
-      // ✅ userData ya coincide con tu AuthContext.User
-      const userData = {
-        id: user.id != null ? String(user.id) : undefined,
-        email: String(user.email ?? email),
-        rol: role,
-        loginMethod: "local" as const, // ✅ "local" | "google" soportado
-      };
+      const userData = buildAuthUser(
+        {
+          id: user.id,
+          email: user.email,
+          role: user.role ?? user.rol,
+          loginMethod: "local",
+        },
+        email
+      );
 
       localStorage.setItem("token", String(accessToken));
       localStorage.setItem("user", JSON.stringify(userData));
       localStorage.removeItem(LOGIN_LOCK_KEY);
 
       setUser(userData);
-
-      // 🎯 redirección por rol
-      if (role === "administrador") {
-        navigate("/admin");
-      } else if (role === "entrenador") {
-        navigate("/entrenador");
-      } else {
-        navigate("/cliente");
-      }
-    } catch (err: any) {
-      if (axios.isAxiosError(err)) {
-        const status = err.response?.status;
+      navigate(getDefaultAuthenticatedRoute(userData.rol));
+    } catch (error: any) {
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
 
         if (status === 429) {
-          const seconds = err.response?.data?.retryAfterSeconds ?? 60;
-
+          const seconds = error.response?.data?.retryAfterSeconds ?? 60;
           const lock: LoginLock = {
             email,
             lockedUntil: Date.now() + Number(seconds) * 1000,
           };
 
           localStorage.setItem(LOGIN_LOCK_KEY, JSON.stringify(lock));
-
           setLockedEmail(email);
           setLockSeconds(Number(seconds));
-
           setErrorMessage(`Demasiados intentos. Espera ${seconds} segundos.`);
         } else if (status === 400 || status === 401) {
-          setErrorMessage("Correo o contraseña incorrectos.");
+          setErrorMessage("Correo o contrasena incorrectos.");
         } else {
-          setErrorMessage("Error al iniciar sesión.");
+          setErrorMessage("Error al iniciar sesion.");
         }
       } else {
         setErrorMessage("Error inesperado.");
@@ -181,13 +155,8 @@ export default function LoginPage() {
     }
   };
 
-  // 🔵 Google
   const handleGoogleLogin = () => {
     const baseUrl = import.meta.env.VITE_API_URL;
-
-    // ✅ esto NO rompe loginMethod: "google"
-    // porque el backend (en el callback) debe guardar localStorage
-    // o redirigir con token. Tu front aquí solo inicia OAuth.
     window.location.href = `${baseUrl}/auth/google`;
   };
 
@@ -195,15 +164,13 @@ export default function LoginPage() {
     <div className="auth-layout">
       <main className="auth-main">
         <div className="auth-page">
-          {/* Imagen */}
           <div className="auth-image-section">
             <div className="auth-image-overlay" />
           </div>
 
-          {/* Formulario */}
           <div className="auth-form-section">
             <div className="auth-form-container">
-              <h1 className="auth-title">Iniciar Sesión</h1>
+              <h1 className="auth-title">Iniciar Sesion</h1>
 
               <form className="auth-form" onSubmit={handleLogin}>
                 {errorMessage && (
@@ -213,35 +180,33 @@ export default function LoginPage() {
                   </div>
                 )}
 
-                {/* Email */}
                 <div className="auth-input-group">
                   <label className="auth-label">Correo</label>
                   <input
                     type="email"
                     className="auth-input"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(event) => setEmail(event.target.value)}
                     required
                   />
                 </div>
 
-                {/* Password */}
                 <div className="auth-input-group">
-                  <label className="auth-label">Contraseña</label>
+                  <label className="auth-label">Contrasena</label>
                   <div className="auth-input-wrap">
                     <input
                       type={showPassword ? "text" : "password"}
                       className="auth-input"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(event) => setPassword(event.target.value)}
                       required
                       disabled={isLocked}
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPassword((v) => !v)}
+                      onClick={() => setShowPassword((value) => !value)}
                     >
-                      {showPassword ? "🙈" : "👁️"}
+                      {showPassword ? "Ocultar" : "Mostrar"}
                     </button>
                   </div>
                 </div>
@@ -255,10 +220,9 @@ export default function LoginPage() {
                     ? "Iniciando..."
                     : isLocked
                     ? "Bloqueado"
-                    : "Iniciar Sesión"}
+                    : "Iniciar Sesion"}
                 </button>
 
-                {/* Google */}
                 <button
                   type="button"
                   className="auth-btn-google"
@@ -269,7 +233,7 @@ export default function LoginPage() {
                 </button>
 
                 <p className="auth-footer">
-                  ¿No tienes cuenta? <Link to="/register">Regístrate</Link>
+                  No tienes cuenta? <Link to="/register">Registrate</Link>
                 </p>
               </form>
             </div>

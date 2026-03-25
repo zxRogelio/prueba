@@ -19,13 +19,11 @@ import {
 } from "react-icons/fa";
 
 import { useAuth } from "../../../context/AuthContext";
-
+import { getPortalRoute, normalizeAppRole } from "../../../utils/authRouting";
 interface Props {
   scrolled: boolean;
   onToggleMobile: () => void;
 }
-
-type Role = "cliente" | "entrenador" | "administrador";
 
 type NavItem = {
   to: string;
@@ -44,7 +42,7 @@ const sharedNavItems: NavItem[] = [
 const Navbar = ({ scrolled, onToggleMobile }: Props) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const role = (user?.rol ?? null) as Role | null;
+  const role = normalizeAppRole(user?.rol);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -67,10 +65,7 @@ const Navbar = ({ scrolled, onToggleMobile }: Props) => {
   const avatarLetter = (user?.email?.trim()?.[0] ?? "U").toUpperCase();
 
   const goPortal = () => {
-    if (!role) return navigate("/login");
-    if (role === "administrador") return navigate("/admin");
-    if (role === "cliente") return navigate("/cliente");
-    return navigate("/entrenador");
+    navigate(getPortalRoute(role));
   };
 
   return (
@@ -139,7 +134,7 @@ const Navbar = ({ scrolled, onToggleMobile }: Props) => {
                       type="button"
                       onClick={goPortal}
                     >
-                      <FaUserCircle /> Mi portal
+                      <FaUserCircle /> Ir al portal
                     </button>
 
                     {role === "cliente" && (
