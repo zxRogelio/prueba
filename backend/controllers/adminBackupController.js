@@ -32,6 +32,8 @@ const slugify = (value = "") =>
     .toLowerCase();
 
 const bytesToKB = (bytes = 0) => Number(bytes / 1024).toFixed(2);
+const buildLocalDownloadUrl = (filename) =>
+  `/admin/backups/download/${encodeURIComponent(filename)}`;
 
 const createTimestamp = () => {
   const now = new Date();
@@ -546,6 +548,9 @@ const readBackupIndex = async () => {
           mode: parsed.mode || "schema-and-data",
           engine: parsed.engine || "postgresql",
           origin: parsed.origin || "manual",
+          downloadUrl: buildLocalDownloadUrl(
+            parsed.filename || path.basename(file, ".meta.json"),
+          ),
         };
       }),
   );
@@ -619,7 +624,7 @@ export const performBackup = async ({
     sizeBytes: stats.size,
     sizeKB: bytesToKB(stats.size),
     format: "sql",
-    downloadUrl: `/api/admin/backups/download/${encodeURIComponent(filename)}`,
+    downloadUrl: buildLocalDownloadUrl(filename),
     restoreGuide: getRestoreGuide({ filename, mode, scope, schema, table }),
     cloudinary: null,
   };

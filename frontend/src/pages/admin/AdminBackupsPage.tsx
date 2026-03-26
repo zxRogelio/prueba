@@ -17,6 +17,8 @@ import {
 
 type TabKey = "overview" | "manual" | "schedules" | "history";
 type ToastType = "success" | "error" | "info";
+type HistoryOriginFilter = "all" | "manual" | "scheduled";
+type HistoryStorageFilter = "all" | "local" | "cloud";
 
 type ToastItem = {
   id: number;
@@ -25,11 +27,16 @@ type ToastItem = {
   message: string;
 };
 
+const HISTORY_PAGE_SIZE = 6;
+
 const formatDate = (value?: string | null) => {
   if (!value) return "N/D";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "N/D";
-  return date.toLocaleString();
+  return date.toLocaleString("es-MX", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 };
 
 const getErrorMessage = (error: unknown, fallback: string) => {
@@ -59,14 +66,32 @@ const getModeLabel = (mode?: BackupMode | string | null) => {
   return "No identificado";
 };
 
-const getSourceLabel = (backup: BackupRecord) => {
-  const hasCloudinary = Boolean(backup.cloudinary?.url);
+const hasCloudCopy = (backup: BackupRecord) =>
+  backup.source === "cloudinary" || Boolean(backup.cloudinary?.url);
 
-  if (backup.source === "cloudinary") return "Cloudinary";
-  if (backup.source === "local" && hasCloudinary) return "Local + Cloudinary";
+const isManualBackup = (backup: BackupRecord) => backup.origin !== "scheduled";
+
+const getOriginLabel = (origin?: BackupRecord["origin"]) =>
+  origin === "scheduled" ? "Programado" : "Manual";
+
+const getSourceLabel = (backup: BackupRecord) => {
+  if (backup.source === "cloudinary") return "Nube / Cloudinary";
+  if (backup.source === "local" && hasCloudCopy(backup)) return "Local + nube";
   if (backup.source === "local") return "Local";
-  if (hasCloudinary) return "Cloudinary";
+  if (hasCloudCopy(backup)) return "Nube / Cloudinary";
   return "Desconocido";
+};
+
+const parseDateFilterValue = (value: string, endOfDay = false) => {
+  if (!value) return null;
+
+  const [year, month, day] = value.split("-").map(Number);
+
+  if (!year || !month || !day) return null;
+
+  return endOfDay
+    ? new Date(year, month - 1, day, 23, 59, 59, 999)
+    : new Date(year, month - 1, day, 0, 0, 0, 0);
 };
 
 const cronPresets = [
@@ -111,6 +136,13 @@ export default function AdminBackupsPage() {
   const [deletingScheduleId, setDeletingScheduleId] = useState<string | null>(null);
 
   const [scheduleForm, setScheduleForm] = useState(emptyScheduleForm);
+  const [historyOriginFilter, setHistoryOriginFilter] =
+    useState<HistoryOriginFilter>("all");
+  const [historyStorageFilter, setHistoryStorageFilter] =
+    useState<HistoryStorageFilter>("all");
+  const [historyStartDate, setHistoryStartDate] = useState("");
+  const [historyEndDate, setHistoryEndDate] = useState("");
+  const [historyPage, setHistoryPage] = useState(1);
 
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
@@ -181,6 +213,10 @@ export default function AdminBackupsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [historyEndDate, historyOriginFilter, historyStartDate, historyStorageFilter]);
+
   const tableOptions = useMemo(
     () =>
       tables.map((item) => ({
@@ -220,6 +256,102 @@ export default function AdminBackupsPage() {
   const latestScheduledBackups = useMemo(() => {
     return backups.filter((item) => item.origin === "scheduled").slice(0, 5);
   }, [backups]);
+
+  const filteredHistoryBackups = useMemo(() => {
+    const startDate = parseDateFilterValue(historyStartDate);
+    const endDate = parseDateFilterValue(historyEndDate, true);
+
+    return backups.filter((backup) => {
+      const createdAt = backup.createdAt ? new Date(backup.createdAt) : null;
+
+      const matchesOrigin =
+        historyOriginFilter === "all" ||
+        (historyOriginFilter === "manual"
+          ? isManualBackup(backup)
+          : backup.origin === "scheduled");
+
+      const matchesStorage =
+        historyStorageFilter === "all" ||
+        (historyStorageFilter === "cloud"
+          ? hasCloudCopy(backup)
+          : !hasCloudCopy(backup));
+
+      if (!matchesOrigin || !matchesStorage) return false;
+
+      if (!createdAt || Number.isNaN(createdAt.getTime())) {
+        return !startDate && !endDate;
+      }
+
+      if (startDate && createdAt < startDate) return false;
+      if (endDate && createdAt > endDate) return false;
+
+      return true;
+    });
+  }, [
+    backups,
+    historyEndDate,
+    historyOriginFilter,
+    historyStartDate,
+    historyStorageFilter,
+  ]);
+
+  const historySummaryCards = useMemo(() => {
+    return {
+      total: backups.length,
+      manuals: backups.filter(isManualBackup).length,
+      cloud: backups.filter(hasCloudCopy).length,
+      visible: filteredHistoryBackups.length,
+    };
+  }, [backups, filteredHistoryBackups.length]);
+
+  const totalHistoryPages = Math.max(
+    1,
+    Math.ceil(filteredHistoryBackups.length / HISTORY_PAGE_SIZE),
+  );
+
+  useEffect(() => {
+    if (historyPage > totalHistoryPages) {
+      setHistoryPage(totalHistoryPages);
+    }
+  }, [historyPage, totalHistoryPages]);
+
+  const paginatedHistoryBackups = useMemo(() => {
+    const startIndex = (historyPage - 1) * HISTORY_PAGE_SIZE;
+    return filteredHistoryBackups.slice(
+      startIndex,
+      startIndex + HISTORY_PAGE_SIZE,
+    );
+  }, [filteredHistoryBackups, historyPage]);
+
+  const hasActiveHistoryFilters = Boolean(
+    historyOriginFilter !== "all" ||
+      historyStorageFilter !== "all" ||
+      historyStartDate ||
+      historyEndDate,
+  );
+
+  const historyResultsLabel = useMemo(() => {
+    if (filteredHistoryBackups.length === 0) {
+      return "0 resultados";
+    }
+
+    const startIndex = (historyPage - 1) * HISTORY_PAGE_SIZE + 1;
+    const endIndex = startIndex + paginatedHistoryBackups.length - 1;
+
+    return `Mostrando ${startIndex}-${endIndex} de ${filteredHistoryBackups.length} respaldos`;
+  }, [filteredHistoryBackups.length, historyPage, paginatedHistoryBackups.length]);
+
+  const displayedHistoryPage =
+    filteredHistoryBackups.length === 0 ? 0 : Math.min(historyPage, totalHistoryPages);
+  const displayedHistoryPages =
+    filteredHistoryBackups.length === 0 ? 0 : totalHistoryPages;
+
+  const clearHistoryFilters = () => {
+    setHistoryOriginFilter("all");
+    setHistoryStorageFilter("all");
+    setHistoryStartDate("");
+    setHistoryEndDate("");
+  };
 
   const handleCreateBackup = async () => {
     setCreatingBackup(true);
@@ -350,16 +482,20 @@ export default function AdminBackupsPage() {
 
   const handleDownloadBackup = async (backup: BackupRecord) => {
     try {
-      if (!backup.downloadUrl) {
+      if (!backup.downloadUrl && !backup.cloudinary?.url) {
         pushToast(
           "error",
           "Descarga no disponible",
-          "Este respaldo no tiene descarga local.",
+          "Este respaldo no tiene una ruta de descarga disponible.",
         );
         return;
       }
 
-      await downloadBackupFile(backup.downloadUrl, backup.filename);
+      await downloadBackupFile(
+        backup.downloadUrl,
+        backup.filename,
+        backup.cloudinary?.url,
+      );
 
       pushToast(
         "success",
@@ -918,21 +1054,138 @@ export default function AdminBackupsPage() {
           <div className={styles.tabContent}>
             <div className={styles.sectionHeader}>
               <h2>Historial de respaldos</h2>
-              <p>Todos los backups manuales y programados.</p>
+              <p>
+                Filtra por manuales, nube y rango de fechas sin perder visibilidad
+                del historial completo.
+              </p>
             </div>
 
             <div className={styles.card}>
+              <div className={styles.historyToolbar}>
+                <div className={styles.historySummaryGrid}>
+                  <div className={styles.historySummaryCard}>
+                    <span>Total historial</span>
+                    <strong>{historySummaryCards.total}</strong>
+                    <small>Respaldos registrados.</small>
+                  </div>
+
+                  <div className={styles.historySummaryCard}>
+                    <span>Manuales</span>
+                    <strong>{historySummaryCards.manuals}</strong>
+                    <small>Generados desde el panel.</small>
+                  </div>
+
+                  <div className={styles.historySummaryCard}>
+                    <span>En nube</span>
+                    <strong>{historySummaryCards.cloud}</strong>
+                    <small>Con copia en Cloudinary.</small>
+                  </div>
+
+                  <div className={styles.historySummaryCard}>
+                    <span>Resultados</span>
+                    <strong>{historySummaryCards.visible}</strong>
+                    <small>Segun los filtros activos.</small>
+                  </div>
+                </div>
+
+                <div className={styles.historyFilterGrid}>
+                  <label className={styles.field}>
+                    <span>Origen</span>
+                    <select
+                      value={historyOriginFilter}
+                      onChange={(e) =>
+                        setHistoryOriginFilter(
+                          e.target.value as HistoryOriginFilter,
+                        )
+                      }
+                    >
+                      <option value="all">Todos</option>
+                      <option value="manual">Manuales</option>
+                      <option value="scheduled">Programados</option>
+                    </select>
+                  </label>
+
+                  <label className={styles.field}>
+                    <span>Almacenamiento</span>
+                    <select
+                      value={historyStorageFilter}
+                      onChange={(e) =>
+                        setHistoryStorageFilter(
+                          e.target.value as HistoryStorageFilter,
+                        )
+                      }
+                    >
+                      <option value="all">Todo</option>
+                      <option value="local">Solo local</option>
+                      <option value="cloud">Con copia en nube</option>
+                    </select>
+                  </label>
+
+                  <label className={styles.field}>
+                    <span>Desde</span>
+                    <input
+                      type="date"
+                      className={styles.textInput}
+                      value={historyStartDate}
+                      max={historyEndDate || undefined}
+                      onChange={(e) => setHistoryStartDate(e.target.value)}
+                    />
+                  </label>
+
+                  <label className={styles.field}>
+                    <span>Hasta</span>
+                    <input
+                      type="date"
+                      className={styles.textInput}
+                      value={historyEndDate}
+                      min={historyStartDate || undefined}
+                      onChange={(e) => setHistoryEndDate(e.target.value)}
+                    />
+                  </label>
+
+                  <div className={styles.historyFilterActions}>
+                    <button
+                      type="button"
+                      className={styles.secondaryBtn}
+                      onClick={clearHistoryFilters}
+                      disabled={!hasActiveHistoryFilters}
+                    >
+                      Limpiar filtros
+                    </button>
+                  </div>
+                </div>
+
+                <div className={styles.historyMetaBar}>
+                  <div className={styles.historyMetaCopy}>
+                    <strong>{historyResultsLabel}</strong>
+                    <span>
+                      {hasActiveHistoryFilters
+                        ? "Vista filtrada por origen, almacenamiento o fechas."
+                        : "Mostrando el historial completo de respaldos."}
+                    </span>
+                  </div>
+
+                  <span
+                    className={
+                      hasActiveHistoryFilters ? styles.filterBadge : styles.badgeSoft
+                    }
+                  >
+                    {hasActiveHistoryFilters ? "Filtros activos" : "Vista completa"}
+                  </span>
+                </div>
+              </div>
+
               <div className={styles.tableWrap}>
                 <table className={styles.table}>
                   <thead>
                     <tr>
                       <th>Fecha</th>
-                      <th>Tipo</th>
+                      <th>Alcance</th>
                       <th>Modo</th>
-                      <th>Origen</th>
+                      <th>Ejecución</th>
+                      <th>Almacenamiento</th>
                       <th>Contenido</th>
                       <th>Tamaño</th>
-                      <th>Nube</th>
                       <th>Acciones</th>
                     </tr>
                   </thead>
@@ -943,25 +1196,37 @@ export default function AdminBackupsPage() {
                           Cargando historial...
                         </td>
                       </tr>
-                    ) : backups.length === 0 ? (
+                    ) : filteredHistoryBackups.length === 0 ? (
                       <tr>
                         <td colSpan={8} className={styles.emptyRow}>
-                          Aún no hay respaldos generados.
+                          {backups.length === 0
+                            ? "Aún no hay respaldos generados."
+                            : "No hay respaldos que coincidan con los filtros seleccionados."}
                         </td>
                       </tr>
                     ) : (
-                      backups.map((backup) => (
+                      paginatedHistoryBackups.map((backup) => (
                         <tr key={backup.id}>
                           <td>{formatDate(backup.createdAt)}</td>
                           <td>{getScopeLabel(backup.scope)}</td>
                           <td>{getModeLabel(backup.mode)}</td>
                           <td>
                             <div className={styles.contentCell}>
-                              <strong>{getSourceLabel(backup)}</strong>
+                              <strong>{getOriginLabel(backup.origin)}</strong>
                               <span>
                                 {backup.origin === "scheduled"
-                                  ? "Programado"
-                                  : "Manual"}
+                                  ? "Generado por una programación"
+                                  : "Generado manualmente"}
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            <div className={styles.contentCell}>
+                              <strong>{getSourceLabel(backup)}</strong>
+                              <span>
+                                {hasCloudCopy(backup)
+                                  ? "Con copia remota disponible"
+                                  : "Disponible solo en local"}
                               </span>
                             </div>
                           </td>
@@ -978,10 +1243,9 @@ export default function AdminBackupsPage() {
                             </div>
                           </td>
                           <td>{backup.sizeKB || "N/D"} KB</td>
-                          <td>{backup.cloudinary?.url ? "Sí" : "No"}</td>
                           <td>
                             <div className={styles.rowActions}>
-                              {backup.downloadUrl ? (
+                              {backup.downloadUrl || backup.cloudinary?.url ? (
                                 <button
                                   type="button"
                                   className={styles.downloadButton}
@@ -994,6 +1258,17 @@ export default function AdminBackupsPage() {
                                   Sin descarga
                                 </span>
                               )}
+
+                              {backup.cloudinary?.url ? (
+                                <a
+                                  className={styles.cloudLink}
+                                  href={backup.cloudinary.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  Ver nube
+                                </a>
+                              ) : null}
                             </div>
                           </td>
                         </tr>
@@ -1001,6 +1276,41 @@ export default function AdminBackupsPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              <div className={styles.paginationBar}>
+                <span className={styles.paginationSummary}>{historyResultsLabel}</span>
+
+                <div className={styles.paginationActions}>
+                  <button
+                    type="button"
+                    className={styles.secondaryBtn}
+                    disabled={displayedHistoryPage <= 1}
+                    onClick={() => setHistoryPage((current) => Math.max(1, current - 1))}
+                  >
+                    Anterior
+                  </button>
+
+                  <div className={styles.paginationIndicator}>
+                    Página {displayedHistoryPage} de {displayedHistoryPages}
+                  </div>
+
+                  <button
+                    type="button"
+                    className={styles.secondaryBtn}
+                    disabled={
+                      displayedHistoryPage === 0 ||
+                      displayedHistoryPage >= displayedHistoryPages
+                    }
+                    onClick={() =>
+                      setHistoryPage((current) =>
+                        Math.min(totalHistoryPages, current + 1),
+                      )
+                    }
+                  >
+                    Siguiente
+                  </button>
+                </div>
               </div>
             </div>
           </div>

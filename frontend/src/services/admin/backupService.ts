@@ -1,5 +1,46 @@
 import {API} from "../../api/api";
 
+const triggerFileDownload = (payload: BlobPart, filename: string, type: string) => {
+  const blob = payload instanceof Blob ? payload : new Blob([payload], { type });
+  const objectUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(objectUrl);
+};
+
+const normalizeBackupDownloadUrl = (downloadUrl: string) => {
+  if (/^https?:\/\//i.test(downloadUrl)) return downloadUrl;
+
+  const baseURL = API.defaults.baseURL;
+  if (!baseURL) return downloadUrl;
+
+  try {
+    const basePath = new URL(baseURL, window.location.origin).pathname.replace(/\/+$/, "");
+
+    if (/\/api$/i.test(basePath) && downloadUrl.startsWith("/api/")) {
+      return downloadUrl.replace(/^\/api/, "");
+    }
+  } catch {
+    return downloadUrl;
+  }
+
+  return downloadUrl;
+};
+
+const downloadFromCloudinary = async (cloudinaryUrl: string) => {
+  const response = await fetch(cloudinaryUrl);
+
+  if (!response.ok) {
+    throw new Error("No se pudo descargar el respaldo desde la nube.");
+  }
+
+  return response.blob();
+};
+
 export type BackupScope = "full" | "table";
 export type BackupMode = "data-only" | "schema-and-data";
 
@@ -108,22 +149,31 @@ export const createBackup = async (
 };
 
 export const downloadBackupFile = async (
-  downloadUrl: string,
+  downloadUrl: string | null | undefined,
   filename: string,
+  cloudinaryUrl?: string | null,
 ): Promise<void> => {
-  const response = await API.get(downloadUrl, {
-    responseType: "blob",
-  });
+  try {
+    if (downloadUrl) {
+      const response = await API.get(normalizeBackupDownloadUrl(downloadUrl), {
+        responseType: "blob",
+      });
 
-  const blob = new Blob([response.data], { type: "application/sql" });
-  const objectUrl = window.URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = objectUrl;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(objectUrl);
+      triggerFileDownload(response.data, filename, "application/sql");
+      return;
+    }
+  } catch (error) {
+    if (!cloudinaryUrl) {
+      throw error;
+    }
+  }
+
+  if (!cloudinaryUrl) {
+    throw new Error("No hay una ruta disponible para descargar este respaldo.");
+  }
+
+  const blob = await downloadFromCloudinary(cloudinaryUrl);
+  triggerFileDownload(blob, filename, blob.type || "application/sql");
 };
 
 export const listBackupSchedules = async (): Promise<BackupSchedulesResponse> => {

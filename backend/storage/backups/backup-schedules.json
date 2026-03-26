@@ -12,7 +12,39 @@
     "lastRunStatus": "success",
     "lastRunMessage": "Backup generado: backup-completo-estructura-datos-20260325-090002.sql",
     "createdAt": "2026-03-23T06:01:40.407Z",
-    "updatedAt": "2026-03-25T09:00:14.887Z",
+    "updatedAt": "2026-03-26T07:25:02.666Z",
     "id": "sched_1774245700407_xugeh0"
+  },
+  {
+    "enabled": true,
+    "cronExpression": "0 3 * * *",
+    "scope": "full",
+    "schema": "core",
+    "table": null,
+    "mode": "schema-and-data",
+    "uploadToCloudinary": false,
+    "timezone": "America/Mexico_City",
+    "lastRunAt": "2026-03-26T07:23:10.505Z",
+    "lastRunStatus": "success",
+    "lastRunMessage": "Backup generado: backup-completo-estructura-datos-20260326-072259.sql",
+    "createdAt": "2026-03-26T07:22:40.816Z",
+    "updatedAt": "2026-03-26T07:25:02.666Z",
+    "id": "sched_1774509760816_jhv4ra"
+  },
+  {
+    "enabled": true,
+    "cronExpression": "0 3 * * *",
+    "scope": "full",
+    "schema": "core",
+    "table": null,
+    "mode": "schema-and-data",
+    "uploadToCloudinary": true,
+    "timezone": "America/Mexico_City",
+    "lastRunAt": "2026-03-26T07:25:14.998Z",
+    "lastRunStatus": "success",
+    "lastRunMessage": "Backup generado: backup-completo-estructura-datos-20260326-072503.sql",
+    "createdAt": "2026-03-26T07:24:37.652Z",
+    "updatedAt": "2026-03-26T07:25:14.998Z",
+    "id": "sched_1774509877652_asyqkw"
   }
 ]
