@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from "react";
 import {
   CalendarClock,
@@ -22,26 +23,30 @@ import {
   YAxis,
 } from "recharts";
 import styles from "./ProfilePredictionPanel.module.css";
+
 import {
   buildDisplayProgressRecords,
   buildPredictionSummary,
-  createEmptyProfilePredictionState,
-  loadProfilePredictionState,
-  saveProfilePredictionState,
   type FitnessGoalOption,
   type LifestyleData,
   type PersonalData,
   type ProfilePredictionState,
-  type ProgressRecord,
 } from "../../../../services/client/profilePredictionService";
 
-interface ProfilePredictionPanelProps {
-  storageScope: string;
-  displayName?: string;
-}
+import {
+  createWeeklyCalories,
+  createWeeklyWeight,
+  deleteLatestWeight,
+  getMyProfileDashboard,
+  updateMyProfile,
+  type ActivityLevelOption,
+  type CalorieRecordDTO,
+  type UserProfileDTO,
+  type WeightRecordDTO,
+} from "../../../../services/client/profileService";
 
-function getTodayInputValue() {
-  return new Date().toISOString().slice(0, 10);
+interface ProfilePredictionPanelProps {
+  displayName?: string;
 }
 
 function formatWeight(value: number | null) {
@@ -69,6 +74,16 @@ function formatGoalDate(value: string | null) {
   return new Date(value).toLocaleDateString("es-MX", {
     day: "numeric",
     month: "short",
+    year: "numeric",
+  });
+}
+
+function formatReadableDate(value: string | null) {
+  if (!value) return "--";
+
+  return new Date(value).toLocaleDateString("es-MX", {
+    day: "numeric",
+    month: "long",
     year: "numeric",
   });
 }
@@ -103,37 +118,140 @@ function formatRecordDate(recordDate: string) {
   });
 }
 
+function toPersonalData(profile: UserProfileDTO | null): PersonalData {
+  return {
+    age: profile?.age ? String(profile.age) : "",
+    gender: (profile?.gender || "") as PersonalData["gender"],
+    height: profile?.height ? String(profile.height) : "",
+    initialWeight: profile?.initialWeight ? String(profile.initialWeight) : "",
+    targetWeight: profile?.targetWeight ? String(profile.targetWeight) : "",
+    startDate: profile?.startDate || "",
+  };
+}
+
+function toLifestyleData(
+  profile: UserProfileDTO | null,
+  latestCalories: CalorieRecordDTO | null
+): LifestyleData {
+  return {
+    weeklyAttendance: profile?.weeklyGymDays ? String(profile.weeklyGymDays) : "",
+    dailyCalories: latestCalories?.dailyCalories
+      ? String(latestCalories.dailyCalories)
+      : "",
+    fitnessGoal: (profile?.fitnessGoal || "") as FitnessGoalOption,
+  };
+}
+
+function buildProfileStateFromApi(
+  profile: UserProfileDTO | null,
+  latestCalories: CalorieRecordDTO | null,
+  weightHistory: WeightRecordDTO[]
+): ProfilePredictionState {
+  return {
+    personalData: toPersonalData(profile),
+    lifestyleData: toLifestyleData(profile, latestCalories),
+    progressRecords: weightHistory.map((record) => ({
+      id: record.id,
+      date: record.recordDate,
+      weight: Number(record.weight),
+    })),
+  };
+}
+
+function getErrorMessage(error: unknown) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error &&
+    typeof (error as any).response?.data?.message === "string"
+  ) {
+    return (error as any).response.data.message;
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error &&
+    typeof (error as any).response?.data?.error === "string"
+  ) {
+    return (error as any).response.data.error;
+  }
+
+  return "Ocurrió un error inesperado.";
+}
+
 export default function ProfilePredictionPanel({
-  storageScope,
   displayName,
 }: ProfilePredictionPanelProps) {
-  const [profileState, setProfileState] = useState<ProfilePredictionState>(
-    createEmptyProfilePredictionState()
-  );
-  const [isHydrated, setIsHydrated] = useState(false);
+  const [profileState, setProfileState] = useState<ProfilePredictionState>({
+    personalData: {
+      age: "",
+      gender: "",
+      height: "",
+      initialWeight: "",
+      targetWeight: "",
+      startDate: "",
+    },
+    lifestyleData: {
+      weeklyAttendance: "",
+      dailyCalories: "",
+      fitnessGoal: "",
+    },
+    progressRecords: [],
+  });
+
   const [recordWeight, setRecordWeight] = useState("");
-  const [recordDate, setRecordDate] = useState(getTodayInputValue());
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isSavingWeight, setIsSavingWeight] = useState(false);
+  const [isSavingCalories, setIsSavingCalories] = useState(false);
 
-  useEffect(() => {
-    const storedState = loadProfilePredictionState(storageScope);
-    setProfileState(storedState);
-    setRecordDate(getTodayInputValue());
-    setIsHydrated(true);
-  }, [storageScope]);
+  const [message, setMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isHydrated) return;
-    saveProfilePredictionState(storageScope, profileState);
-  }, [isHydrated, profileState, storageScope]);
+  const [canRegisterWeight, setCanRegisterWeight] = useState(true);
+  const [nextWeightAllowedDate, setNextWeightAllowedDate] = useState<string | null>(null);
+  const [canRegisterCalories, setCanRegisterCalories] = useState(true);
+  const [nextCaloriesAllowedDate, setNextCaloriesAllowedDate] = useState<string | null>(null);
 
   const summary = useMemo(
     () => buildPredictionSummary(profileState),
     [profileState]
   );
+
   const displayRecords = useMemo(
     () => buildDisplayProgressRecords(profileState.progressRecords),
     [profileState.progressRecords]
   );
+
+  const loadDashboard = async () => {
+    try {
+      setIsLoading(true);
+      setErrorMessage(null);
+
+      const data = await getMyProfileDashboard();
+
+      const nextState = buildProfileStateFromApi(
+        data.profile,
+        data.latestCalories,
+        data.weightHistory
+      );
+
+      setProfileState(nextState);
+      setCanRegisterWeight(data.canRegisterWeight);
+      setNextWeightAllowedDate(data.nextWeightAllowedDate);
+      setCanRegisterCalories(data.canRegisterCalories);
+      setNextCaloriesAllowedDate(data.nextCaloriesAllowedDate);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboard();
+  }, []);
 
   const updatePersonalData = <K extends keyof PersonalData>(
     field: K,
@@ -161,45 +279,131 @@ export default function ProfilePredictionPanel({
     }));
   };
 
-  const addProgressRecord = () => {
-    const weight = Number(recordWeight);
+  const handleSaveProfile = async () => {
+    try {
+      setIsSavingProfile(true);
+      setMessage(null);
+      setErrorMessage(null);
 
-    if (!Number.isFinite(weight) || weight <= 0 || !recordDate) {
-      return;
+      await updateMyProfile({
+        age: profileState.personalData.age
+          ? Number(profileState.personalData.age)
+          : null,
+        gender: (profileState.personalData.gender || "") as
+          | ""
+          | "male"
+          | "female"
+          | "other",
+        height: profileState.personalData.height
+          ? Number(profileState.personalData.height)
+          : null,
+        initialWeight: profileState.personalData.initialWeight
+          ? Number(profileState.personalData.initialWeight)
+          : null,
+        targetWeight: profileState.personalData.targetWeight
+          ? Number(profileState.personalData.targetWeight)
+          : null,
+        startDate: profileState.personalData.startDate || null,
+        weeklyGymDays: profileState.lifestyleData.weeklyAttendance
+          ? Number(profileState.lifestyleData.weeklyAttendance)
+          : null,
+        activityLevel: "moderate" as ActivityLevelOption,
+        fitnessGoal: (profileState.lifestyleData.fitnessGoal || "") as
+          | ""
+          | "lose"
+          | "maintain"
+          | "gain",
+      });
+
+      setMessage("Perfil actualizado correctamente.");
+      await loadDashboard();
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsSavingProfile(false);
     }
-
-    setProfileState((previousState) => {
-      const nextRecord: ProgressRecord = {
-        id: crypto.randomUUID(),
-        date: recordDate,
-        weight,
-      };
-
-      const recordsWithoutSameDate = previousState.progressRecords.filter(
-        (record) => record.date !== recordDate
-      );
-
-      return {
-        ...previousState,
-        progressRecords: [...recordsWithoutSameDate, nextRecord].sort(
-          (left, right) =>
-            new Date(right.date).getTime() - new Date(left.date).getTime()
-        ),
-      };
-    });
-
-    setRecordWeight("");
-    setRecordDate(getTodayInputValue());
   };
 
-  const removeProgressRecord = (recordId: string) => {
-    setProfileState((previousState) => ({
-      ...previousState,
-      progressRecords: previousState.progressRecords.filter(
-        (record) => record.id !== recordId
-      ),
-    }));
+  const handleCreateWeight = async () => {
+    try {
+      const numericWeight = Number(recordWeight);
+
+      if (!Number.isFinite(numericWeight) || numericWeight <= 0) {
+        setErrorMessage("Ingresa un peso válido.");
+        return;
+      }
+
+      setIsSavingWeight(true);
+      setMessage(null);
+      setErrorMessage(null);
+
+      await createWeeklyWeight({
+        weight: numericWeight,
+      });
+
+      setRecordWeight("");
+      setMessage("Peso semanal registrado correctamente.");
+      await loadDashboard();
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsSavingWeight(false);
+    }
   };
+
+  const handleDeleteWeight = async (recordId: string) => {
+    try {
+      setMessage(null);
+      setErrorMessage(null);
+
+      await deleteLatestWeight(recordId);
+
+      setMessage("Último registro de peso eliminado correctamente.");
+      await loadDashboard();
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    }
+  };
+
+  const handleSaveWeeklyCalories = async () => {
+    try {
+      const numericCalories = Number(profileState.lifestyleData.dailyCalories);
+
+      if (!Number.isFinite(numericCalories) || numericCalories <= 0) {
+        setErrorMessage("Ingresa una cantidad válida de calorías.");
+        return;
+      }
+
+      setIsSavingCalories(true);
+      setMessage(null);
+      setErrorMessage(null);
+
+      await createWeeklyCalories({
+        dailyCalories: numericCalories,
+      });
+
+      setMessage("Calorías semanales registradas correctamente.");
+      await loadDashboard();
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsSavingCalories(false);
+    }
+  };
+
+  const latestRecordId = displayRecords.length > 0 ? displayRecords[0].id : null;
+
+  if (isLoading) {
+    return (
+      <section className={styles.page}>
+        <div className={styles.emptyState}>
+          <Sparkles size={28} />
+          <strong>Cargando perfil...</strong>
+          <span>Estamos obteniendo tu información guardada.</span>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className={styles.page}>
@@ -208,10 +412,13 @@ export default function ProfilePredictionPanel({
           {displayName ? `${displayName} - Mi Perfil` : "Mi Perfil"}
         </h1>
         <p className={styles.pageSubtitle}>
-          Desde aqui podras actualizar tus datos personales, registrar tu
-          progreso y seguir una prediccion de avance.
+          Desde aquí podrás actualizar tus datos personales, registrar tu
+          progreso y seguir una predicción de avance.
         </p>
       </header>
+
+      {message ? <div className={styles.successMessage}>{message}</div> : null}
+      {errorMessage ? <div className={styles.errorMessage}>{errorMessage}</div> : null}
 
       <section className={styles.section}>
         <div className={styles.sectionHeading}>
@@ -227,9 +434,9 @@ export default function ProfilePredictionPanel({
                   <UserRound size={18} />
                 </span>
                 <div>
-                  <h3>Datos Personales y Fisicos</h3>
+                  <h3>Datos Personales y Físicos</h3>
                   <p>
-                    Ingresa tu informacion basica para personalizar tu experiencia.
+                    Ingresa tu información básica para personalizar tu experiencia.
                   </p>
                 </div>
               </div>
@@ -253,7 +460,7 @@ export default function ProfilePredictionPanel({
                 </label>
 
                 <label className={styles.field}>
-                  <span className={styles.label}>Genero</span>
+                  <span className={styles.label}>Género</span>
                   <select
                     className={styles.select}
                     value={profileState.personalData.gender}
@@ -331,6 +538,18 @@ export default function ProfilePredictionPanel({
                   />
                 </label>
               </div>
+
+              <div className={styles.recordActions}>
+                <button
+                  type="button"
+                  className={styles.primaryButton}
+                  onClick={handleSaveProfile}
+                  disabled={isSavingProfile}
+                >
+                  <UserRound size={16} />
+                  {isSavingProfile ? "Guardando..." : "Guardar perfil"}
+                </button>
+              </div>
             </div>
           </article>
 
@@ -343,7 +562,7 @@ export default function ProfilePredictionPanel({
                 <div>
                   <h3>Estilo de Vida y Entrenamiento</h3>
                   <p>
-                    Informacion sobre tus habitos de ejercicio y nutricion.
+                    Información sobre tus hábitos de ejercicio y nutrición.
                   </p>
                 </div>
               </div>
@@ -360,17 +579,17 @@ export default function ProfilePredictionPanel({
                       updateLifestyleData("weeklyAttendance", event.target.value)
                     }
                   >
-                    <option value="">Dias por semana</option>
+                    <option value="">Días por semana</option>
                     {Array.from({ length: 7 }, (_, index) => index + 1).map((day) => (
                       <option key={day} value={String(day)}>
-                        {day} {day === 1 ? "dia" : "dias"}
+                        {day} {day === 1 ? "día" : "días"}
                       </option>
                     ))}
                   </select>
                 </label>
 
                 <label className={styles.field}>
-                  <span className={styles.label}>Ingesta Calorica Diaria</span>
+                  <span className={styles.label}>Ingesta Calórica Diaria</span>
                   <input
                     className={styles.input}
                     type="number"
@@ -404,6 +623,29 @@ export default function ProfilePredictionPanel({
                   </select>
                 </label>
               </div>
+
+              <div className={styles.recordHelper}>
+                {canRegisterCalories ? (
+                  <span>Ya puedes registrar tus calorías semanales.</span>
+                ) : (
+                  <span>
+                    Podrás registrar calorías nuevamente a partir del{" "}
+                    <strong>{formatReadableDate(nextCaloriesAllowedDate)}</strong>.
+                  </span>
+                )}
+              </div>
+
+              <div className={styles.recordActions}>
+                <button
+                  type="button"
+                  className={styles.primaryButton}
+                  onClick={handleSaveWeeklyCalories}
+                  disabled={isSavingCalories || !canRegisterCalories}
+                >
+                  <CalendarClock size={16} />
+                  {isSavingCalories ? "Guardando..." : "Guardar calorías semanales"}
+                </button>
+              </div>
             </div>
           </article>
         </div>
@@ -425,7 +667,7 @@ export default function ProfilePredictionPanel({
                 <div>
                   <h3>Seguimiento de Progreso</h3>
                   <p>
-                    Registra tu peso regularmente para construir tu historial.
+                    Registra tu peso semanal para construir tu historial.
                   </p>
                 </div>
               </div>
@@ -447,25 +689,26 @@ export default function ProfilePredictionPanel({
                   />
                 </label>
 
-                <label className={styles.field}>
-                  <span className={styles.label}>Fecha</span>
-                  <input
-                    className={styles.input}
-                    type="date"
-                    value={recordDate}
-                    onChange={(event) => setRecordDate(event.target.value)}
-                  />
-                </label>
+                <div className={styles.recordHelper}>
+                  {canRegisterWeight ? (
+                    <span>Ya puedes registrar tu peso semanal.</span>
+                  ) : (
+                    <span>
+                      Podrás registrar tu peso nuevamente a partir del{" "}
+                      <strong>{formatReadableDate(nextWeightAllowedDate)}</strong>.
+                    </span>
+                  )}
+                </div>
 
                 <div className={styles.recordActions}>
                   <button
                     type="button"
                     className={styles.primaryButton}
-                    onClick={addProgressRecord}
-                    disabled={!recordWeight || !recordDate}
+                    onClick={handleCreateWeight}
+                    disabled={!recordWeight || isSavingWeight || !canRegisterWeight}
                   >
                     <CalendarClock size={16} />
-                    Agregar Registro
+                    {isSavingWeight ? "Guardando..." : "Guardar registro semanal"}
                   </button>
                 </div>
               </div>
@@ -482,44 +725,53 @@ export default function ProfilePredictionPanel({
                       </tr>
                     </thead>
                     <tbody>
-                      {displayRecords.map((record) => (
-                        <tr key={record.id}>
-                          <td>{formatRecordDate(record.date)}</td>
-                          <td>{record.weight.toFixed(1)}</td>
-                          <td>
-                            <span
-                              className={`${styles.changeCell} ${getChangeClassName(record.change)}`}
-                            >
-                              {record.change === null ? (
-                                <Minus size={14} />
-                              ) : (
-                                <LineChartIcon size={14} />
-                              )}
-                              {getChangeLabel(record.change)}
-                            </span>
-                          </td>
-                          <td>
-                            <button
-                              type="button"
-                              className={styles.iconButton}
-                              onClick={() => removeProgressRecord(record.id)}
-                              aria-label={`Eliminar registro del ${record.date}`}
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                      {displayRecords.map((record) => {
+                        const isLatest = record.id === latestRecordId;
+
+                        return (
+                          <tr key={record.id}>
+                            <td>{formatRecordDate(record.date)}</td>
+                            <td>{record.weight.toFixed(1)}</td>
+                            <td>
+                              <span
+                                className={`${styles.changeCell} ${getChangeClassName(record.change)}`}
+                              >
+                                {record.change === null ? (
+                                  <Minus size={14} />
+                                ) : (
+                                  <LineChartIcon size={14} />
+                                )}
+                                {getChangeLabel(record.change)}
+                              </span>
+                            </td>
+                            <td>
+                              <button
+                                type="button"
+                                className={styles.iconButton}
+                                onClick={() => handleDeleteWeight(record.id)}
+                                disabled={!isLatest}
+                                aria-label={`Eliminar registro del ${record.date}`}
+                                title={
+                                  isLatest
+                                    ? "Eliminar último registro"
+                                    : "Solo puedes eliminar el último registro"
+                                }
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               ) : (
                 <div className={styles.emptyState}>
                   <Weight size={28} />
-                  <strong>No hay registros aun</strong>
+                  <strong>No hay registros aún</strong>
                   <span>
-                    Agrega tu primer registro de peso para comenzar el
-                    seguimiento.
+                    Agrega tu primer registro de peso para comenzar el seguimiento.
                   </span>
                 </div>
               )}
@@ -533,10 +785,9 @@ export default function ProfilePredictionPanel({
                   <Sparkles size={18} />
                 </span>
                 <div>
-                  <h3>Panel de Prediccion</h3>
+                  <h3>Panel de Predicción</h3>
                   <p>
-                    Visualiza tu progreso y obten estimaciones basadas en tus
-                    datos.
+                    Visualiza tu progreso y obtén estimaciones basadas en tus datos.
                   </p>
                 </div>
               </div>
@@ -578,7 +829,7 @@ export default function ProfilePredictionPanel({
                     {formatRate(summary.projectedRate)}
                   </div>
                   <div className={styles.statHint}>
-                    Estimado semanal usando registros y habitos.
+                    Estimado semanal usando registros y hábitos.
                   </div>
                 </article>
 
@@ -617,8 +868,8 @@ export default function ProfilePredictionPanel({
                         tick={{ fontSize: 12, fill: "#7d7380" }}
                       />
                       <Tooltip
-                        formatter={(value: number | string) => {
-                          const numericValue = Number(value);
+                        formatter={(value) => {
+                          const numericValue = Number(value ?? 0);
                           return [`${numericValue.toFixed(1)} kg`, "Peso"];
                         }}
                         labelFormatter={(label) => `Fecha: ${label}`}
@@ -651,7 +902,7 @@ export default function ProfilePredictionPanel({
                   <LineChartIcon size={28} />
                   <strong>Sin datos para visualizar</strong>
                   <span>
-                    Agrega registros de peso para ver la grafica y generar una
+                    Agrega registros de peso para ver la gráfica y generar una
                     tendencia.
                   </span>
                 </div>
@@ -659,7 +910,7 @@ export default function ProfilePredictionPanel({
 
               <div className={styles.predictionFooter}>
                 <strong style={{ display: "block", marginBottom: 6 }}>
-                  Recomendacion actual
+                  Recomendación actual
                 </strong>
                 <div>{summary.recommendation}</div>
                 <div className={styles.predictionMeta}>

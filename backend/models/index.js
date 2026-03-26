@@ -5,6 +5,11 @@ import { ProductImage } from "./ProductImage.js";
 import { AboutPage } from "./AboutPage.js";
 import { AboutValue } from "./AboutValue.js";
 import { AboutTeamMember } from "./AboutTeamMember.js";
+import { User } from "./User.js";
+import { UserProfile } from "./UserProfile.js";
+import { UserWeightHistory } from "./UserWeightHistory.js";
+import { UserCalorieHistory } from "./UserCalorieHistory.js";
+
 // ✅ Category(id_categoria) <-> Brand(categoryId)
 Category.hasMany(Brand, {
   foreignKey: "categoryId",
@@ -71,6 +76,48 @@ AboutTeamMember.belongsTo(AboutPage, {
   as: "aboutPage",
 });
 
+// USER -> PROFILE
+User.hasOne(UserProfile, {
+  foreignKey: "userId",
+  sourceKey: "id",
+  as: "profile",
+  onDelete: "CASCADE",
+  hooks: true,
+});
+UserProfile.belongsTo(User, {
+  foreignKey: "userId",
+  targetKey: "id",
+  as: "user",
+});
+
+// USER -> WEIGHT HISTORY
+User.hasMany(UserWeightHistory, {
+  foreignKey: "userId",
+  sourceKey: "id",
+  as: "weightHistory",
+  onDelete: "CASCADE",
+  hooks: true,
+});
+UserWeightHistory.belongsTo(User, {
+  foreignKey: "userId",
+  targetKey: "id",
+  as: "user",
+});
+
+// USER -> CALORIE HISTORY
+User.hasMany(UserCalorieHistory, {
+  foreignKey: "userId",
+  sourceKey: "id",
+  as: "calorieHistory",
+  onDelete: "CASCADE",
+  hooks: true,
+});
+UserCalorieHistory.belongsTo(User, {
+  foreignKey: "userId",
+  targetKey: "id",
+  as: "user",
+});
+
 export {
   Brand,
   Category,
@@ -79,4 +126,8 @@ export {
   AboutPage,
   AboutValue,
   AboutTeamMember,
+  User,
+  UserProfile,
+  UserWeightHistory,
+  UserCalorieHistory,
 };
