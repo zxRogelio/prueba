@@ -4,7 +4,6 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaHeart,
-  FaHome,
   FaRegHeart,
   FaSearch,
   FaShoppingCart,
@@ -38,15 +37,17 @@ export default function CatalogoPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Set<CatalogProductView["id"]>>(
-    new Set()
+    new Set(),
   );
   const productsPerPage = 8;
   const catalogCategories = useMemo(
     () => buildCatalogCategories(products),
-    [products]
+    [products],
   );
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+
     let ignore = false;
 
     const loadProducts = async () => {
@@ -85,12 +86,14 @@ export default function CatalogoPage() {
         (product) =>
           product.name.toLowerCase().includes(query) ||
           product.category.toLowerCase().includes(query) ||
-          product.description.toLowerCase().includes(query)
+          product.description.toLowerCase().includes(query),
       );
     }
 
     if (selectedCategory !== "TODOS") {
-      filtered = filtered.filter((product) => product.category === selectedCategory);
+      filtered = filtered.filter(
+        (product) => product.category === selectedCategory,
+      );
     }
 
     switch (sortBy) {
@@ -107,7 +110,7 @@ export default function CatalogoPage() {
         filtered.sort(
           (a, b) =>
             new Date(b.createdAt ?? 0).getTime() -
-            new Date(a.createdAt ?? 0).getTime()
+            new Date(a.createdAt ?? 0).getTime(),
         );
         break;
       default:
@@ -140,7 +143,7 @@ export default function CatalogoPage() {
   const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
   const currentProducts = filteredProducts.slice(
     indexOfFirstProduct,
-    indexOfLastProduct
+    indexOfLastProduct,
   );
   const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
 
@@ -173,23 +176,6 @@ export default function CatalogoPage() {
     <main className={cx("catalogPage")}>
       <div className={cx("catalogShell")}>
         <section className={cx("catalogTopbar")}>
-          <nav className={cx("catalogBreadcrumbs")} aria-label="Ruta de navegacion">
-            <ol className={cx("catalogBreadcrumbList")}>
-              <li className={cx("catalogBreadcrumbItem")}>
-                <Link to="/" className={cx("catalogBreadcrumbLink")}>
-                  <FaHome />
-                  <span>Inicio</span>
-                </Link>
-              </li>
-              <li className={cx("catalogBreadcrumbSeparator")} aria-hidden="true">
-                /
-              </li>
-              <li className={cx("catalogBreadcrumbItem")}>
-                <span className={cx("catalogBreadcrumbCurrent")}>Productos</span>
-              </li>
-            </ol>
-          </nav>
-
           <div className={cx("catalogIntro")}>
             <div>
               <span className={cx("catalogKicker")}>Titanium Shop</span>
@@ -250,7 +236,8 @@ export default function CatalogoPage() {
                       type="button"
                       className={cx(
                         "catalogCategoryButton",
-                        selectedCategory === category && "catalogCategoryButtonActive"
+                        selectedCategory === category &&
+                          "catalogCategoryButtonActive",
                       )}
                       onClick={() => setSelectedCategory(category)}
                     >
@@ -269,7 +256,7 @@ export default function CatalogoPage() {
                       type="button"
                       className={cx(
                         "catalogSortButton",
-                        sortBy === option && "catalogSortButtonActive"
+                        sortBy === option && "catalogSortButtonActive",
                       )}
                       onClick={() => setSortBy(option)}
                     >
@@ -287,12 +274,17 @@ export default function CatalogoPage() {
           >
             <div className={cx("catalogResultsBar")}>
               <div>
-                <h2 id="catalog-list-title" className={cx("catalogResultsCount")}>
+                <h2
+                  id="catalog-list-title"
+                  className={cx("catalogResultsCount")}
+                >
                   Mostrando {filteredProducts.length} productos
                 </h2>
                 <p className={cx("catalogResultsContext")}>
                   Vista actual:
-                  <span className={cx("catalogResultsBadge")}>{selectedContext}</span>
+                  <span className={cx("catalogResultsBadge")}>
+                    {selectedContext}
+                  </span>
                 </p>
               </div>
             </div>
@@ -357,7 +349,10 @@ export default function CatalogoPage() {
                       product.originalPrice > product.price;
 
                     return (
-                      <article key={product.id} className={cx("catalogProductCard")}>
+                      <article
+                        key={product.id}
+                        className={cx("catalogProductCard")}
+                      >
                         <div className={cx("catalogProductMedia")}>
                           {product.badge && (
                             <span className={cx("catalogProductBadge")}>
@@ -369,7 +364,7 @@ export default function CatalogoPage() {
                             type="button"
                             className={cx(
                               "catalogProductFavorite",
-                              isFavorite && "catalogProductFavoriteActive"
+                              isFavorite && "catalogProductFavoriteActive",
                             )}
                             onClick={() => toggleFavorite(product.id)}
                             aria-label={
@@ -414,7 +409,7 @@ export default function CatalogoPage() {
                                   className={cx(
                                     index < product.rating
                                       ? "catalogProductStarFilled"
-                                      : "catalogProductStarEmpty"
+                                      : "catalogProductStarEmpty",
                                   )}
                                 />
                               ))}
@@ -441,7 +436,9 @@ export default function CatalogoPage() {
                               disabled={!product.inStock}
                             >
                               <FaShoppingCart />
-                              {product.inStock ? "Agregar al carrito" : "Sin stock"}
+                              {product.inStock
+                                ? "Agregar al carrito"
+                                : "Sin stock"}
                             </button>
                             <Link
                               to={getCatalogProductPath(product.id)}
@@ -457,12 +454,16 @@ export default function CatalogoPage() {
                 </div>
 
                 {totalPages > 1 && (
-                  <nav className={cx("catalogPagination")} aria-label="Paginacion">
+                  <nav
+                    className={cx("catalogPagination")}
+                    aria-label="Paginacion"
+                  >
                     <button
                       type="button"
                       className={cx(
                         "catalogPaginationArrow",
-                        currentPageNumber === 1 && "catalogPaginationArrowDisabled"
+                        currentPageNumber === 1 &&
+                          "catalogPaginationArrowDisabled",
                       )}
                       disabled={currentPageNumber === 1}
                       onClick={() =>
@@ -474,22 +475,23 @@ export default function CatalogoPage() {
                     </button>
 
                     <div className={cx("catalogPaginationNumbers")}>
-                      {Array.from({ length: totalPages }, (_, index) => index + 1).map(
-                        (pageNumber) => (
-                          <button
-                            key={pageNumber}
-                            type="button"
-                            className={cx(
-                              "catalogPaginationNumber",
-                              currentPageNumber === pageNumber &&
-                                "catalogPaginationNumberActive"
-                            )}
-                            onClick={() => setCurrentPageNumber(pageNumber)}
-                          >
-                            {pageNumber}
-                          </button>
-                        )
-                      )}
+                      {Array.from(
+                        { length: totalPages },
+                        (_, index) => index + 1,
+                      ).map((pageNumber) => (
+                        <button
+                          key={pageNumber}
+                          type="button"
+                          className={cx(
+                            "catalogPaginationNumber",
+                            currentPageNumber === pageNumber &&
+                              "catalogPaginationNumberActive",
+                          )}
+                          onClick={() => setCurrentPageNumber(pageNumber)}
+                        >
+                          {pageNumber}
+                        </button>
+                      ))}
                     </div>
 
                     <button
@@ -497,11 +499,13 @@ export default function CatalogoPage() {
                       className={cx(
                         "catalogPaginationArrow",
                         currentPageNumber === totalPages &&
-                          "catalogPaginationArrowDisabled"
+                          "catalogPaginationArrowDisabled",
                       )}
                       disabled={currentPageNumber === totalPages}
                       onClick={() =>
-                        setCurrentPageNumber((prev) => Math.min(totalPages, prev + 1))
+                        setCurrentPageNumber((prev) =>
+                          Math.min(totalPages, prev + 1),
+                        )
                       }
                       aria-label="Pagina siguiente"
                     >

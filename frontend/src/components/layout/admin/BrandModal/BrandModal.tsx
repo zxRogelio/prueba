@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import styles from "./BrandModal.module.css";
+import {
+  FaCheckCircle,
+  FaInfoCircle,
+  FaLayerGroup,
+  FaTag,
+  FaTags,
+  FaTimes,
+} from "react-icons/fa";
+import styles from "../CatalogModal.module.css";
 
 type IdLike = string | number;
 
@@ -26,8 +34,8 @@ const defaultData: BrandFormData = {
   categoryId: "",
 };
 
-const asStr = (v: unknown) => (v == null ? "" : String(v));
-const trimStr = (v: unknown) => asStr(v).trim();
+const asStr = (value: unknown) => (value == null ? "" : String(value));
+const trimStr = (value: unknown) => asStr(value).trim();
 
 export default function BrandModal({
   open,
@@ -39,10 +47,9 @@ export default function BrandModal({
 }: Props) {
   const [data, setData] = useState<BrandFormData>(defaultData);
 
-  // opcional: solo activas
   const activeCategories = useMemo(
-    () => categories.filter((c) => c.active),
-    [categories]
+    () => categories.filter((category) => category.active),
+    [categories],
   );
 
   useEffect(() => {
@@ -50,8 +57,7 @@ export default function BrandModal({
 
     const merged = { ...defaultData, ...initial };
 
-    // ✅ default: primera categoría activa
-    if (!merged.categoryId && activeCategories?.length) {
+    if (!merged.categoryId && activeCategories.length) {
       merged.categoryId = String(activeCategories[0].id);
     } else if (merged.categoryId != null) {
       merged.categoryId = String(merged.categoryId);
@@ -60,12 +66,13 @@ export default function BrandModal({
     setData(merged);
   }, [open, initial, activeCategories]);
 
-  const canSave = useMemo(() => {
-    return trimStr(data.name).length >= 2 && trimStr(data.categoryId).length > 0;
-  }, [data.name, data.categoryId]);
+  const canSave = useMemo(
+    () => trimStr(data.name).length >= 2 && trimStr(data.categoryId).length > 0,
+    [data.name, data.categoryId],
+  );
 
   useEffect(() => {
-    const onEsc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onEsc = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     if (open) window.addEventListener("keydown", onEsc);
     return () => window.removeEventListener("keydown", onEsc);
   }, [open, onClose]);
@@ -74,65 +81,135 @@ export default function BrandModal({
 
   return (
     <div className={styles.backdrop} onMouseDown={onClose}>
-      <div className={styles.modal} onMouseDown={(e) => e.stopPropagation()}>
+      <div className={styles.modal} onMouseDown={(event) => event.stopPropagation()}>
         <div className={styles.header}>
-          <div>
-            <h2 className={styles.title}>{title}</h2>
-            <p className={styles.subtitle}>Crea marcas para asignarlas a productos.</p>
+          <div className={styles.headerMain}>
+            <span className={styles.headerBadge}>Catalogo</span>
+            <div className={styles.titleRow}>
+              <span className={styles.titleIcon}>
+                <FaTags />
+              </span>
+              <div className={styles.titleBlock}>
+                <h2 className={styles.title}>{title}</h2>
+                <p className={styles.subtitle}>
+                  Registra marcas con el mismo estilo del panel admin y define
+                  a que categoria operativa pertenecen.
+                </p>
+              </div>
+            </div>
           </div>
-          <button className={styles.close} onClick={onClose} aria-label="Cerrar">
-            ✕
+
+          <button
+            type="button"
+            className={styles.closeButton}
+            onClick={onClose}
+            aria-label="Cerrar"
+          >
+            <FaTimes />
           </button>
         </div>
 
         <div className={styles.body}>
-          <div className={styles.grid}>
-            <label className={styles.field}>
-              <span>Categoría</span>
-              <select
-                value={data.categoryId}
-                onChange={(e) => setData((p) => ({ ...p, categoryId: e.target.value }))}
-                disabled={activeCategories.length === 0}
-              >
-                {activeCategories.length === 0 ? (
-                  <option value="">(No hay categorías activas)</option>
-                ) : (
-                  activeCategories.map((c) => (
-                    <option key={String(c.id)} value={String(c.id)}>
-                      {c.name}
-                    </option>
-                  ))
-                )}
-              </select>
-            </label>
-
-            <label className={styles.field}>
-              <span>Nombre</span>
-              <input
-                value={data.name}
-                onChange={(e) => setData((p) => ({ ...p, name: e.target.value }))}
-                placeholder="Ej. Optimum Nutrition"
-              />
-            </label>
-
-            <label className={styles.field}>
-              <span>Estado</span>
-              <select
-                value={data.active ? "Activo" : "Inactivo"}
-                onChange={(e) => setData((p) => ({ ...p, active: e.target.value === "Activo" }))}
-              >
-                <option value="Activo">Activo</option>
-                <option value="Inactivo">Inactivo</option>
-              </select>
-            </label>
+          <div className={styles.helperCallout}>
+            <span className={styles.helperIcon}>
+              <FaInfoCircle />
+            </span>
+            <div>
+              <strong>Relacion con categoria</strong>
+              <div>
+                Cada marca se registra ligada a una categoria activa para
+                mantener ordenado el catalogo del admin.
+              </div>
+            </div>
           </div>
+
+          <section className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <span className={styles.sectionIcon}>
+                <FaTags />
+              </span>
+              <div>
+                <h3 className={styles.sectionTitle}>Datos de la marca</h3>
+                <p className={styles.sectionSubtitle}>
+                  Selecciona la categoria donde se va a usar la marca y define
+                  su estado.
+                </p>
+              </div>
+            </div>
+
+            <div className={styles.grid}>
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>
+                  <FaLayerGroup className={styles.fieldLabelIcon} />
+                  Categoria
+                </span>
+                <select
+                  className={styles.select}
+                  value={data.categoryId}
+                  onChange={(event) =>
+                    setData((previous) => ({
+                      ...previous,
+                      categoryId: event.target.value,
+                    }))
+                  }
+                  disabled={activeCategories.length === 0}
+                >
+                  {activeCategories.length === 0 ? (
+                    <option value="">(No hay categorias activas)</option>
+                  ) : (
+                    activeCategories.map((category) => (
+                      <option key={String(category.id)} value={String(category.id)}>
+                        {category.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>
+                  <FaTag className={styles.fieldLabelIcon} />
+                  Nombre
+                </span>
+                <input
+                  className={styles.input}
+                  value={data.name}
+                  onChange={(event) =>
+                    setData((previous) => ({ ...previous, name: event.target.value }))
+                  }
+                  placeholder="Ej. Nike, Optimum Nutrition, Adidas"
+                />
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>
+                  <FaCheckCircle className={styles.fieldLabelIcon} />
+                  Estado
+                </span>
+                <select
+                  className={styles.select}
+                  value={data.active ? "Activo" : "Inactivo"}
+                  onChange={(event) =>
+                    setData((previous) => ({
+                      ...previous,
+                      active: event.target.value === "Activo",
+                    }))
+                  }
+                >
+                  <option value="Activo">Activo</option>
+                  <option value="Inactivo">Inactivo</option>
+                </select>
+              </label>
+            </div>
+          </section>
         </div>
 
         <div className={styles.footer}>
-          <button className={styles.btnGhost} onClick={onClose}>
+          <button type="button" className={styles.btnGhost} onClick={onClose}>
             Cancelar
           </button>
           <button
+            type="button"
             className={styles.btnPrimary}
             onClick={() =>
               canSave &&
@@ -144,7 +221,7 @@ export default function BrandModal({
             }
             disabled={!canSave}
           >
-            Guardar
+            Guardar marca
           </button>
         </div>
       </div>

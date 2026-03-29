@@ -3,20 +3,23 @@ import { Link } from "react-router-dom";
 import type { IconType } from "react-icons";
 import {
   FaArrowRight,
-  FaAward,
-  FaCalendarAlt,
+  FaBolt,
   FaCheck,
   FaChevronLeft,
   FaChevronRight,
   FaClock,
+  FaCrown,
   FaDumbbell,
   FaEnvelope,
+  FaFireAlt,
+  FaGlobeAmericas,
   FaMapMarkerAlt,
+  FaMoneyBillWave,
   FaPhoneAlt,
   FaRegEye,
   FaShoppingCart,
   FaStar,
-  FaUsers,
+  FaTimes,
 } from "react-icons/fa";
 import styles from "./HomePage.module.css";
 import { useCart } from "../../context/CartContext";
@@ -48,18 +51,27 @@ type HeroSlide = {
   image: string;
 };
 
-type StatItem = {
+type WelcomeFeature = {
   icon: IconType;
-  value: string;
-  label: string;
+  title: string;
   description: string;
+  badge: string;
+  image: string;
+  linkLabel: string;
+  linkTo: string;
 };
 
 type PlanItem = {
+  id: string;
   name: string;
+  description: string;
+  icon: IconType;
+  theme: "light" | "dark";
   price: number;
-  level: string;
-  features: string[];
+  features: Array<{
+    label: string;
+    included: boolean;
+  }>;
   popular?: boolean;
 };
 
@@ -110,72 +122,106 @@ const heroSlides: HeroSlide[] = [
   },
 ];
 
-const stats: StatItem[] = [
+const welcomeFeatures: WelcomeFeature[] = [
   {
-    icon: FaUsers,
-    value: "5,000+",
-    label: "Miembros Activos",
-    description: "Comunidad creciendo cada dia",
+    icon: FaMoneyBillWave,
+    title: "La mejor relacion calidad-precio para arrancar fuerte",
+    description:
+      "Planes claros, acceso real al gimnasio y una experiencia mucho mas premium sin sentirse lejana o fria.",
+    badge: "Planes desde $299",
+    image: HeroExterior,
+    linkLabel: "Ver suscripciones",
+    linkTo: "/suscripciones",
   },
   {
     icon: FaDumbbell,
-    value: "200+",
-    label: "Equipos",
-    description: "Ultima generacion",
+    title: "Equipo para cardio, fuerza y sesiones con mas ritmo",
+    description:
+      "Zona de pesas, cardio y trabajo funcional en un recorrido que se siente activo, amplio y con energia.",
+    badge: "Zona de fuerza y cardio",
+    image: HeroCoaching,
+    linkLabel: "Explorar servicios",
+    linkTo: "/servicios",
   },
   {
-    icon: FaCalendarAlt,
-    value: "50+",
-    label: "Clases Semanales",
-    description: "Para todos los niveles",
-  },
-  {
-    icon: FaAward,
-    value: "15+",
-    label: "Entrenadores",
-    description: "Certificados y presentes en piso",
+    icon: FaGlobeAmericas,
+    title: "Una comunidad que si te hace volver cada semana",
+    description:
+      "No vendes solo maquinas. Vendes ambiente, constancia, coaches visibles y un lugar donde entrenar se siente natural.",
+    badge: "Comunidad Titanium",
+    image: HeroTeam,
+    linkLabel: "Conocer mas",
+    linkTo: "/AboutePage",
   },
 ];
 
 const plans: PlanItem[] = [
   {
-    name: "Carte Blanche",
-    price: 299,
-    level: "Basico",
+    id: "basic",
+    name: "Basico",
+    description: "Perfecto para comenzar tu rutina fitness con una base solida.",
+    icon: FaDumbbell,
+    theme: "light",
+    price: 499,
     features: [
-      "Acceso al gimnasio",
-      "Horario limitado (6am - 2pm)",
-      "Zona de cardio",
-      "Vestidores",
+      { label: "Acceso al gimnasio", included: true },
+      { label: "Horario limitado (6am - 6pm)", included: true },
+      { label: "Equipos de cardio", included: true },
+      { label: "Vestuarios y duchas", included: true },
+      { label: "App de seguimiento", included: false },
+      { label: "Clases grupales", included: false },
+      { label: "Entrenador personal", included: false },
+      { label: "Acceso 24/7", included: false },
     ],
   },
   {
-    name: "Titanium Rojo",
-    price: 499,
-    level: "Premium",
+    id: "premium",
+    name: "Premium",
+    description: "El plan favorito para avanzar mas rapido con una experiencia mas completa.",
+    icon: FaCrown,
+    theme: "dark",
+    price: 799,
     popular: true,
     features: [
-      "Acceso ilimitado 24/7",
-      "Todas las areas",
-      "Clases grupales incluidas",
-      "Casillero personal",
-      "Evaluacion mensual",
+      { label: "Acceso al gimnasio", included: true },
+      { label: "Horario completo", included: true },
+      { label: "Todos los equipos", included: true },
+      { label: "Vestuarios y duchas", included: true },
+      { label: "App de seguimiento", included: true },
+      { label: "Clases grupales ilimitadas", included: true },
+      { label: "1 sesion de entrenador / mes", included: true },
+      { label: "Acceso 24/7", included: false },
     ],
   },
   {
-    name: "Titanium Negro",
-    price: 799,
-    level: "Elite",
+    id: "elite",
+    name: "Elite",
+    description: "Pensado para quienes buscan resultados fuertes, atencion y mayor libertad.",
+    icon: FaFireAlt,
+    theme: "light",
+    price: 1199,
     features: [
-      "Todo lo de Premium",
-      "Entrenador personal (4 sesiones)",
-      "Plan nutricional",
-      "Acceso a spa",
-      "Invitados (2/mes)",
-      "Estacionamiento VIP",
+      { label: "Acceso al gimnasio", included: true },
+      { label: "Horario completo", included: true },
+      { label: "Todos los equipos", included: true },
+      { label: "Vestuarios VIP", included: true },
+      { label: "App de seguimiento premium", included: true },
+      { label: "Clases grupales ilimitadas", included: true },
+      { label: "4 sesiones de entrenador / mes", included: true },
+      { label: "Acceso 24/7", included: true },
     ],
   },
 ];
+
+const mxnPriceFormatter = new Intl.NumberFormat("es-MX", {
+  style: "currency",
+  currency: "MXN",
+  maximumFractionDigits: 0,
+});
+
+function formatPriceMXN(value: number) {
+  return mxnPriceFormatter.format(value);
+}
 
 const trainers: TrainerItem[] = [
   {
@@ -332,8 +378,14 @@ export default function HomePage() {
   }, [storeProducts]);
 
   const scrollProducts = (direction: number) => {
-    productTrackRef.current?.scrollBy({
-      left: 340 * direction,
+    const track = productTrackRef.current;
+
+    if (!track) return;
+
+    const scrollAmount = Math.max(280, track.clientWidth * 0.92);
+
+    track.scrollBy({
+      left: scrollAmount * direction,
       behavior: "smooth",
     });
   };
@@ -351,7 +403,10 @@ export default function HomePage() {
           {heroSlides.map((slide, index) => (
             <div
               key={slide.title}
-              className={cx("home-hero__slide", index === currentSlide && "is-active")}
+              className={cx(
+                "home-hero__slide",
+                index === currentSlide && "is-active",
+              )}
               style={{ backgroundImage: `url(${slide.image})` }}
             />
           ))}
@@ -360,18 +415,33 @@ export default function HomePage() {
         <div className={cx("home-hero__overlay")} />
 
         <div className={cx("home-shell home-hero__inner")}>
-          <span className={cx("home-hero__label")}>{activeSlide.label}</span>
-          <h1 className={cx("home-hero__title")}>{activeSlide.title}</h1>
-          <p className={cx("home-hero__accent")}>{activeSlide.accent}</p>
-          <p className={cx("home-hero__description")}>{activeSlide.description}</p>
+          <div key={activeSlide.title} className={cx("home-hero__copy")}>
+            <span className={cx("home-hero__label")}>{activeSlide.label}</span>
+            <h1 className={cx("home-hero__title")}>{activeSlide.title}</h1>
+            <p className={cx("home-hero__accent")}>{activeSlide.accent}</p>
+            <p className={cx("home-hero__description")}>
+              {activeSlide.description}
+            </p>
 
-          <div className={cx("home-hero__actions")}>
-            <Link to="/register" className={cx("home-button home-button--solid")}>
-              SUSCRIBETE
-            </Link>
-            <Link to="/AboutePage" className={cx("home-button home-button--outline")}>
-              CONOCE MAS
-            </Link>
+            <div className={cx("home-hero__actions")}>
+              <Link
+                to="/register"
+                className={cx("home-button home-button--solid")}
+              >
+                SUSCRIBETE
+              </Link>
+              <Link
+                to="/AboutePage"
+                className={cx("home-button home-button--outline")}
+              >
+                CONOCE MAS
+              </Link>
+            </div>
+
+            <div className={cx("home-hero__scroll")}>
+              <span>Desliza y descubre Titanium</span>
+              <span className={cx("home-hero__scroll-line")} />
+            </div>
           </div>
 
           <div className={cx("home-hero__dots")}>
@@ -379,7 +449,10 @@ export default function HomePage() {
               <button
                 key={slide.title}
                 type="button"
-                className={cx("home-hero__dot", index === currentSlide && "is-active")}
+                className={cx(
+                  "home-hero__dot",
+                  index === currentSlide && "is-active",
+                )}
                 onClick={() => setCurrentSlide(index)}
                 aria-label={`Ir al slide ${index + 1}`}
               />
@@ -388,22 +461,113 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className={cx("home-stats")}>
-        <div className={cx("home-shell home-stats__grid")}>
-          {stats.map((item) => {
-            const Icon = item.icon;
+      <section className={cx("home-welcome")}>
+        <div className={cx("home-welcome__media-band")}>
+          <div className={cx("home-shell")}>
+            <div className={cx("home-welcome__media-frame")}>
+              <img
+                src={HeroCoaching}
+                alt="Entrenamiento dinamico en Titanium Sport Gym"
+                className={cx("home-welcome__media-image")}
+              />
+              <div className={cx("home-welcome__media-overlay")} />
 
-            return (
-              <article key={item.label} className={cx("home-stats__item")}>
-                <span className={cx("home-stats__icon")}>
-                  <Icon />
+              <div
+                className={cx(
+                  "home-welcome__floating-note",
+                  "home-welcome__floating-note--left",
+                )}
+              >
+                <span className={cx("home-welcome__floating-kicker")}>
+                  <FaBolt />
+                  Alta energia
                 </span>
-                <strong className={cx("home-stats__value")}>{item.value}</strong>
-                <h2 className={cx("home-stats__label")}>{item.label}</h2>
-                <p className={cx("home-stats__description")}>{item.description}</p>
-              </article>
-            );
-          })}
+                <strong>Coaching visible y ambiente con mucha mas vida</strong>
+              </div>
+
+              <div
+                className={cx(
+                  "home-welcome__floating-note",
+                  "home-welcome__floating-note--right",
+                )}
+              >
+                <div className={cx("home-welcome__avatar-stack")}>
+                  {trainers.slice(0, 3).map((trainer) => (
+                    <img
+                      key={trainer.name}
+                      src={trainer.image}
+                      alt={trainer.name}
+                      className={cx("home-welcome__avatar")}
+                    />
+                  ))}
+                </div>
+                <div className={cx("home-welcome__floating-copy")}>
+                  <span>Coaches en piso</span>
+                  <strong>Acompanamiento real en cada sesion</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className={cx("home-shell home-welcome__content")}>
+          <div className={cx("home-section-head home-section-head--center")}>
+            <span className={cx("home-welcome__eyebrow")}>
+              Experiencia Titanium
+            </span>
+            <h2 className={cx("home-welcome__title")}>
+              UN LUGAR DONDE <span>TODOS</span> SE SIENTEN BIENVENIDOS
+            </h2>
+            <p className={cx("home-section-text")}>
+              Tomando tu referencia, esta zona ahora baja del slider con una
+              presencia mas fuerte: imagen protagonista, corte diagonal,
+              informacion clara y una lectura visual mucho mas viva.
+            </p>
+          </div>
+
+          <div className={cx("home-welcome__grid")}>
+            {welcomeFeatures.map((feature, index) => {
+              const Icon = feature.icon;
+
+              return (
+                <article
+                  key={feature.title}
+                  className={cx("home-welcome-card")}
+                  style={{ animationDelay: `${index * 140}ms` }}
+                >
+                  <div className={cx("home-welcome-card__media")}>
+                    <img
+                      src={feature.image}
+                      alt={feature.title}
+                      className={cx("home-welcome-card__image")}
+                    />
+                    <span className={cx("home-welcome-card__badge")}>
+                      {feature.badge}
+                    </span>
+                  </div>
+
+                  <div className={cx("home-welcome-card__body")}>
+                    <span className={cx("home-welcome-card__icon")}>
+                      <Icon />
+                    </span>
+                    <h3 className={cx("home-welcome-card__title")}>
+                      {feature.title}
+                    </h3>
+                    <p className={cx("home-welcome-card__description")}>
+                      {feature.description}
+                    </p>
+                    <Link
+                      to={feature.linkTo}
+                      className={cx("home-welcome-card__link")}
+                    >
+                      {feature.linkLabel}
+                      <FaArrowRight />
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         </div>
       </section>
 
@@ -437,75 +601,98 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div ref={productTrackRef} className={cx("home-store__track")}>
-            {homeStoreProducts.map((product) => (
-              <article key={product.id} className={cx("home-product-card")}>
-                <div className={cx("home-product-card__image-wrap")}>
-                  {product.badge && (
-                    <span className={cx("home-product-card__badge")}>
-                      {product.badge}
-                    </span>
-                  )}
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className={cx("home-product-card__image")}
-                  />
-                </div>
-
-                <div className={cx("home-product-card__body")}>
-                  <h3 className={cx("home-product-card__name")}>{product.name}</h3>
-                  <div className={cx("home-product-card__rating")}>
-                    <div className={cx("home-product-card__stars")} aria-hidden="true">
-                      {Array.from({ length: 5 }).map((_, index) => (
-                        <FaStar
-                          key={`${product.id}-${index}`}
-                          className={cx(
-                            index < product.rating ? "is-filled" : "is-empty"
-                          )}
-                        />
-                      ))}
-                    </div>
-                    <span>({product.reviewCount})</span>
-                  </div>
-                  <div className={cx("home-product-card__price-row")}>
-                    {typeof product.originalPrice === "number" &&
-                      product.originalPrice > product.price && (
-                      <span className={cx("home-product-card__old-price")}>
-                        ${product.originalPrice.toFixed(2)}
+          <div className={cx("home-store__viewport")}>
+            <div ref={productTrackRef} className={cx("home-store__track")}>
+              {homeStoreProducts.map((product) => (
+                <article key={product.id} className={cx("home-product-card")}>
+                  <div
+                    className={cx("home-product-card__image-wrap")}
+                    data-product-name={product.name}
+                  >
+                    {product.badge && (
+                      <span className={cx("home-product-card__badge")}>
+                        {product.badge}
                       </span>
                     )}
-                    <span className={cx("home-product-card__price")}>
-                      ${product.price.toFixed(2)}
-                    </span>
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className={cx("home-product-card__image")}
+                      onLoad={(event) => {
+                        event.currentTarget.style.display = "";
+                        event.currentTarget.parentElement?.removeAttribute(
+                          "data-image-fallback",
+                        );
+                      }}
+                      onError={(event) => {
+                        event.currentTarget.style.display = "none";
+                        event.currentTarget.parentElement?.setAttribute(
+                          "data-image-fallback",
+                          "true",
+                        );
+                      }}
+                    />
                   </div>
-                  <div className={cx("home-product-card__actions")}>
-                    <button
-                      type="button"
-                      className={cx(
-                        "home-product-card__action",
-                        "home-product-card__action--primary"
-                      )}
-                      onClick={() => addProductToCart(product)}
-                      disabled={!product.inStock}
-                    >
-                      <FaShoppingCart />
-                      {product.inStock ? "Agregar al carrito" : "Sin stock"}
-                    </button>
-                    <Link
-                      to={getCatalogProductPath(product.id)}
-                      className={cx(
-                        "home-product-card__action",
-                        "home-product-card__action--secondary"
-                      )}
-                    >
-                      <FaRegEye />
-                      Ver detalles
-                    </Link>
+
+                  <div className={cx("home-product-card__body")}>
+                    <h3 className={cx("home-product-card__name")}>
+                      {product.name}
+                    </h3>
+                    <div className={cx("home-product-card__rating")}>
+                      <div
+                        className={cx("home-product-card__stars")}
+                        aria-hidden="true"
+                      >
+                        {Array.from({ length: 5 }).map((_, index) => (
+                          <FaStar
+                            key={`${product.id}-${index}`}
+                            className={cx(
+                              index < product.rating ? "is-filled" : "is-empty",
+                            )}
+                          />
+                        ))}
+                      </div>
+                      <span>({product.reviewCount})</span>
+                    </div>
+                    <div className={cx("home-product-card__price-row")}>
+                      {typeof product.originalPrice === "number" &&
+                        product.originalPrice > product.price && (
+                          <span className={cx("home-product-card__old-price")}>
+                            ${product.originalPrice.toFixed(2)}
+                          </span>
+                        )}
+                      <span className={cx("home-product-card__price")}>
+                        ${product.price.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className={cx("home-product-card__actions")}>
+                      <button
+                        type="button"
+                        className={cx(
+                          "home-product-card__action",
+                          "home-product-card__action--primary",
+                        )}
+                        onClick={() => addProductToCart(product)}
+                        disabled={!product.inStock}
+                      >
+                        <FaShoppingCart />
+                        {product.inStock ? "Agregar al carrito" : "Sin stock"}
+                      </button>
+                      <Link
+                        to={getCatalogProductPath(product.id)}
+                        className={cx(
+                          "home-product-card__action",
+                          "home-product-card__action--secondary",
+                        )}
+                      >
+                        <FaRegEye />
+                        Ver detalles
+                      </Link>
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              ))}
+            </div>
           </div>
 
           {!isStoreLoading && homeStoreProducts.length === 0 && (
@@ -531,30 +718,77 @@ export default function HomePage() {
           <div className={cx("home-plans__grid")}>
             {plans.map((plan) => (
               <article
-                key={plan.name}
-                className={cx("home-plan-card", plan.popular && "is-popular")}
+                key={plan.id}
+                className={cx(
+                  "home-plan-card",
+                  plan.theme === "dark"
+                    ? "home-plan-card--dark"
+                    : "home-plan-card--light",
+                  plan.popular && "is-popular",
+                )}
               >
                 {plan.popular && (
-                  <span className={cx("home-plan-card__popular")}>Popular</span>
+                  <span className={cx("home-plan-card__popular")}>
+                    <FaStar />
+                    <span>Mas popular</span>
+                  </span>
                 )}
-                <h3 className={cx("home-plan-card__title")}>{plan.level}</h3>
-                <div className={cx("home-plan-card__price")}>
-                  <strong>${plan.price}</strong>
-                  <span>MXN/mes</span>
+
+                <div className={cx("home-plan-card__header")}>
+                  <div className={cx("home-plan-card__identity")}>
+                    <span className={cx("home-plan-card__icon-wrap")}>
+                      <plan.icon />
+                    </span>
+
+                    <div className={cx("home-plan-card__copy")}>
+                      <h3 className={cx("home-plan-card__title")}>{plan.name}</h3>
+                      <p className={cx("home-plan-card__description")}>
+                        {plan.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className={cx("home-plan-card__price-block")}>
+                    <div className={cx("home-plan-card__price")}>
+                      <strong>{formatPriceMXN(plan.price)}</strong>
+                      <span>MXN / mes</span>
+                    </div>
+                    <p className={cx("home-plan-card__meta")}>
+                      Sin ataduras y con renovacion flexible.
+                    </p>
+                  </div>
                 </div>
+
                 <ul className={cx("home-plan-card__features")}>
                   {plan.features.map((feature) => (
-                    <li key={feature}>
-                      <FaCheck />
-                      <span>{feature}</span>
+                    <li
+                      key={feature.label}
+                      className={cx(
+                        "home-plan-card__feature",
+                        !feature.included && "is-disabled",
+                      )}
+                    >
+                      <span
+                        className={cx(
+                          "home-plan-card__feature-icon",
+                          feature.included ? "is-included" : "is-disabled",
+                        )}
+                      >
+                        {feature.included ? <FaCheck /> : <FaTimes />}
+                      </span>
+                      <span>{feature.label}</span>
                     </li>
                   ))}
                 </ul>
+
                 <Link
                   to="/suscripciones"
-                  className={cx("home-plan-card__button", plan.popular && "is-popular")}
+                  className={cx(
+                    "home-plan-card__button",
+                    plan.popular && "is-popular",
+                  )}
                 >
-                  Elegir Plan
+                  Comenzar Ahora
                 </Link>
               </article>
             ))}
@@ -585,8 +819,12 @@ export default function HomePage() {
                   />
                 </div>
                 <div className={cx("home-trainer-card__body")}>
-                  <span className={cx("home-trainer-card__role")}>{trainer.role}</span>
-                  <h3 className={cx("home-trainer-card__name")}>{trainer.name}</h3>
+                  <span className={cx("home-trainer-card__role")}>
+                    {trainer.role}
+                  </span>
+                  <h3 className={cx("home-trainer-card__name")}>
+                    {trainer.name}
+                  </h3>
                   <p className={cx("home-trainer-card__description")}>
                     {trainer.description}
                   </p>
@@ -599,7 +837,11 @@ export default function HomePage() {
 
       <section className={cx("home-schedule")}>
         <div className={cx("home-shell home-schedule__inner")}>
-          <div className={cx("home-section-head home-section-head--center home-section-head--light")}>
+          <div
+            className={cx(
+              "home-section-head home-section-head--center home-section-head--light",
+            )}
+          >
             <h2 className={cx("home-section-title home-section-title--light")}>
               HORARIOS DEL <span>GIMNASIO</span>
             </h2>
@@ -625,7 +867,7 @@ export default function HomePage() {
                       <article
                         className={cx(
                           "home-schedule__day-card",
-                          `home-schedule__day-card--${day.status}`
+                          `home-schedule__day-card--${day.status}`,
                         )}
                       >
                         <span className={cx("home-schedule__day-kicker")}>
@@ -635,11 +877,13 @@ export default function HomePage() {
                         <strong className={cx("home-schedule__day-hours")}>
                           {day.schedule}
                         </strong>
-                        <p className={cx("home-schedule__day-description")}>{day.description}</p>
+                        <p className={cx("home-schedule__day-description")}>
+                          {day.description}
+                        </p>
                         <span
                           className={cx(
                             "home-schedule__day-badge",
-                            `home-schedule__day-badge--${day.status}`
+                            `home-schedule__day-badge--${day.status}`,
                           )}
                         >
                           {day.hoursOpen}
@@ -668,14 +912,16 @@ export default function HomePage() {
 
             <div className={cx("home-cta__panel")}>
               <div className={cx("home-cta__content")}>
-                <span className={cx("home-cta__eyebrow")}>Titanium Sport Gym</span>
+                <span className={cx("home-cta__eyebrow")}>
+                  Titanium Sport Gym
+                </span>
                 <h2 className={cx("home-cta__title")}>
                   Listo para comenzar tu transformacion?
                 </h2>
                 <p className={cx("home-cta__description")}>
-                  Unete a la comunidad Titanium y empieza a ver resultados desde el
-                  primer dia. Nuestros entrenadores te guiaran en cada paso del
-                  camino.
+                  Unete a la comunidad Titanium y empieza a ver resultados desde
+                  el primer dia. Nuestros entrenadores te guiaran en cada paso
+                  del camino.
                 </p>
 
                 <div className={cx("home-cta__actions")}>
@@ -716,7 +962,9 @@ export default function HomePage() {
                     <FaEnvelope />
                   </span>
                   <span className={cx("home-cta__card-copy")}>
-                    <span className={cx("home-cta__card-label")}>Escribenos</span>
+                    <span className={cx("home-cta__card-label")}>
+                      Escribenos
+                    </span>
                     <strong className={cx("home-cta__card-value")}>
                       tsghuejutla@gmail.com
                     </strong>
@@ -728,7 +976,9 @@ export default function HomePage() {
                     <FaMapMarkerAlt />
                   </span>
                   <span className={cx("home-cta__card-copy")}>
-                    <span className={cx("home-cta__card-label")}>Visitanos</span>
+                    <span className={cx("home-cta__card-label")}>
+                      Visitanos
+                    </span>
                     <strong className={cx("home-cta__card-value")}>
                       Av. Corona del Rosal N 15, Huejutla, Hidalgo
                     </strong>

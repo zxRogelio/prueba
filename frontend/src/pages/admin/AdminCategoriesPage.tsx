@@ -1,7 +1,21 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from "react";
-import styles from "./AdminCategoriesPage.module.css";
-import CategoryModal, { type CategoryFormData } from "../../components/layout/admin/CategoryModal/CategoryModal";
+import {
+  FaBoxOpen,
+  FaCheckCircle,
+  FaPen,
+  FaPlus,
+  FaPowerOff,
+  FaSearch,
+  FaThLarge,
+  FaTimesCircle,
+  FaTrash,
+} from "react-icons/fa";
+import AdminPagination from "../../components/layout/admin/AdminPagination/AdminPagination";
+import CategoryModal, {
+  type CategoryFormData,
+} from "../../components/layout/admin/CategoryModal/CategoryModal";
+import { getBrands, type BrandDTO } from "../../services/admin/brandService";
 import {
   createCategory,
   deleteCategory,
@@ -9,21 +23,46 @@ import {
   updateCategory,
   type CategoryDTO,
 } from "../../services/admin/categoryService";
+import { getProducts, type ProductDTO } from "../../services/admin/productService";
+import { usePagination } from "../../hooks/usePagination";
+import styles from "./AdminCatalogPage.module.css";
 
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<CategoryDTO[]>([]);
+  const [brands, setBrands] = useState<BrandDTO[]>([]);
+  const [products, setProducts] = useState<ProductDTO[]>([]);
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("Todas");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-
-  // ✅ nuevo: categoría que se está editando (null = crear)
   const [editing, setEditing] = useState<CategoryDTO | null>(null);
 
   const refresh = async () => {
     setLoading(true);
     try {
-      const data = await getCategories();
-      setCategories(data);
+      const [categoriesResult, brandsResult, productsResult] = await Promise.allSettled([
+        getCategories(),
+        getBrands(),
+        getProducts(),
+      ]);
+
+      if (categoriesResult.status === "fulfilled") {
+        setCategories(categoriesResult.value);
+      } else {
+        console.error("getCategories error:", categoriesResult.reason);
+      }
+
+      if (brandsResult.status === "fulfilled") {
+        setBrands(brandsResult.value);
+      } else {
+        console.error("getBrands error:", brandsResult.reason);
+      }
+
+      if (productsResult.status === "fulfilled") {
+        setProducts(productsResult.value);
+      } else {
+        console.error("getProducts error:", productsResult.reason);
+      }
     } finally {
       setLoading(false);
     }
@@ -33,12 +72,76 @@ export default function AdminCategoriesPage() {
     refresh();
   }, []);
 
+  const brandsByCategory = useMemo(() => {
+    const map = new Map<string, number>();
+
+    brands.forEach((brand) => {
+      map.set(brand.categoryId, (map.get(brand.categoryId) ?? 0) + 1);
+    });
+
+    return map;
+  }, [brands]);
+
+  const productsByCategory = useMemo(() => {
+    const map = new Map<string, number>();
+
+    products.forEach((product) => {
+      map.set(product.categoryId, (map.get(product.categoryId) ?? 0) + 1);
+    });
+
+    return map;
+  }, [products]);
+
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return categories
-      .filter((c) => !q || c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [categories, query]);
+    const normalizedQuery = query.trim().toLowerCase();
+
+    return [...categories]
+      .filter((category) => {
+        const matchesQuery =
+          !normalizedQuery ||
+          category.name.toLowerCase().includes(normalizedQuery) ||
+          category.id.toLowerCase().includes(normalizedQuery);
+
+        const matchesStatus =
+          statusFilter === "Todas" ||
+          (statusFilter === "Activas" && category.active) ||
+          (statusFilter === "Inactivas" && !category.active);
+
+        return matchesQuery && matchesStatus;
+      })
+      .sort(
+        (left, right) =>
+          Number(right.active) - Number(left.active) ||
+          left.name.localeCompare(right.name),
+      );
+  }, [categories, query, statusFilter]);
+
+  const {
+    currentItems,
+    page,
+    rangeEnd,
+    rangeStart,
+    setPage,
+    totalItems,
+    totalPages,
+  } = usePagination(filtered, 6);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, setPage, statusFilter]);
+
+  const totalActive = useMemo(
+    () => categories.filter((category) => category.active).length,
+    [categories],
+  );
+  const totalInactive = categories.length - totalActive;
+  const categoriesWithProducts = useMemo(
+    () =>
+      categories.filter(
+        (category) => (productsByCategory.get(category.id) ?? 0) > 0,
+      ).length,
+    [categories, productsByCategory],
+  );
 
   const openCreate = () => {
     setEditing(null);
@@ -51,20 +154,24 @@ export default function AdminCategoriesPage() {
   };
 
   const onDelete = async (id: string) => {
-    const ok = confirm("¿Eliminar esta categoría?");
-    if (!ok) return;
+    const confirmed = confirm("Eliminar esta categoria?");
+    if (!confirmed) return;
 
     try {
       await deleteCategory(id);
-      setCategories((prev) => prev.filter((c) => c.id !== id));
-    } catch (err: any) {
-      console.error("DELETE CATEGORY ERROR:", err?.response?.status, err?.response?.data);
-      alert(`${err?.response?.status} - ${err?.response?.data?.error || "Error"}`);
+      setCategories((previous) => previous.filter((category) => category.id !== id));
+    } catch (error: any) {
+      console.error(
+        "DELETE CATEGORY ERROR:",
+        error?.response?.status,
+        error?.response?.data,
+      );
+      alert(`${error?.response?.status} - ${error?.response?.data?.error || "Error"}`);
     }
   };
 
   const onToggle = async (id: string) => {
-    const current = categories.find((c) => c.id === id);
+    const current = categories.find((category) => category.id === id);
     if (!current) return;
 
     try {
@@ -73,108 +180,248 @@ export default function AdminCategoriesPage() {
         active: !current.active,
       });
 
-      setCategories((prev) => prev.map((c) => (c.id === id ? updated : c)));
-    } catch (err: any) {
-      console.error("TOGGLE CATEGORY ERROR:", err?.response?.status, err?.response?.data);
-      alert(`${err?.response?.status} - ${err?.response?.data?.error || "Error"}`);
+      setCategories((previous) =>
+        previous.map((category) => (category.id === id ? updated : category)),
+      );
+    } catch (error: any) {
+      console.error(
+        "TOGGLE CATEGORY ERROR:",
+        error?.response?.status,
+        error?.response?.data,
+      );
+      alert(`${error?.response?.status} - ${error?.response?.data?.error || "Error"}`);
     }
   };
 
   return (
-    <div className={styles.page}>
-      <div className={styles.header}>
-        <div>
-          <h1 className={styles.title}>Categorías</h1>
-          <p className={styles.subtitle}>Primero crea categorías para poder crear productos.</p>
+    <section className={styles.page}>
+      <header className={styles.hero}>
+        <div className={styles.heroCopy}>
+          <span className={styles.heroEyebrow}>Catalogo admin</span>
+          <h1 className={styles.heroTitle}>Categorias</h1>
+          <p className={styles.heroText}>
+            Ordena la estructura del catalogo desde la raiz. Aqui defines como
+            se agrupan las marcas y sobre que secciones se construye el surtido
+            del admin.
+          </p>
         </div>
 
-        <button className={styles.primaryBtn} onClick={openCreate}>
-          + Nueva categoría
-        </button>
+        <div className={styles.heroActions}>
+          <button type="button" className={styles.primaryBtn} onClick={openCreate}>
+            <FaPlus />
+            Nueva categoria
+          </button>
+        </div>
+      </header>
+
+      <div className={styles.statsGrid}>
+        <article className={styles.statCard}>
+          <span className={styles.statIcon}>
+            <FaThLarge />
+          </span>
+          <div>
+            <span className={styles.statLabel}>Total</span>
+            <strong className={styles.statValue}>{categories.length}</strong>
+          </div>
+          <p className={styles.statHint}>
+            Todas las categorias disponibles para construir el catalogo.
+          </p>
+        </article>
+
+        <article className={styles.statCard}>
+          <span className={styles.statIcon}>
+            <FaCheckCircle />
+          </span>
+          <div>
+            <span className={styles.statLabel}>Activas</span>
+            <strong className={styles.statValue}>{totalActive}</strong>
+          </div>
+          <p className={styles.statHint}>
+            Las que ya pueden usarse en marcas y productos nuevos.
+          </p>
+        </article>
+
+        <article className={styles.statCard}>
+          <span className={styles.statIcon}>
+            <FaTimesCircle />
+          </span>
+          <div>
+            <span className={styles.statLabel}>Inactivas</span>
+            <strong className={styles.statValue}>{totalInactive}</strong>
+          </div>
+          <p className={styles.statHint}>
+            Categorias pausadas sin disponibilidad operativa.
+          </p>
+        </article>
+
+        <article className={styles.statCard}>
+          <span className={styles.statIcon}>
+            <FaBoxOpen />
+          </span>
+          <div>
+            <span className={styles.statLabel}>Con productos</span>
+            <strong className={styles.statValue}>{categoriesWithProducts}</strong>
+          </div>
+          <p className={styles.statHint}>
+            Secciones que hoy ya tienen inventario relacionado.
+          </p>
+        </article>
       </div>
 
-      <div className={styles.card}>
-        <div className={styles.toolbar}>
-          <input
-            className={styles.search}
-            placeholder="Buscar por nombre o ID…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
+      <section className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <div className={styles.panelTitleGroup}>
+            <span className={styles.panelEyebrow}>Mapa del catalogo</span>
+            <div className={styles.sectionHeading}>
+              <span className={styles.sectionIcon}>
+                <FaThLarge />
+              </span>
+              <div>
+                <h2 className={styles.panelTitle}>Lista de categorias</h2>
+                <p className={styles.panelSubtitle}>
+                  Filtra, revisa dependencias y controla la disponibilidad de
+                  cada bloque del catalogo.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className={styles.tableWrap}>
+        <div className={styles.toolbar}>
+          <label className={styles.searchField}>
+            <FaSearch className={styles.searchIcon} />
+            <input
+              className={styles.searchInput}
+              placeholder="Buscar por nombre o ID"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
+
+          <div className={styles.filters}>
+            <label className={styles.filterGroup}>
+              <span className={styles.filterLabel}>Estado</span>
+              <select
+                className={styles.filterSelect}
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+              >
+                <option value="Todas">Todas</option>
+                <option value="Activas">Activas</option>
+                <option value="Inactivas">Inactivas</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div className={styles.tableScroll}>
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>Categoría</th>
+                <th>Categoria</th>
                 <th>Estado</th>
-                <th className={styles.thRight}>Acciones</th>
+                <th>Marcas</th>
+                <th>Productos</th>
+                <th className={styles.headCellRight}>Acciones</th>
               </tr>
             </thead>
 
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={3} className={styles.empty}>Cargando…</td>
+                  <td colSpan={5} className={styles.emptyRow}>
+                    Cargando categorias...
+                  </td>
                 </tr>
+              ) : currentItems.length > 0 ? (
+                currentItems.map((category) => (
+                  <tr key={category.id}>
+                    <td>
+                      <div className={styles.nameBlock}>
+                        <span className={styles.primaryText}>{category.name}</span>
+                        <span className={styles.secondaryText}>ID {category.id}</span>
+                      </div>
+                    </td>
+
+                    <td>
+                      <span
+                        className={`${styles.statusPill} ${category.active ? styles.statusOn : styles.statusOff}`}
+                      >
+                        {category.active ? "Activa" : "Inactiva"}
+                      </span>
+                    </td>
+
+                    <td>
+                      <span className={`${styles.badge} ${styles.softBadge}`}>
+                        {brandsByCategory.get(category.id) ?? 0} marcas
+                      </span>
+                    </td>
+
+                    <td>
+                      <span className={`${styles.badge} ${styles.accentBadge}`}>
+                        {productsByCategory.get(category.id) ?? 0} productos
+                      </span>
+                    </td>
+
+                    <td className={styles.cellRight}>
+                      <div className={styles.actions}>
+                        <button
+                          type="button"
+                          className={styles.ghostBtn}
+                          onClick={() => openEdit(category)}
+                        >
+                          <FaPen />
+                          Editar
+                        </button>
+
+                        <button
+                          type="button"
+                          className={styles.ghostBtn}
+                          onClick={() => onToggle(category.id)}
+                        >
+                          <FaPowerOff />
+                          {category.active ? "Desactivar" : "Activar"}
+                        </button>
+
+                        <button
+                          type="button"
+                          className={styles.dangerBtn}
+                          onClick={() => onDelete(category.id)}
+                        >
+                          <FaTrash />
+                          Eliminar
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               ) : (
-                <>
-                  {filtered.map((c) => (
-                    <tr key={c.id}>
-                      <td>
-                        <div className={styles.nameCell}>
-                          <div className={styles.name}>{c.name}</div>
-                          <div className={styles.id}>{c.id}</div>
-                        </div>
-                      </td>
-
-                      <td>
-                        <span className={`${styles.status} ${c.active ? styles.on : styles.off}`}>
-                          {c.active ? "Activo" : "Inactivo"}
-                        </span>
-                      </td>
-
-                      <td className={styles.tdRight}>
-                        <div className={styles.actions}>
-                          {/* ✅ NUEVO */}
-                          <button className={styles.btnGhost} onClick={() => openEdit(c)}>
-                            Editar
-                          </button>
-
-                          <button className={styles.btnGhost} onClick={() => onToggle(c.id)}>
-                            {c.active ? "Desactivar" : "Activar"}
-                          </button>
-
-                          <button className={styles.btnDanger} onClick={() => onDelete(c.id)}>
-                            Eliminar
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-
-                  {filtered.length === 0 && (
-                    <tr>
-                      <td colSpan={3} className={styles.empty}>No hay categorías todavía.</td>
-                    </tr>
-                  )}
-                </>
+                <tr>
+                  <td colSpan={5} className={styles.emptyRow}>
+                    No hay categorias que coincidan con los filtros actuales.
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
         </div>
 
-        <div className={styles.footer}>
-          <span className={styles.count}>
-            Total: <b>{categories.length}</b>
-          </span>
+        <div className={styles.panelFooter}>
+          <AdminPagination
+            itemLabel="categorias"
+            onPageChange={setPage}
+            page={page}
+            rangeEnd={rangeEnd}
+            rangeStart={rangeStart}
+            totalItems={totalItems}
+            totalPages={totalPages}
+          />
         </div>
-      </div>
+      </section>
 
       <CategoryModal
         open={open}
-        title={editing ? "Editar categoría" : "Nueva categoría"}
+        title={editing ? "Editar categoria" : "Nueva categoria"}
         initial={editing ? { name: editing.name, active: editing.active } : undefined}
         onClose={() => {
           setOpen(false);
@@ -188,20 +435,32 @@ export default function AdminCategoriesPage() {
                 active: data.active,
               });
 
-              setCategories((prev) => prev.map((c) => (c.id === editing.id ? updated : c)));
+              setCategories((previous) =>
+                previous.map((category) =>
+                  category.id === editing.id ? updated : category,
+                ),
+              );
             } else {
-              const created = await createCategory({ name: data.name, active: data.active });
-              setCategories((prev) => [created, ...prev]);
+              const created = await createCategory({
+                name: data.name,
+                active: data.active,
+              });
+
+              setCategories((previous) => [created, ...previous]);
             }
 
             setOpen(false);
             setEditing(null);
-          } catch (err: any) {
-            console.error("SAVE CATEGORY ERROR:", err?.response?.status, err?.response?.data);
-            alert(`${err?.response?.status} - ${err?.response?.data?.error || "Error"}`);
+          } catch (error: any) {
+            console.error(
+              "SAVE CATEGORY ERROR:",
+              error?.response?.status,
+              error?.response?.data,
+            );
+            alert(`${error?.response?.status} - ${error?.response?.data?.error || "Error"}`);
           }
         }}
       />
-    </div>
+    </section>
   );
 }

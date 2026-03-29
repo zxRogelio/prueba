@@ -1,0 +1,38 @@
+{
+  "id": "backup-core-brands-estructura-datos-20260327-044721.sql",
+  "filename": "backup-core-brands-estructura-datos-20260327-044721.sql",
+  "filePath": "C:\\Users\\castr\\OneDrive\\Escritorio\\prueba\\backend\\storage\\backups\\backup-core-brands-estructura-datos-20260327-044721.sql",
+  "createdAt": "2026-03-27T04:47:29.787Z",
+  "scope": "table",
+  "schema": "core",
+  "table": "Brands",
+  "mode": "schema-and-data",
+  "source": "local",
+  "origin": "manual",
+  "engine": "postgresql",
+  "backupProvider": "spawn-pg_dump-auto",
+  "tablesIncluded": 1,
+  "rowsIncluded": 12,
+  "sizeBytes": 3566,
+  "sizeKB": "3.48",
+  "format": "sql",
+  "downloadUrl": "/admin/backups/download/backup-core-brands-estructura-datos-20260327-044721.sql",
+  "restoreGuide": {
+    "type": "Restauración de estructura + datos",
+    "notes": [
+      "Este backup fue generado con pg_dump en formato SQL plano.",
+      "Se restaura con psql.",
+      "El respaldo corresponde a la tabla core.Brands."
+    ],
+    "commands": {
+      "restoreSameDatabase": "psql \"postgresql://app_runtime@ep-dark-flower-akyaoknb-pooler.c-3.us-west-2.aws.neon.tech:5432/neondb?sslmode=require\" -f \"backup-core-brands-estructura-datos-20260327-044721.sql\"",
+      "restoreOtherDatabase": "psql \"postgresql://app_runtime@ep-dark-flower-akyaoknb-pooler.c-3.us-west-2.aws.neon.tech:5432/TU_BASE_DESTINO?sslmode=require\" -f \"backup-core-brands-estructura-datos-20260327-044721.sql\""
+    }
+  },
+  "cloudinary": {
+    "assetId": "ffaa7474395b5f038e2e7d015ef2df81",
+    "publicId": "titanium/backups/backup-core-brands-estructura-datos-20260327-044721.sql",
+    "url": "https://res.cloudinary.com/dqf9pdcte/raw/upload/v1774586850/titanium/backups/backup-core-brands-estructura-datos-20260327-044721.sql",
+    "bytes": 3566
+  }
+}

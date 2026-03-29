@@ -1,505 +1,607 @@
-import { useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import type { IconType } from "react-icons";
+import {
+  FaBolt,
+  FaCheck,
+  FaChevronDown,
+  FaChevronLeft,
+  FaChevronRight,
+  FaCrown,
+  FaDumbbell,
+  FaFireAlt,
+  FaInfinity,
+  FaQuoteRight,
+  FaShieldAlt,
+  FaStar,
+  FaTimes,
+} from "react-icons/fa";
 import styles from "./SuscripcionesPage.module.css";
 
-const cx = (...names: Array<string | null | undefined | false>) =>
-  names
-    .flatMap((name) => (name ? name.split(" ") : []))
-    .map((name) => styles[name])
-    .filter(Boolean)
-    .join(" ");
+type BillingMode = "monthly" | "annual";
+type PlanTheme = "light" | "dark";
 
-type MembershipColor = "white" | "red" | "black";
-
-type Membership = {
-  id: number;
-  name: string;
-  level: string;
-  price: number;
-  duration: string;
-  color: MembershipColor;
-  features: string[];
-  popular: boolean;
-  description: string;
+type HeroBenefit = {
+  label: string;
+  icon: IconType;
 };
 
-const memberships: Membership[] = [
+type PlanFeature = {
+  label: string;
+  included: boolean;
+};
+
+type Plan = {
+  id: string;
+  name: string;
+  description: string;
+  icon: IconType;
+  theme: PlanTheme;
+  featured: boolean;
+  monthlyPrice: number;
+  annualPrice: number;
+  features: PlanFeature[];
+};
+
+type Testimonial = {
+  id: string;
+  name: string;
+  plan: string;
+  tenure: string;
+  quote: string;
+};
+
+type FaqItem = {
+  question: string;
+  answer: string;
+};
+
+const heroBenefits: HeroBenefit[] = [
+  { label: "Sin permanencia", icon: FaBolt },
+  { label: "Garantia 30 dias", icon: FaShieldAlt },
+  { label: "Acceso ilimitado", icon: FaInfinity },
+];
+
+const plans: Plan[] = [
   {
-    id: 1,
-    name: "CARTE BLANCHE",
-    level: "BASICO",
-    price: 299,
-    duration: "mes",
-    color: "white",
+    id: "basic",
+    name: "Basico",
+    description: "Perfecto para comenzar tu rutina fitness con una base solida.",
+    icon: FaDumbbell,
+    theme: "light",
+    featured: false,
+    monthlyPrice: 499,
+    annualPrice: 415,
     features: [
-      "Acceso a area de pesas",
-      "Clases grupales basicas",
-      "Vestidores y regaderas",
-      "App Titanium basica",
-      "Horario estandar",
-      "Sin permanencia",
+      { label: "Acceso al gimnasio", included: true },
+      { label: "Horario limitado (6am - 6pm)", included: true },
+      { label: "Equipos de cardio", included: true },
+      { label: "Vestuarios y duchas", included: true },
+      { label: "App de seguimiento", included: false },
+      { label: "Clases grupales", included: false },
+      { label: "Entrenador personal", included: false },
+      { label: "Acceso 24/7", included: false },
     ],
-    popular: false,
-    description: "Perfecto para comenzar tu journey fitness",
   },
   {
-    id: 2,
-    name: "TITANIUM ROJO",
-    level: "MAS POPULAR",
-    price: 499,
-    duration: "mes",
-    color: "red",
+    id: "premium",
+    name: "Premium",
+    description: "El plan favorito para avanzar mas rapido con una experiencia mas completa.",
+    icon: FaCrown,
+    theme: "dark",
+    featured: true,
+    monthlyPrice: 799,
+    annualPrice: 665,
     features: [
-      "Todo lo del plan basico",
-      "Acceso 24/7",
-      "Clases grupales premium",
-      "Area cardio completa",
-      "App Titanium premium",
-      "2 sesiones con entrenador",
+      { label: "Acceso al gimnasio", included: true },
+      { label: "Horario completo", included: true },
+      { label: "Todos los equipos", included: true },
+      { label: "Vestuarios y duchas", included: true },
+      { label: "App de seguimiento", included: true },
+      { label: "Clases grupales ilimitadas", included: true },
+      { label: "1 sesion de entrenador / mes", included: true },
+      { label: "Acceso 24/7", included: false },
     ],
-    popular: true,
-    description: "El equilibrio perfecto entre calidad y precio",
   },
   {
-    id: 3,
-    name: "TITANIUM NEGRO",
-    level: "PREMIUM",
-    price: 799,
-    duration: "mes",
-    color: "black",
+    id: "elite",
+    name: "Elite",
+    description: "Pensado para quienes buscan resultados fuertes, atencion y mayor libertad.",
+    icon: FaFireAlt,
+    theme: "light",
+    featured: false,
+    monthlyPrice: 1199,
+    annualPrice: 995,
     features: [
-      "Todo lo del plan estandar",
-      "Entrenador personal dedicado",
-      "Acceso a zona VIP",
-      "Nutricionista certificado",
-      "Plan alimenticio personalizado",
-      "Sesiones ilimitadas con coach",
+      { label: "Acceso al gimnasio", included: true },
+      { label: "Horario completo", included: true },
+      { label: "Todos los equipos", included: true },
+      { label: "Vestuarios VIP", included: true },
+      { label: "App de seguimiento premium", included: true },
+      { label: "Clases grupales ilimitadas", included: true },
+      { label: "4 sesiones de entrenador / mes", included: true },
+      { label: "Acceso 24/7", included: true },
     ],
-    popular: false,
-    description: "Experiencia fitness de elite completa",
   },
 ];
 
-const services = [
+const testimonials: Testimonial[] = [
   {
-    title: "Entrenamiento Personalizado",
-    desc: "Programas disenados especificamente para tus objetivos con seguimiento constante de nuestros coaches certificados.",
-    icon: "💪",
+    id: "testimonial-1",
+    name: "Ana Martinez",
+    plan: "Premium",
+    tenure: "10 meses con nosotros",
+    quote:
+      "Las clases grupales son lo mejor. Me encanta el ambiente y la energia que se siente. El equipo siempre esta atento a ayudarte en lo que necesites.",
   },
   {
-    title: "Asesoria Nutricional",
-    desc: "Planes alimenticios personalizados y suplementacion guiada por expertos en nutricion deportiva.",
-    icon: "🥗",
+    id: "testimonial-2",
+    name: "Luis Herrera",
+    plan: "Elite",
+    tenure: "1 ano entrenando en Titanium",
+    quote:
+      "Lo que mas valoro es la estructura. Tengo acceso, seguimiento y sesiones que realmente me mantienen avanzando sin perder el ritmo.",
   },
   {
-    title: "Clases Grupales",
-    desc: "HIIT, Yoga, Box, Spinning y mas. Mas de 45 clases semanales para mantener tu motivacion al maximo.",
-    icon: "👥",
-  },
-  {
-    title: "Zona de Pesas Premium",
-    desc: "Equipamiento Hammer Strength, racks olimpicos y area de peso libre completamente equipada.",
-    icon: "🏋️",
-  },
-  {
-    title: "App Titanium",
-    desc: "Seguimiento de progreso, reservacion de clases, planificacion de workouts y comunidad exclusiva.",
-    icon: "📱",
-  },
-  {
-    title: "Area de Recuperacion",
-    desc: "Sauna, zona de stretching y recuperacion activa para optimizar tu rendimiento.",
-    icon: "🧘",
+    id: "testimonial-3",
+    name: "Sofia Vega",
+    plan: "Basico",
+    tenure: "5 meses en la comunidad",
+    quote:
+      "Entre por el plan mas accesible y me quede por la calidad del lugar. Nunca se siente improvisado y eso motiva mucho a volver.",
   },
 ];
 
-const faqs = [
+const faqs: FaqItem[] = [
   {
-    question: "Puedes cambiar de plan despues?",
+    question: "Puedo cancelar mi membresia en cualquier momento?",
     answer:
-      "Si, puedes cambiar a cualquier plan en cualquier momento sin costos adicionales.",
+      "Si. Todas nuestras membresias son sin permanencia. Puedes cancelar cuando quieras sin penalizaciones, solo te pedimos avisar antes de tu siguiente ciclo.",
   },
   {
-    question: "Como funciona la semana gratis?",
+    question: "Como funciona la garantia de 30 dias?",
     answer:
-      "La primera semana es completamente gratis. Si decides quedarte, se aplicara el pago mensual a partir de la segunda semana.",
+      "Si durante los primeros 30 dias sientes que el plan no era para ti, revisamos tu caso con el equipo y te ayudamos a cambiar de plan o resolver tu proceso.",
   },
   {
-    question: "Hay contratos de permanencia?",
+    question: "Puedo cambiar de plan en cualquier momento?",
     answer:
-      "No, todos nuestros planes son mensuales sin contratos de permanencia. Puedes cancelar en cualquier momento.",
+      "Si. Puedes subir o bajar de nivel segun tu momento. El ajuste se hace sobre tu siguiente corte para mantener el control de tu suscripcion.",
+  },
+  {
+    question: "Que incluyen las sesiones con entrenador personal?",
+    answer:
+      "Incluyen evaluacion inicial, ajuste de rutina, correccion tecnica y seguimiento segun el plan que elijas. En Elite el acompanamiento es mas frecuente.",
   },
 ];
+
+function getInitials(value: string) {
+  const parts = value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+
+  if (parts.length === 0) {
+    return "TS";
+  }
+
+  return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
+}
+
+function getAnnualSavings(plan: Plan) {
+  return Math.round((1 - plan.annualPrice / plan.monthlyPrice) * 100);
+}
+
+const mxnPriceFormatter = new Intl.NumberFormat("es-MX", {
+  style: "currency",
+  currency: "MXN",
+  maximumFractionDigits: 0,
+});
+
+function formatPriceMXN(value: number) {
+  return mxnPriceFormatter.format(value);
+}
 
 export default function SuscripcionesPage() {
-  const [openFaqIndex, setOpenFaqIndex] = useState(0);
+  const [billingMode, setBillingMode] = useState<BillingMode>("monthly");
+  const [activeFaqIndex, setActiveFaqIndex] = useState(0);
+  const [activeTestimonialIndex, setActiveTestimonialIndex] = useState(0);
 
-  const getMembershipColor = (color: MembershipColor) => {
-    switch (color) {
-      case "white":
-        return "#ffffff";
-      case "red":
-        return "#ef4444";
-      case "black":
-        return "#1a1a1a";
-      default:
-        return "#1a1a1a";
-    }
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, []);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      startTransition(() => {
+        setActiveTestimonialIndex(
+          (currentIndex) => (currentIndex + 1) % testimonials.length,
+        );
+      });
+    }, 7000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  const activeTestimonial = testimonials[activeTestimonialIndex];
+
+  const goToPreviousTestimonial = () => {
+    startTransition(() => {
+      setActiveTestimonialIndex((currentIndex) =>
+        currentIndex === 0 ? testimonials.length - 1 : currentIndex - 1,
+      );
+    });
   };
 
-  const getTextColor = (color: MembershipColor) =>
-    color === "white" ? "#1a1a1a" : "#ffffff";
-
-  const getBorderColor = (color: MembershipColor) =>
-    color === "white" ? "#e5e5e5" : getMembershipColor(color);
+  const goToNextTestimonial = () => {
+    startTransition(() => {
+      setActiveTestimonialIndex(
+        (currentIndex) => (currentIndex + 1) % testimonials.length,
+      );
+    });
+  };
 
   return (
-    <div className={cx("page-container")}>
-      <div className={cx("bg-animation")} aria-hidden="true">
-        <div className={cx("bg-grid")} />
-        <div className={cx("bg-glow", "bg-glow-1")} />
-        <div className={cx("bg-glow", "bg-glow-2")} />
-      </div>
+    <main className={styles.page}>
+      <div className={styles.pageTexture} aria-hidden="true" />
+      <div className={styles.pageGlowTop} aria-hidden="true" />
+      <div className={styles.pageGlowSide} aria-hidden="true" />
 
-      <nav className={cx("breadcrumbs", "breadcrumbs-centered")}>
-        <ol className={cx("breadcrumb-list")}>
-          <li className={cx("breadcrumb-item")}>
-            <Link to="/" className={cx("breadcrumb-link")}>
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                />
-              </svg>
-              INICIO
-            </Link>
-          </li>
-          <li className={cx("breadcrumb-separator")}>/</li>
-          <li className={cx("breadcrumb-item")}>
-            <span className={cx("breadcrumb-current")}>MEMBRESIAS</span>
-          </li>
-        </ol>
-      </nav>
+      <section className={styles.heroSection}>
+        <div className={styles.shell}>
+          <div className={styles.heroInner}>
+            <span className={styles.heroBadge}>Planes exclusivos</span>
 
-      <section className={cx("subs-hero-compact")}>
-        <div className={cx("subs-hero-content-compact")}>
-          <div className={cx("subs-hero-text")}>
-            <h1 className={cx("subs-title-compact", "brush-text")}>
-              MEMBRESIAS TITANIUM
+            <h1 className={styles.heroTitle}>
+              Elige tu <span className={styles.titleAccent}>Membresia</span>
             </h1>
-            <p className={cx("subs-subtitle-compact")}>
-              Elige el plan perfecto para tu transformacion.
-              <span className={cx("highlight-red")}> Primera semana GRATIS</span> en
-              todos los planes.
-            </p>
-          </div>
-          <div className={cx("subs-hero-cta")}>
-            <a href="#planes" className={cx("subs-hero-btn")}>
-              VER PLANES
-              <svg
-                className={cx("subs-btn-arrow")}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </a>
-          </div>
-        </div>
 
-        <div className={cx("subs-hero-benefits")}>
-          {["Sin contratos", "Cancelacion gratuita", "Asesoria incluida"].map(
-            (benefit) => (
-              <div key={benefit} className={cx("benefit-item")}>
-                <svg
-                  className={cx("benefit-icon")}
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <span>{benefit}</span>
-              </div>
-            )
-          )}
+            <p className={styles.heroDescription}>
+              Accede a instalaciones de primer nivel, entrenadores certificados
+              y una comunidad comprometida con tu transformacion. Sin contratos
+              largos, cancela cuando quieras.
+            </p>
+
+            <div className={styles.heroBenefits}>
+              {heroBenefits.map((benefit, index) => {
+                const Icon = benefit.icon;
+
+                return (
+                  <div
+                    key={benefit.label}
+                    className={styles.benefitChip}
+                    style={{ animationDelay: `${index * 120}ms` }}
+                  >
+                    <span className={styles.benefitIcon}>
+                      <Icon />
+                    </span>
+                    <span>{benefit.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className={styles.scrollCue}>
+              <span>Desliza para ver planes</span>
+              <a href="#planes" className={styles.scrollMouse} aria-label="Ir a los planes">
+                <span className={styles.scrollWheel} />
+              </a>
+            </div>
+          </div>
         </div>
       </section>
 
-      <section id="planes" className={cx("subs-memberships-section")}>
-        <div className={cx("section-header")}>
-          <h2 className={cx("section-title", "brush-title")}>
-            ELIGE TU <span className={cx("text-red")}>PLAN IDEAL</span>
-          </h2>
-          <p className={cx("section-subtitle")}>
-            Tres opciones disenadas para cada nivel de compromiso fitness
-          </p>
-        </div>
+      <section id="planes" className={styles.plansSection}>
+        <div className={styles.shell}>
+          <div className={styles.sectionHeader}>
+            <span className={styles.sectionBadge}>Membresias Titanium</span>
+            <h2 className={styles.sectionTitle}>
+              Nuestros <span className={styles.sectionAccent}>Planes</span>
+            </h2>
+            <p className={styles.sectionDescription}>
+              Elige el plan que mejor se adapta a tus objetivos y estilo de
+              vida.
+            </p>
+          </div>
 
-        <div className={cx("subs-memberships-container")}>
-          <div className={cx("subs-memberships-grid")}>
-            {memberships.map((membership) => (
-              <div
-                key={membership.id}
-                className={cx(
-                  "subs-membership-card",
-                  membership.popular && "subs-membership-popular"
-                )}
-                style={{
-                  background: getMembershipColor(membership.color),
-                  color: getTextColor(membership.color),
-                  border: `2px solid ${getBorderColor(membership.color)}`,
-                }}
-              >
-                {membership.popular && (
-                  <div className={cx("subs-popular-badge")}>MAS POPULAR</div>
-                )}
+          <div className={styles.billingToggle} role="tablist" aria-label="Facturacion">
+            <button
+              type="button"
+              className={`${styles.billingButton} ${
+                billingMode === "monthly" ? styles.billingButtonActive : ""
+              }`}
+              onClick={() => startTransition(() => setBillingMode("monthly"))}
+              aria-pressed={billingMode === "monthly"}
+            >
+              Mensual
+            </button>
 
-                <div className={cx("subs-membership-header")}>
-                  <div
-                    className={cx("subs-membership-level")}
-                    style={{
-                      color: membership.color === "white" ? "#ef4444" : "#ffffff",
-                    }}
-                  >
-                    {membership.level}
+            <button
+              type="button"
+              className={`${styles.billingButton} ${
+                billingMode === "annual" ? styles.billingButtonActive : ""
+              }`}
+              onClick={() => startTransition(() => setBillingMode("annual"))}
+              aria-pressed={billingMode === "annual"}
+            >
+              <span>Anual</span>
+              <span className={styles.billingDiscount}>-17%</span>
+            </button>
+          </div>
+
+          <div className={styles.plansGrid}>
+            {plans.map((plan, index) => {
+              const Icon = plan.icon;
+              const price =
+                billingMode === "monthly" ? plan.monthlyPrice : plan.annualPrice;
+              const savings = getAnnualSavings(plan);
+
+              return (
+                <article
+                  key={plan.id}
+                  className={`${styles.planCard} ${
+                    plan.theme === "dark" ? styles.planCardDark : styles.planCardLight
+                  } ${plan.featured ? styles.planCardFeatured : ""}`}
+                  style={{ animationDelay: `${index * 120}ms` }}
+                >
+                  {plan.featured ? (
+                    <div className={styles.planPopularBadge}>
+                      <FaStar />
+                      <span>Mas popular</span>
+                    </div>
+                  ) : null}
+
+                  <div className={styles.planHeader}>
+                    <div className={styles.planIdentity}>
+                      <span className={styles.planIconWrap}>
+                        <Icon />
+                      </span>
+
+                      <div>
+                        <h3 className={styles.planName}>{plan.name}</h3>
+                        <p className={styles.planBlurb}>{plan.description}</p>
+                      </div>
+                    </div>
+
+                    <div className={styles.planPriceGroup}>
+                      <div className={styles.planPriceLine}>
+                        <strong className={styles.planPrice}>
+                          {formatPriceMXN(price)}
+                        </strong>
+                        <span className={styles.planPriceSuffix}>MXN / mes</span>
+                      </div>
+
+                      <p className={styles.planPriceMeta}>
+                        {billingMode === "monthly"
+                          ? "Sin ataduras y con renovacion flexible."
+                          : `Facturado anual. Ahorras ${savings}% contra el pago mensual.`}
+                      </p>
+                    </div>
                   </div>
 
-                  <h3
-                    className={cx("subs-membership-name", "brush-text")}
-                    style={{
-                      color: membership.color === "white" ? "#1a1a1a" : "#ffffff",
-                    }}
-                  >
-                    {membership.name}
-                  </h3>
-
-                  <p
-                    className={cx("subs-membership-description")}
-                    style={{
-                      color: membership.color === "white" ? "#1a1a1a" : "#ffffff",
-                    }}
-                  >
-                    {membership.description}
-                  </p>
-                </div>
-
-                <div className={cx("subs-membership-price")}>
-                  <span
-                    className={cx("subs-price-currency")}
-                    style={{
-                      color: membership.color === "white" ? "#1a1a1a" : "#ffffff",
-                    }}
-                  >
-                    $
-                  </span>
-                  <span
-                    className={cx("subs-price-amount")}
-                    style={{
-                      color: membership.color === "white" ? "#1a1a1a" : "#ffffff",
-                    }}
-                  >
-                    {membership.price}
-                  </span>
-                  <span
-                    className={cx("subs-price-duration")}
-                    style={{
-                      color: membership.color === "white" ? "#1a1a1a" : "#ffffff",
-                    }}
-                  >
-                    /{membership.duration}
-                  </span>
-                </div>
-
-                <ul className={cx("subs-membership-features")}>
-                  {membership.features.map((feature) => (
-                    <li key={feature} className={cx("subs-feature-item")}>
-                      <svg
-                        className={cx("subs-feature-icon")}
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                        style={{
-                          color: membership.color === "white" ? "#ef4444" : "#ffffff",
-                        }}
+                  <ul className={styles.featureList}>
+                    {plan.features.map((feature) => (
+                      <li
+                        key={feature.label}
+                        className={`${styles.featureItem} ${
+                          feature.included
+                            ? styles.featureItemIncluded
+                            : styles.featureItemDisabled
+                        }`}
                       >
-                        <path
-                          fillRule="evenodd"
-                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      <span
-                        style={{
-                          color: membership.color === "white" ? "#1a1a1a" : "#ffffff",
-                        }}
-                      >
-                        {feature}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                        <span
+                          className={`${styles.featureIcon} ${
+                            feature.included
+                              ? styles.featureIconIncluded
+                              : styles.featureIconDisabled
+                          }`}
+                        >
+                          {feature.included ? <FaCheck /> : <FaTimes />}
+                        </span>
+                        <span>{feature.label}</span>
+                      </li>
+                    ))}
+                  </ul>
 
-                <Link to="/payment" className={cx("subs-membership-link")}>
-                  <span
-                    className={cx(
-                      "subs-membership-btn",
-                      membership.color === "white"
-                        ? "subs-btn-outline"
-                        : "subs-btn-solid"
-                    )}
-                    style={{
-                      background:
-                        membership.color === "white"
-                          ? "transparent"
-                          : getMembershipColor(membership.color),
-                      color: membership.color === "white" ? "#1a1a1a" : "#ffffff",
-                      borderColor:
-                        membership.color === "white"
-                          ? "#1a1a1a"
-                          : getMembershipColor(membership.color),
-                    }}
+                  <Link
+                    to="/register"
+                    className={`${styles.planButton} ${
+                      plan.featured ? styles.planButtonFeatured : styles.planButtonNeutral
+                    }`}
                   >
-                    ELEGIR PLAN
-                    <svg
-                      className={cx("subs-btn-arrow")}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13 7l5 5m0 0l-5 5m5-5H6"
-                      />
-                    </svg>
-                  </span>
-                </Link>
+                    Comenzar Ahora
+                  </Link>
+                </article>
+              );
+            })}
+          </div>
+
+          <div className={styles.trustBlock}>
+            <p className={styles.trustText}>
+              Mas de <strong>10,000+</strong> miembros activos confian en
+              nosotros
+            </p>
+            <div className={styles.trustRating}>
+              <div className={styles.trustStars} aria-hidden="true">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <FaStar key={`trust-star-${index}`} />
+                ))}
               </div>
-            ))}
+              <span>4.9/5 valoracion</span>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className={cx("promo-banner")}>
-        <div className={cx("promo-content")}>
-          <div className={cx("promo-text")}>
-            <h3 className={cx("promo-title", "brush-text")}>
-              <span className={cx("text-red")}>1 SEMANA GRATIS</span> + 20%
-              DESCUENTO
-            </h3>
-            <p className={cx("promo-subtitle")}>
-              Al suscribirte hoy mismo. Oferta valida por tiempo limitado.
+      <section className={styles.testimonialSection}>
+        <div className={styles.shell}>
+          <div className={styles.sectionHeaderDark}>
+            <span className={styles.sectionBadgeDark}>Historias reales</span>
+            <h2 className={styles.sectionTitleDark}>
+              Lo que dicen nuestros <span className={styles.sectionAccent}>Miembros</span>
+            </h2>
+            <p className={styles.sectionDescriptionDark}>
+              Historias de transformacion reales. Unete a miles que ya
+              convirtieron el entrenamiento en una rutina que disfrutan.
             </p>
           </div>
-          <div className={cx("promo-cta")}>
-            <Link to="/register" className={cx("promo-btn-primary")}>
-              APROVECHAR OFERTA
-              <svg
-                className={cx("promo-btn-arrow")}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 7l5 5m0 0l-5 5m5-5H6"
-                />
-              </svg>
-            </Link>
-            <a href="tel:+521234567890" className={cx("promo-btn-secondary")}>
-              <svg fill="currentColor" viewBox="0 0 20 20">
-                <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
-              </svg>
-              LLAMAR AHORA
-            </a>
+
+          <div className={styles.testimonialStage}>
+            <article key={activeTestimonial.id} className={styles.testimonialCard}>
+              <div className={styles.testimonialQuoteMark}>
+                <FaQuoteRight />
+              </div>
+
+              <div className={styles.testimonialTop}>
+                <div className={styles.testimonialStars}>
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <FaStar key={`${activeTestimonial.id}-star-${index}`} />
+                  ))}
+                </div>
+
+                <p className={styles.testimonialQuote}>
+                  "{activeTestimonial.quote}"
+                </p>
+              </div>
+
+              <div className={styles.testimonialFooter}>
+                <div className={styles.memberIdentity}>
+                  <div className={styles.memberAvatar}>
+                    {getInitials(activeTestimonial.name)}
+                  </div>
+
+                  <div className={styles.memberMeta}>
+                    <div className={styles.memberNameRow}>
+                      <strong className={styles.memberName}>
+                        {activeTestimonial.name}
+                      </strong>
+                      <span className={styles.memberPlan}>
+                        {activeTestimonial.plan}
+                      </span>
+                    </div>
+                    <span className={styles.memberTenure}>
+                      {activeTestimonial.tenure}
+                    </span>
+                  </div>
+                </div>
+
+                <div className={styles.testimonialControls}>
+                  <div className={styles.testimonialDots}>
+                    {testimonials.map((testimonial, index) => (
+                      <button
+                        key={testimonial.id}
+                        type="button"
+                        className={`${styles.testimonialDot} ${
+                          index === activeTestimonialIndex
+                            ? styles.testimonialDotActive
+                            : ""
+                        }`}
+                        onClick={() =>
+                          startTransition(() => setActiveTestimonialIndex(index))
+                        }
+                        aria-label={`Mostrar testimonio ${index + 1}`}
+                      />
+                    ))}
+                  </div>
+
+                  <div className={styles.testimonialNav}>
+                    <button
+                      type="button"
+                      className={styles.testimonialNavButton}
+                      onClick={goToPreviousTestimonial}
+                      aria-label="Testimonio anterior"
+                    >
+                      <FaChevronLeft />
+                    </button>
+
+                    <button
+                      type="button"
+                      className={`${styles.testimonialNavButton} ${styles.testimonialNavButtonActive}`}
+                      onClick={goToNextTestimonial}
+                      aria-label="Testimonio siguiente"
+                    >
+                      <FaChevronRight />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </article>
           </div>
         </div>
       </section>
 
-      <section className={cx("subs-services-section")}>
-        <div className={cx("section-header")}>
-          <h2 className={cx("section-title", "brush-title")}>
-            SERVICIOS <span className={cx("text-red")}>TITANIUM</span>
-          </h2>
-          <p className={cx("section-subtitle")}>
-            Mas que un gimnasio, somos tu partner en el journey fitness.
-          </p>
-        </div>
+      <section className={styles.faqSection}>
+        <div className={styles.shell}>
+          <div className={styles.sectionHeader}>
+            <span className={styles.sectionBadge}>Preguntas frecuentes</span>
+            <h2 className={styles.sectionTitle}>
+              Tienes <span className={styles.sectionAccent}>Dudas?</span>
+            </h2>
+            <p className={styles.sectionDescription}>
+              Aqui encuentras respuestas claras a las preguntas mas comunes. Si
+              aun no ves lo que buscas, puedes registrarte y nuestro equipo te
+              guia.
+            </p>
+          </div>
 
-        <div className={cx("subs-services-grid")}>
-          {services.map((service) => (
-            <div key={service.title} className={cx("subs-service-card")}>
-              <div className={cx("subs-service-icon")}>{service.icon}</div>
-              <div className={cx("subs-service-content")}>
-                <h3 className={cx("subs-service-title")}>{service.title}</h3>
-                <p className={cx("subs-service-desc")}>{service.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+          <div className={styles.faqList}>
+            {faqs.map((faq, index) => {
+              const isOpen = activeFaqIndex === index;
 
-      <section className={cx("faq-section")}>
-        <div className={cx("section-header")}>
-          <h2 className={cx("section-title", "brush-title")}>
-            PREGUNTAS <span className={cx("text-red")}>FRECUENTES</span>
-          </h2>
-        </div>
-
-        <div className={cx("faq-container")}>
-          {faqs.map((item, index) => (
-            <div key={item.question} className={cx("faq-item")}>
-              <button
-                type="button"
-                className={cx(
-                  "faq-question",
-                  openFaqIndex === index && "faq-question-active"
-                )}
-                onClick={() =>
-                  setOpenFaqIndex((prev) => (prev === index ? -1 : index))
-                }
-              >
-                {item.question}
-                <svg
-                  className={cx("faq-icon")}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+              return (
+                <article
+                  key={faq.question}
+                  className={`${styles.faqItem} ${isOpen ? styles.faqItemOpen : ""}`}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </button>
-              <div
-                className={cx(
-                  "faq-answer",
-                  openFaqIndex === index && "faq-answer-active"
-                )}
-              >
-                {item.answer}
-              </div>
+                  <button
+                    type="button"
+                    className={styles.faqButton}
+                    onClick={() =>
+                      setActiveFaqIndex((currentIndex) =>
+                        currentIndex === index ? -1 : index,
+                      )
+                    }
+                    aria-expanded={isOpen}
+                  >
+                    <span className={styles.faqQuestion}>{faq.question}</span>
+                    <span
+                      className={`${styles.faqToggle} ${
+                        isOpen ? styles.faqToggleOpen : ""
+                      }`}
+                    >
+                      <FaChevronDown />
+                    </span>
+                  </button>
+
+                  <div
+                    className={`${styles.faqAnswerWrap} ${
+                      isOpen ? styles.faqAnswerWrapOpen : ""
+                    }`}
+                  >
+                    <div className={styles.faqAnswerInner}>
+                      <p className={styles.faqAnswer}>{faq.answer}</p>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          <div className={styles.faqSupport}>
+            <div>
+              <span className={styles.faqSupportTag}>Listo para empezar</span>
+              <h3 className={styles.faqSupportTitle}>
+                Encuentra el plan que mejor se adapta a tu ritmo
+              </h3>
             </div>
-          ))}
+
+            <Link to="/register" className={styles.supportButton}>
+              Quiero mi membresia
+            </Link>
+          </div>
         </div>
       </section>
-    </div>
+    </main>
   );
 }

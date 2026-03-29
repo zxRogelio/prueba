@@ -1,10 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
-import styles from "./ProductModal.module.css";
+import {
+  FaArrowDown,
+  FaArrowUp,
+  FaBoxOpen,
+  FaCheckCircle,
+  FaDollarSign,
+  FaImage,
+  FaInfoCircle,
+  FaLayerGroup,
+  FaListUl,
+  FaPlus,
+  FaTag,
+  FaTags,
+  FaTimes,
+  FaTrash,
+  FaUpload,
+} from "react-icons/fa";
+import styles from "../CatalogModal.module.css";
 
 type IdLike = string | number;
 
-// ✅ soporta ids numéricos o string
-export type BrandLike = { id: IdLike; name: string; active: boolean; categoryId: IdLike };
+export type BrandLike = {
+  id: IdLike;
+  name: string;
+  active: boolean;
+  categoryId: IdLike;
+};
 export type CategoryLike = { id: IdLike; name: string; active: boolean };
 
 export type ProductStatus = "Activo" | "Inactivo";
@@ -14,23 +35,18 @@ export type ExistingImage = { id: IdLike; url: string; order: number };
 
 export type ProductFormData = {
   name: string;
-  brandId: string;     // estado siempre string
-  categoryId: string;  // estado siempre string
-
+  brandId: string;
+  categoryId: string;
   price: number;
   stock: number;
   status: ProductStatus;
   productType: ProductType;
-
   description: string;
   features: string[];
-
   images: File[];
-
   supplementFlavor?: string;
   supplementPresentation?: string;
   supplementServings?: string;
-
   apparelSize?: string;
   apparelColor?: string;
   apparelMaterial?: string;
@@ -42,16 +58,16 @@ interface Props {
   initial?: Partial<ProductFormData>;
   onClose: () => void;
   onSave: (data: ProductFormData) => void;
-
   brands: BrandLike[];
   categories: CategoryLike[];
-
   productId?: IdLike;
   existingImages?: ExistingImage[];
-
   onDeleteExistingImage?: (imageId: string) => Promise<void>;
   onReorderExistingImages?: (newOrderIds: string[]) => Promise<void>;
 }
+
+const SUPPLEMENT_TYPE: ProductType = "Suplementaci\u00f3n";
+const APPAREL_TYPE: ProductType = "Ropa";
 
 const defaultData: ProductFormData = {
   name: "",
@@ -60,14 +76,14 @@ const defaultData: ProductFormData = {
   price: 0,
   stock: 0,
   status: "Activo",
-  productType: "Suplementación",
+  productType: SUPPLEMENT_TYPE,
   description: "",
   features: [],
   images: [],
 };
 
-const asStr = (v: unknown) => (v == null ? "" : String(v));
-const trimStr = (v: unknown) => asStr(v).trim();
+const asStr = (value: unknown) => (value == null ? "" : String(value));
+const trimStr = (value: unknown) => asStr(value).trim();
 
 export default function ProductModal({
   open,
@@ -77,27 +93,31 @@ export default function ProductModal({
   onSave,
   brands,
   categories,
-
   productId,
   existingImages = [],
   onDeleteExistingImage,
   onReorderExistingImages,
 }: Props) {
-  const activeCategories = useMemo(() => categories.filter((c) => c.active), [categories]);
-  const activeBrandsAll = useMemo(() => brands.filter((b) => b.active), [brands]);
+  const activeCategories = useMemo(
+    () => categories.filter((category) => category.active),
+    [categories],
+  );
+  const activeBrandsAll = useMemo(
+    () => brands.filter((brand) => brand.active),
+    [brands],
+  );
 
   const [data, setData] = useState<ProductFormData>(defaultData);
-
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [featureInput, setFeatureInput] = useState("");
-
   const [gallery, setGallery] = useState<ExistingImage[]>([]);
 
-  // ✅ marcas filtradas por la categoría seleccionada
   const brandsByCategory = useMemo(() => {
-    const catId = trimStr(data.categoryId);
-    if (!catId) return activeBrandsAll;
-    return activeBrandsAll.filter((b) => trimStr(b.categoryId) === catId);
+    const categoryId = trimStr(data.categoryId);
+    if (!categoryId) return activeBrandsAll;
+    return activeBrandsAll.filter(
+      (brand) => trimStr(brand.categoryId) === categoryId,
+    );
   }, [activeBrandsAll, data.categoryId]);
 
   useEffect(() => {
@@ -105,24 +125,30 @@ export default function ProductModal({
 
     const merged = { ...defaultData, ...initial } as ProductFormData;
 
-    // ✅ normalizar ids a string (backend puede mandar number)
     merged.brandId = merged.brandId != null ? String(merged.brandId) : "";
-    merged.categoryId = merged.categoryId != null ? String(merged.categoryId) : "";
+    merged.categoryId =
+      merged.categoryId != null ? String(merged.categoryId) : "";
 
-    // ✅ default category
-    if (!merged.categoryId && activeCategories[0]) merged.categoryId = String(activeCategories[0].id);
+    if (!merged.categoryId && activeCategories[0]) {
+      merged.categoryId = String(activeCategories[0].id);
+    }
 
-    // ✅ default brand según category
     const validBrands = activeBrandsAll.filter(
-      (b) => trimStr(b.categoryId) === trimStr(merged.categoryId)
+      (brand) => trimStr(brand.categoryId) === trimStr(merged.categoryId),
     );
 
     if (!merged.brandId) {
-      merged.brandId = validBrands[0]?.id != null ? String(validBrands[0].id) : "";
+      merged.brandId =
+        validBrands[0]?.id != null ? String(validBrands[0].id) : "";
     } else {
-      // si viene brandId pero no pertenece a la categoría, ajustamos
-      const stillValid = validBrands.some((b) => String(b.id) === String(merged.brandId));
-      if (!stillValid) merged.brandId = validBrands[0]?.id != null ? String(validBrands[0].id) : "";
+      const stillValid = validBrands.some(
+        (brand) => String(brand.id) === String(merged.brandId),
+      );
+
+      if (!stillValid) {
+        merged.brandId =
+          validBrands[0]?.id != null ? String(validBrands[0].id) : "";
+      }
     }
 
     merged.description = merged.description ?? "";
@@ -131,27 +157,28 @@ export default function ProductModal({
 
     setData(merged);
     setFeatureInput("");
-
-    const sorted = [...existingImages].sort((a, b) => Number(a.order) - Number(b.order));
-    setGallery(sorted);
+    setGallery(
+      [...existingImages].sort(
+        (left, right) => Number(left.order) - Number(right.order),
+      ),
+    );
   }, [open, initial, activeBrandsAll, activeCategories, existingImages]);
 
   useEffect(() => {
-    previewUrls.forEach((u) => URL.revokeObjectURL(u));
-
     if (!data.images?.length) {
       setPreviewUrls([]);
       return;
     }
 
-    const urls = data.images.map((f) => URL.createObjectURL(f));
+    const urls = data.images.map((file) => URL.createObjectURL(file));
     setPreviewUrls(urls);
 
-    return () => urls.forEach((u) => URL.revokeObjectURL(u));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => urls.forEach((url) => URL.revokeObjectURL(url));
   }, [data.images]);
 
-  const noBrandOrCategory = activeBrandsAll.length === 0 || activeCategories.length === 0;
+  const noBrandOrCategory =
+    activeBrandsAll.length === 0 || activeCategories.length === 0;
+  const isSupplement = data.productType === SUPPLEMENT_TYPE;
 
   const canSave = useMemo(() => {
     const hasSupplementDetails =
@@ -159,27 +186,23 @@ export default function ProductModal({
       trimStr(data.supplementFlavor) &&
       trimStr(data.supplementServings);
 
-    const hasApparelDetails = trimStr(data.apparelSize) && trimStr(data.apparelColor);
-
-    const brandOk = trimStr(data.brandId).length > 0;
-    const catOk = trimStr(data.categoryId).length > 0;
+    const hasApparelDetails =
+      trimStr(data.apparelSize) && trimStr(data.apparelColor);
 
     return (
       trimStr(data.name).length >= 3 &&
-      brandOk &&
-      catOk &&
+      trimStr(data.brandId).length > 0 &&
+      trimStr(data.categoryId).length > 0 &&
       Number.isFinite(data.price) &&
       data.price > 0 &&
       Number.isFinite(data.stock) &&
       data.stock >= 0 &&
-      (data.productType === "Suplementación"
-        ? Boolean(hasSupplementDetails)
-        : Boolean(hasApparelDetails))
+      (isSupplement ? Boolean(hasSupplementDetails) : Boolean(hasApparelDetails))
     );
-  }, [data]);
+  }, [data, isSupplement]);
 
   useEffect(() => {
-    const onEsc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onEsc = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     if (open) window.addEventListener("keydown", onEsc);
     return () => window.removeEventListener("keydown", onEsc);
   }, [open, onClose]);
@@ -187,14 +210,21 @@ export default function ProductModal({
   if (!open) return null;
 
   const addFeature = () => {
-    const v = featureInput.trim();
-    if (!v) return;
-    setData((p) => ({ ...p, features: [...p.features, v] }));
+    const value = featureInput.trim();
+    if (!value) return;
+
+    setData((previous) => ({
+      ...previous,
+      features: [...previous.features, value],
+    }));
     setFeatureInput("");
   };
 
-  const removeFeature = (idx: number) => {
-    setData((p) => ({ ...p, features: p.features.filter((_, i) => i !== idx) }));
+  const removeFeature = (index: number) => {
+    setData((previous) => ({
+      ...previous,
+      features: previous.features.filter((_, currentIndex) => currentIndex !== index),
+    }));
   };
 
   const handleSave = () => {
@@ -204,36 +234,34 @@ export default function ProductModal({
       ...data,
       name: trimStr(data.name),
       description: trimStr(data.description),
-      features: (data.features ?? []).map((x) => trimStr(x)).filter(Boolean),
+      features: (data.features ?? []).map((item) => trimStr(item)).filter(Boolean),
       brandId: trimStr(data.brandId),
       categoryId: trimStr(data.categoryId),
     });
   };
 
   const handleDeleteExisting = async (imageId: IdLike) => {
-    if (!productId) return;
-    if (!onDeleteExistingImage) return;
+    if (!productId || !onDeleteExistingImage) return;
 
-    const ok = confirm("¿Quitar esta imagen del producto?");
-    if (!ok) return;
+    const confirmed = confirm("Quitar esta imagen del producto?");
+    if (!confirmed) return;
 
     await onDeleteExistingImage(String(imageId));
-    setGallery((prev) => prev.filter((x) => String(x.id) !== String(imageId)));
+    setGallery((previous) =>
+      previous.filter((image) => String(image.id) !== String(imageId)),
+    );
   };
 
   const moveExisting = async (from: number, to: number) => {
-    if (!productId) return;
-    if (!onReorderExistingImages) return;
+    if (!productId || !onReorderExistingImages) return;
     if (to < 0 || to >= gallery.length) return;
 
-    const copy = [...gallery];
-    const [item] = copy.splice(from, 1);
-    copy.splice(to, 0, item);
+    const nextGallery = [...gallery];
+    const [item] = nextGallery.splice(from, 1);
+    nextGallery.splice(to, 0, item);
+    setGallery(nextGallery);
 
-    setGallery(copy);
-
-    const ids = copy.map((x) => String(x.id));
-    await onReorderExistingImages(ids);
+    await onReorderExistingImages(nextGallery.map((image) => String(image.id)));
   };
 
   const isEditing = Boolean(productId);
@@ -241,372 +269,587 @@ export default function ProductModal({
   return (
     <div className={styles.backdrop} onMouseDown={onClose}>
       <div
-        className={styles.modal}
-        onMouseDown={(e) => e.stopPropagation()}
+        className={`${styles.modal} ${styles.modalWide}`}
+        onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
         <div className={styles.header}>
-          <div>
-            <h2 className={styles.title}>{title}</h2>
-            <p className={styles.subtitle}>
-              {noBrandOrCategory
-                ? "Primero crea Marcas y Categorías activas para poder guardar productos."
-                : "Completa los datos del producto."}
-            </p>
+          <div className={styles.headerMain}>
+            <span className={styles.headerBadge}>Catalogo</span>
+            <div className={styles.titleRow}>
+              <span className={styles.titleIcon}>
+                <FaBoxOpen />
+              </span>
+              <div className={styles.titleBlock}>
+                <h2 className={styles.title}>{title}</h2>
+                <p className={styles.subtitle}>
+                  Configura la ficha comercial del producto con el mismo lenguaje
+                  visual del admin y manteniendo la relacion correcta entre
+                  categoria y marca.
+                </p>
+              </div>
+            </div>
           </div>
-          <button className={styles.close} onClick={onClose} aria-label="Cerrar">
-            ✕
+
+          <button
+            type="button"
+            className={styles.closeButton}
+            onClick={onClose}
+            aria-label="Cerrar"
+          >
+            <FaTimes />
           </button>
         </div>
 
         <div className={styles.body}>
-          {isEditing && (
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>Imágenes actuales</div>
+          <div className={styles.helperCallout}>
+            <span className={styles.helperIcon}>
+              <FaInfoCircle />
+            </span>
+            <div>
+              <strong>
+                {noBrandOrCategory
+                  ? "Falta configuracion previa"
+                  : "Relacion categoria - marca"}
+              </strong>
+              <div>
+                {noBrandOrCategory
+                  ? "Necesitas al menos una categoria activa y una marca activa para guardar productos."
+                  : "La marca se filtra por la categoria elegida para mantener consistente la relacion comercial del producto."}
+              </div>
+            </div>
+          </div>
+
+          <section className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <span className={styles.sectionIcon}>
+                <FaTags />
+              </span>
+              <div>
+                <h3 className={styles.sectionTitle}>Base comercial</h3>
+                <p className={styles.sectionSubtitle}>
+                  Define tipo, nombre, categoria, marca, precio, stock y estado.
+                </p>
+              </div>
+            </div>
+
+            <div className={styles.grid}>
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>
+                  <FaLayerGroup className={styles.fieldLabelIcon} />
+                  Tipo de producto
+                </span>
+                <select
+                  className={styles.select}
+                  value={data.productType}
+                  onChange={(event) =>
+                    setData((previous) => ({
+                      ...previous,
+                      productType: event.target.value as ProductType,
+                      supplementFlavor:
+                        event.target.value === SUPPLEMENT_TYPE
+                          ? previous.supplementFlavor
+                          : "",
+                      supplementPresentation:
+                        event.target.value === SUPPLEMENT_TYPE
+                          ? previous.supplementPresentation
+                          : "",
+                      supplementServings:
+                        event.target.value === SUPPLEMENT_TYPE
+                          ? previous.supplementServings
+                          : "",
+                      apparelSize:
+                        event.target.value === APPAREL_TYPE
+                          ? previous.apparelSize
+                          : "",
+                      apparelColor:
+                        event.target.value === APPAREL_TYPE
+                          ? previous.apparelColor
+                          : "",
+                      apparelMaterial:
+                        event.target.value === APPAREL_TYPE
+                          ? previous.apparelMaterial
+                          : "",
+                    }))
+                  }
+                >
+                  <option value={SUPPLEMENT_TYPE}>Suplementacion</option>
+                  <option value={APPAREL_TYPE}>Ropa</option>
+                </select>
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>
+                  <FaTag className={styles.fieldLabelIcon} />
+                  Nombre
+                </span>
+                <input
+                  className={styles.input}
+                  value={data.name}
+                  onChange={(event) =>
+                    setData((previous) => ({ ...previous, name: event.target.value }))
+                  }
+                  placeholder="Ej. Tenis de entrenamiento"
+                />
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>
+                  <FaLayerGroup className={styles.fieldLabelIcon} />
+                  Categoria
+                </span>
+                <select
+                  className={styles.select}
+                  value={data.categoryId}
+                  onChange={(event) => {
+                    const nextCategoryId = event.target.value;
+
+                    setData((previous) => {
+                      const validBrands = activeBrandsAll.filter(
+                        (brand) => trimStr(brand.categoryId) === trimStr(nextCategoryId),
+                      );
+
+                      return {
+                        ...previous,
+                        categoryId: nextCategoryId,
+                        brandId:
+                          validBrands[0]?.id != null ? String(validBrands[0].id) : "",
+                      };
+                    });
+                  }}
+                  disabled={activeCategories.length === 0}
+                >
+                  {activeCategories.length === 0 ? (
+                    <option value="">(No hay categorias activas)</option>
+                  ) : (
+                    activeCategories.map((category) => (
+                      <option key={String(category.id)} value={String(category.id)}>
+                        {category.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>
+                  <FaTags className={styles.fieldLabelIcon} />
+                  Marca
+                </span>
+                <select
+                  className={styles.select}
+                  value={data.brandId}
+                  onChange={(event) =>
+                    setData((previous) => ({ ...previous, brandId: event.target.value }))
+                  }
+                  disabled={brandsByCategory.length === 0}
+                >
+                  {brandsByCategory.length === 0 ? (
+                    <option value="">(No hay marcas para esta categoria)</option>
+                  ) : (
+                    brandsByCategory.map((brand) => (
+                      <option key={String(brand.id)} value={String(brand.id)}>
+                        {brand.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+                {data.categoryId && brandsByCategory.length === 0 ? (
+                  <span className={styles.fieldHint}>
+                    Esta categoria aun no tiene marcas activas asociadas.
+                  </span>
+                ) : null}
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>
+                  <FaDollarSign className={styles.fieldLabelIcon} />
+                  Precio
+                </span>
+                <input
+                  className={styles.input}
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={data.price}
+                  onChange={(event) =>
+                    setData((previous) => ({
+                      ...previous,
+                      price: Number(event.target.value),
+                    }))
+                  }
+                />
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>
+                  <FaBoxOpen className={styles.fieldLabelIcon} />
+                  Stock
+                </span>
+                <input
+                  className={styles.input}
+                  type="number"
+                  min={0}
+                  step="1"
+                  value={data.stock}
+                  onChange={(event) =>
+                    setData((previous) => ({
+                      ...previous,
+                      stock: Number(event.target.value),
+                    }))
+                  }
+                />
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>
+                  <FaCheckCircle className={styles.fieldLabelIcon} />
+                  Estado
+                </span>
+                <select
+                  className={styles.select}
+                  value={data.status}
+                  onChange={(event) =>
+                    setData((previous) => ({
+                      ...previous,
+                      status: event.target.value as ProductStatus,
+                    }))
+                  }
+                >
+                  <option value="Activo">Activo</option>
+                  <option value="Inactivo">Inactivo</option>
+                </select>
+              </label>
+            </div>
+          </section>
+
+          <section className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <span className={styles.sectionIcon}>
+                <FaListUl />
+              </span>
+              <div>
+                <h3 className={styles.sectionTitle}>Contenido del producto</h3>
+                <p className={styles.sectionSubtitle}>
+                  Agrega descripcion, caracteristicas y datos segun el tipo.
+                </p>
+              </div>
+            </div>
+
+            <div className={styles.grid}>
+              <label className={`${styles.field} ${styles.span2}`}>
+                <span className={styles.fieldLabel}>
+                  <FaTag className={styles.fieldLabelIcon} />
+                  Descripcion
+                </span>
+                <textarea
+                  className={styles.textarea}
+                  value={data.description}
+                  onChange={(event) =>
+                    setData((previous) => ({
+                      ...previous,
+                      description: event.target.value,
+                    }))
+                  }
+                  placeholder="Describe el beneficio principal, materiales o presentacion del producto."
+                />
+              </label>
+
+              <div className={`${styles.field} ${styles.span2}`}>
+                <span className={styles.fieldLabel}>
+                  <FaListUl className={styles.fieldLabelIcon} />
+                  Caracteristicas
+                </span>
+
+                <div className={styles.inlineRow}>
+                  <input
+                    className={styles.input}
+                    value={featureInput}
+                    onChange={(event) => setFeatureInput(event.target.value)}
+                    placeholder="Ej. suela antiderrapante, 24 g de proteina"
+                  />
+                  <button
+                    type="button"
+                    className={styles.addButton}
+                    onClick={addFeature}
+                  >
+                    <FaPlus />
+                    Agregar
+                  </button>
+                </div>
+
+                {data.features.length > 0 ? (
+                  <div className={styles.chipList}>
+                    {data.features.map((feature, index) => (
+                      <span key={`${feature}-${index}`} className={styles.chip}>
+                        {feature}
+                        <button
+                          type="button"
+                          className={styles.chipRemove}
+                          onClick={() => removeFeature(index)}
+                          aria-label={`Quitar ${feature}`}
+                        >
+                          <FaTimes />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className={styles.fieldHint}>
+                    Agrega caracteristicas cortas para enriquecer la ficha del producto.
+                  </span>
+                )}
+              </div>
+
+              {isSupplement ? (
+                <>
+                  <label className={styles.field}>
+                    <span className={styles.fieldLabel}>
+                      <FaTag className={styles.fieldLabelIcon} />
+                      Presentacion
+                    </span>
+                    <input
+                      className={styles.input}
+                      value={data.supplementPresentation || ""}
+                      onChange={(event) =>
+                        setData((previous) => ({
+                          ...previous,
+                          supplementPresentation: event.target.value,
+                        }))
+                      }
+                      placeholder="Ej. 900 g, 60 capsulas"
+                    />
+                  </label>
+
+                  <label className={styles.field}>
+                    <span className={styles.fieldLabel}>
+                      <FaTag className={styles.fieldLabelIcon} />
+                      Sabor
+                    </span>
+                    <input
+                      className={styles.input}
+                      value={data.supplementFlavor || ""}
+                      onChange={(event) =>
+                        setData((previous) => ({
+                          ...previous,
+                          supplementFlavor: event.target.value,
+                        }))
+                      }
+                      placeholder="Ej. chocolate, limon"
+                    />
+                  </label>
+
+                  <label className={styles.field}>
+                    <span className={styles.fieldLabel}>
+                      <FaListUl className={styles.fieldLabelIcon} />
+                      Porciones
+                    </span>
+                    <input
+                      className={styles.input}
+                      value={data.supplementServings || ""}
+                      onChange={(event) =>
+                        setData((previous) => ({
+                          ...previous,
+                          supplementServings: event.target.value,
+                        }))
+                      }
+                      placeholder="Ej. 30 servicios"
+                    />
+                  </label>
+                </>
+              ) : (
+                <>
+                  <label className={styles.field}>
+                    <span className={styles.fieldLabel}>
+                      <FaTag className={styles.fieldLabelIcon} />
+                      Talla
+                    </span>
+                    <input
+                      className={styles.input}
+                      value={data.apparelSize || ""}
+                      onChange={(event) =>
+                        setData((previous) => ({
+                          ...previous,
+                          apparelSize: event.target.value,
+                        }))
+                      }
+                      placeholder="Ej. CH, M, G"
+                    />
+                  </label>
+
+                  <label className={styles.field}>
+                    <span className={styles.fieldLabel}>
+                      <FaTag className={styles.fieldLabelIcon} />
+                      Color
+                    </span>
+                    <input
+                      className={styles.input}
+                      value={data.apparelColor || ""}
+                      onChange={(event) =>
+                        setData((previous) => ({
+                          ...previous,
+                          apparelColor: event.target.value,
+                        }))
+                      }
+                      placeholder="Ej. negro, blanco"
+                    />
+                  </label>
+
+                  <label className={styles.field}>
+                    <span className={styles.fieldLabel}>
+                      <FaTag className={styles.fieldLabelIcon} />
+                      Material
+                    </span>
+                    <input
+                      className={styles.input}
+                      value={data.apparelMaterial || ""}
+                      onChange={(event) =>
+                        setData((previous) => ({
+                          ...previous,
+                          apparelMaterial: event.target.value,
+                        }))
+                      }
+                      placeholder="Ej. algodon, dry fit"
+                    />
+                  </label>
+                </>
+              )}
+            </div>
+          </section>
+
+          {isEditing ? (
+            <section className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <span className={styles.sectionIcon}>
+                  <FaImage />
+                </span>
+                <div>
+                  <h3 className={styles.sectionTitle}>Imagenes actuales</h3>
+                  <p className={styles.sectionSubtitle}>
+                    Reordena las imagenes o elimina las que ya no deban mostrarse.
+                  </p>
+                </div>
+              </div>
 
               {gallery.length === 0 ? (
-                <div style={{ opacity: 0.8 }}>Este producto aún no tiene imágenes guardadas.</div>
+                <div className={styles.emptyState}>
+                  Este producto aun no tiene imagenes guardadas.
+                </div>
               ) : (
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  {gallery.map((img, idx) => (
-                    <div
-                      key={String(img.id)}
-                      style={{
-                        width: 140,
-                        borderRadius: 12,
-                        overflow: "hidden",
-                        border: "1px solid rgba(255,255,255,.12)",
-                        background: "rgba(0,0,0,.15)",
-                      }}
-                    >
+                <div className={styles.galleryGrid}>
+                  {gallery.map((image, index) => (
+                    <article key={String(image.id)} className={styles.galleryCard}>
                       <img
-                        src={img.url}
-                        alt={`Imagen ${idx + 1}`}
-                        style={{ width: "100%", height: 110, objectFit: "cover" }}
+                        className={styles.galleryImage}
+                        src={image.url}
+                        alt={`Imagen ${index + 1}`}
                       />
 
-                      <div
-                        style={{
-                          padding: 8,
-                          display: "flex",
-                          gap: 6,
-                          justifyContent: "space-between",
-                        }}
-                      >
-                        <button
-                          type="button"
-                          className={styles.btnGhost}
-                          onClick={() => moveExisting(idx, idx - 1)}
-                          disabled={idx === 0}
-                          title="Subir (será la portada si queda primero)"
-                        >
-                          ⬆️
-                        </button>
+                      <div className={styles.galleryMeta}>
+                        {index === 0 ? (
+                          <span className={styles.galleryBadge}>Portada</span>
+                        ) : null}
 
-                        <button
-                          type="button"
-                          className={styles.btnGhost}
-                          onClick={() => moveExisting(idx, idx + 1)}
-                          disabled={idx === gallery.length - 1}
-                          title="Bajar"
-                        >
-                          ⬇️
-                        </button>
+                        <div className={styles.iconButtonRow}>
+                          <button
+                            type="button"
+                            className={styles.iconButton}
+                            onClick={() => moveExisting(index, index - 1)}
+                            disabled={index === 0}
+                            title="Subir"
+                          >
+                            <FaArrowUp />
+                          </button>
 
-                        <button
-                          type="button"
-                          className={styles.btnGhost}
-                          onClick={() => handleDeleteExisting(img.id)}
-                          title="Quitar imagen"
-                        >
-                          🗑️
-                        </button>
-                      </div>
+                          <button
+                            type="button"
+                            className={styles.iconButton}
+                            onClick={() => moveExisting(index, index + 1)}
+                            disabled={index === gallery.length - 1}
+                            title="Bajar"
+                          >
+                            <FaArrowDown />
+                          </button>
 
-                      {idx === 0 && (
-                        <div style={{ padding: "0 8px 8px", fontSize: 12, opacity: 0.9 }}>
-                          ⭐ Portada
+                          <button
+                            type="button"
+                            className={styles.iconButtonDanger}
+                            onClick={() => handleDeleteExisting(image.id)}
+                            title="Quitar imagen"
+                          >
+                            <FaTrash />
+                          </button>
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    </article>
                   ))}
                 </div>
               )}
-            </div>
-          )}
+            </section>
+          ) : null}
 
-          <div className={styles.grid}>
-            <label className={`${styles.field} ${styles.span2}`}>
-              <span>Tipo de producto</span>
-              <select
-                value={data.productType}
-                onChange={(e) =>
-                  setData((p) => ({
-                    ...p,
-                    productType: e.target.value as ProductType,
-                    supplementFlavor: e.target.value === "Suplementación" ? p.supplementFlavor : "",
-                    supplementPresentation:
-                      e.target.value === "Suplementación" ? p.supplementPresentation : "",
-                    supplementServings:
-                      e.target.value === "Suplementación" ? p.supplementServings : "",
-                    apparelSize: e.target.value === "Ropa" ? p.apparelSize : "",
-                    apparelColor: e.target.value === "Ropa" ? p.apparelColor : "",
-                    apparelMaterial: e.target.value === "Ropa" ? p.apparelMaterial : "",
-                  }))
-                }
-              >
-                <option value="Suplementación">Suplementación</option>
-                <option value="Ropa">Ropa</option>
-              </select>
-            </label>
-
-            <label className={styles.field}>
-              <span>Nombre</span>
-              <input
-                value={data.name}
-                onChange={(e) => setData((p) => ({ ...p, name: e.target.value }))}
-                placeholder="Ej. Creatina Monohidratada"
-              />
-            </label>
-
-            {/* ✅ Categoría (primero) */}
-            <label className={styles.field}>
-              <span>Categoría</span>
-              <select
-                value={data.categoryId}
-                onChange={(e) => {
-                  const newCategoryId = e.target.value;
-
-                  setData((p) => {
-                    const validBrands = activeBrandsAll.filter(
-                      (b) => trimStr(b.categoryId) === trimStr(newCategoryId)
-                    );
-
-                    return {
-                      ...p,
-                      categoryId: newCategoryId,
-                      brandId: validBrands[0]?.id != null ? String(validBrands[0].id) : "",
-                    };
-                  });
-                }}
-                disabled={activeCategories.length === 0}
-              >
-                {activeCategories.length === 0 ? (
-                  <option value="">(No hay categorías activas)</option>
-                ) : (
-                  activeCategories.map((c) => (
-                    <option key={String(c.id)} value={String(c.id)}>
-                      {c.name}
-                    </option>
-                  ))
-                )}
-              </select>
-            </label>
-
-            {/* ✅ Marca (filtrada por categoría) */}
-            <label className={styles.field}>
-              <span>Marca</span>
-              <select
-                value={data.brandId}
-                onChange={(e) => setData((p) => ({ ...p, brandId: e.target.value }))}
-                disabled={brandsByCategory.length === 0}
-              >
-                {brandsByCategory.length === 0 ? (
-                  <option value="">(No hay marcas para esta categoría)</option>
-                ) : (
-                  brandsByCategory.map((b) => (
-                    <option key={String(b.id)} value={String(b.id)}>
-                      {b.name}
-                    </option>
-                  ))
-                )}
-              </select>
-            </label>
-
-            <label className={`${styles.field} ${styles.span2}`}>
-              <span>Descripción</span>
-              <textarea
-                value={data.description}
-                onChange={(e) => setData((p) => ({ ...p, description: e.target.value }))}
-                rows={3}
-                placeholder="Descripción completa del producto…"
-              />
-            </label>
-
-            <div className={`${styles.field} ${styles.span2}`}>
-              <span>Características</span>
-
-              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                <input
-                  value={featureInput}
-                  onChange={(e) => setFeatureInput(e.target.value)}
-                  placeholder="Ej. 24g de proteína por servicio"
-                />
-                <button type="button" className={styles.btnGhost} onClick={addFeature}>
-                  + Agregar
-                </button>
-              </div>
-
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
-                {data.features.map((f, idx) => (
-                  <span
-                    key={`${f}-${idx}`}
-                    className={styles.tag}
-                    style={{ display: "inline-flex", gap: 8, alignItems: "center" }}
-                  >
-                    {f}
-                    <button
-                      type="button"
-                      className={styles.btnGhost}
-                      onClick={() => removeFeature(idx)}
-                    >
-                      ✕
-                    </button>
-                  </span>
-                ))}
+          <section className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <span className={styles.sectionIcon}>
+                <FaUpload />
+              </span>
+              <div>
+                <h3 className={styles.sectionTitle}>Nuevas imagenes</h3>
+                <p className={styles.sectionSubtitle}>
+                  Puedes seleccionar varias imagenes. Se agregan al final de la galeria.
+                </p>
               </div>
             </div>
 
-            {data.productType === "Suplementación" ? (
-              <>
-                <label className={styles.field}>
-                  <span>Presentación</span>
-                  <input
-                    value={data.supplementPresentation || ""}
-                    onChange={(e) =>
-                      setData((p) => ({ ...p, supplementPresentation: e.target.value }))
-                    }
-                    placeholder="Ej. 900 g / 1.8 kg"
-                  />
-                </label>
-
-                <label className={styles.field}>
-                  <span>Sabor</span>
-                  <input
-                    value={data.supplementFlavor || ""}
-                    onChange={(e) => setData((p) => ({ ...p, supplementFlavor: e.target.value }))}
-                    placeholder="Ej. Chocolate / Vainilla"
-                  />
-                </label>
-
-                <label className={styles.field}>
-                  <span>Porciones</span>
-                  <input
-                    value={data.supplementServings || ""}
-                    onChange={(e) =>
-                      setData((p) => ({ ...p, supplementServings: e.target.value }))
-                    }
-                    placeholder="Ej. 30 servicios"
-                  />
-                </label>
-              </>
-            ) : (
-              <>
-                <label className={styles.field}>
-                  <span>Talla</span>
-                  <input
-                    value={data.apparelSize || ""}
-                    onChange={(e) => setData((p) => ({ ...p, apparelSize: e.target.value }))}
-                    placeholder="Ej. CH / M / G"
-                  />
-                </label>
-
-                <label className={styles.field}>
-                  <span>Color</span>
-                  <input
-                    value={data.apparelColor || ""}
-                    onChange={(e) => setData((p) => ({ ...p, apparelColor: e.target.value }))}
-                    placeholder="Ej. Negro / Azul"
-                  />
-                </label>
-
-                <label className={styles.field}>
-                  <span>Material</span>
-                  <input
-                    value={data.apparelMaterial || ""}
-                    onChange={(e) => setData((p) => ({ ...p, apparelMaterial: e.target.value }))}
-                    placeholder="Ej. Algodón / Dry-fit"
-                  />
-                </label>
-              </>
-            )}
-
             <label className={styles.field}>
-              <span>Precio (MXN)</span>
+              <span className={styles.fieldLabel}>
+                <FaImage className={styles.fieldLabelIcon} />
+                Cargar imagenes
+              </span>
               <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={data.price}
-                onChange={(e) => setData((p) => ({ ...p, price: Number(e.target.value) }))}
-              />
-            </label>
-
-            <label className={styles.field}>
-              <span>Stock</span>
-              <input
-                type="number"
-                min={0}
-                step="1"
-                value={data.stock}
-                onChange={(e) => setData((p) => ({ ...p, stock: Number(e.target.value) }))}
-              />
-            </label>
-
-            <label className={styles.field}>
-              <span>Estado</span>
-              <select
-                value={data.status}
-                onChange={(e) => setData((p) => ({ ...p, status: e.target.value as ProductStatus }))}
-              >
-                <option value="Activo">Activo</option>
-                <option value="Inactivo">Inactivo</option>
-              </select>
-            </label>
-
-            <label className={`${styles.field} ${styles.span2}`}>
-              <span>Agregar nuevas imágenes (puedes seleccionar varias)</span>
-              <input
+                className={styles.input}
                 type="file"
                 accept="image/*"
                 multiple
-                onChange={(e) => {
-                  const files = Array.from(e.target.files ?? []);
-                  setData((p) => ({ ...p, images: files }));
+                onChange={(event) => {
+                  const files = Array.from(event.target.files ?? []);
+                  setData((previous) => ({ ...previous, images: files }));
                 }}
               />
-              <div style={{ marginTop: 6, fontSize: 12, opacity: 0.8 }}>
-                * Estas se agregan al final. Para cambiar el orden, usa ⬆️⬇️ en “Imágenes actuales”.
-              </div>
+              <span className={styles.fieldHint}>
+                Si necesitas cambiar el orden final, usa las flechas en la seccion de imagenes actuales.
+              </span>
             </label>
-          </div>
 
-          {!!previewUrls.length && (
-            <div className={styles.preview} style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {previewUrls.map((u, idx) => (
-                <img
-                  key={u + idx}
-                  src={u}
-                  alt={`Vista ${idx + 1}`}
-                  style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 10 }}
-                />
-              ))}
-            </div>
-          )}
+            {previewUrls.length > 0 ? (
+              <div className={styles.previewGrid}>
+                {previewUrls.map((url, index) => (
+                  <article key={`${url}-${index}`} className={styles.previewCard}>
+                    <img
+                      className={styles.previewImage}
+                      src={url}
+                      alt={`Vista previa ${index + 1}`}
+                    />
+                  </article>
+                ))}
+              </div>
+            ) : null}
+          </section>
         </div>
 
         <div className={styles.footer}>
-          <button className={styles.btnGhost} onClick={onClose}>
+          <button type="button" className={styles.btnGhost} onClick={onClose}>
             Cancelar
           </button>
           <button
+            type="button"
             className={styles.btnPrimary}
             onClick={handleSave}
             disabled={!canSave || noBrandOrCategory}
-            title={noBrandOrCategory ? "Necesitas marcas y categorías activas" : undefined}
+            title={noBrandOrCategory ? "Necesitas marcas y categorias activas" : undefined}
           >
-            Guardar
+            Guardar producto
           </button>
         </div>
       </div>
