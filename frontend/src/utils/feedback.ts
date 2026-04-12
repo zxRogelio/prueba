@@ -7,6 +7,7 @@ export function showSuccessToast(message: string, description?: string) {
 
 const roleLabels: Record<string, string> = {
   administrador: "Panel administrativo",
+  entrenador: "Portal de entrenador",
   cliente: "Portal de cliente",
 };
 
@@ -19,20 +20,15 @@ export function showLoginSuccessAlert(role?: string) {
   return Swal.fire({
     html: `
       <section class="auth-success-alert">
-        <div class="auth-success-glow auth-success-glow-primary"></div>
-        <div class="auth-success-glow auth-success-glow-secondary"></div>
         <div class="auth-success-badge">ACCESO AUTORIZADO</div>
         <div class="auth-success-iconWrap">
-          <div class="auth-success-icon">✓</div>
+          <div class="auth-success-icon">&#10003;</div>
         </div>
         <h2 class="auth-success-title">Inicio de sesion exitoso</h2>
         <p class="auth-success-text">
           Tu cuenta fue validada correctamente. Todo esta listo para entrar a tu espacio.
         </p>
-        <div class="auth-success-meta">
-          <span class="auth-success-chip">Seguridad validada</span>
-          <span class="auth-success-chip">${getRoleLabel(role)}</span>
-        </div>
+        <p class="auth-success-note">${getRoleLabel(role)}</p>
       </section>
     `,
     showConfirmButton: true,
@@ -55,8 +51,6 @@ export function showLogoutConfirmAlert() {
   return Swal.fire({
     html: `
       <section class="auth-logout-alert">
-        <div class="auth-logout-glow auth-logout-glow-primary"></div>
-        <div class="auth-logout-glow auth-logout-glow-secondary"></div>
         <div class="auth-logout-badge">CONFIRMAR SALIDA</div>
         <div class="auth-logout-iconWrap">
           <div class="auth-logout-icon">?</div>
@@ -65,10 +59,7 @@ export function showLogoutConfirmAlert() {
         <p class="auth-logout-text">
           Vas a salir de tu cuenta actual y tendras que iniciar sesion de nuevo para volver a entrar.
         </p>
-        <div class="auth-logout-meta">
-          <span class="auth-logout-chip">Sesion protegida</span>
-          <span class="auth-logout-chip">Accion reversible</span>
-        </div>
+        <p class="auth-logout-note">Puedes volver a iniciar sesion cuando quieras.</p>
       </section>
     `,
     showCancelButton: true,
@@ -102,6 +93,15 @@ export function showAlert({
     title,
     text,
     icon,
-    confirmButtonColor: "#111827",
+    confirmButtonText: "Entendido",
+    buttonsStyling: false,
+    background: "#10131a",
+    color: "#f8fafc",
+    iconColor: "#ef4444",
+    backdrop: "rgba(3, 7, 18, 0.72)",
+    customClass: {
+      popup: "auth-basic-popup",
+      confirmButton: "auth-basic-confirmButton",
+    },
   });
 }

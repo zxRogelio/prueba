@@ -61,6 +61,10 @@ export const User = sequelize.define(
       type: DataTypes.DATEONLY,
       allowNull: true,
     },
+    mustChangePassword: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
   },
   {
     tableName: "Users",

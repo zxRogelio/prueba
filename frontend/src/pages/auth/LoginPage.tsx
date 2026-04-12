@@ -105,23 +105,27 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await API.post("/auth/login", { email, password });
+      const normalizedEmail = email.trim().toLowerCase();
+      const response = await API.post("/auth/login", {
+        email: normalizedEmail,
+        password,
+      });
 
       if (response.data?.twoFactorRequired) {
         const method = String(response.data?.method ?? "").toLowerCase();
 
         if (method === "totp") {
-          navigate("/login-totp", { state: { email } });
+          navigate("/login-totp", { state: { email: normalizedEmail } });
           return;
         }
 
         if (method === "confirm-link") {
-          navigate("/esperando-confirmacion", { state: { email } });
+          navigate("/esperando-confirmacion", { state: { email: normalizedEmail } });
           return;
         }
 
         if (method === "otp") {
-          navigate("/verificar-otp", { state: { email } });
+          navigate("/verificar-otp", { state: { email: normalizedEmail } });
           return;
         }
       }
@@ -140,8 +144,9 @@ export default function LoginPage() {
           email: user.email,
           role: user.role ?? user.rol,
           loginMethod: "local",
+          mustChangePassword: user.mustChangePassword,
         },
-        email,
+        normalizedEmail,
       );
 
       localStorage.setItem("token", String(accessToken));
@@ -149,6 +154,12 @@ export default function LoginPage() {
       localStorage.removeItem(LOGIN_LOCK_KEY);
 
       setUser(userData);
+
+      if (userData.mustChangePassword) {
+        navigate("/primer-acceso", { replace: true });
+        return;
+      }
+
       navigate(getDefaultAuthenticatedRoute(userData.rol), {
         state: { showLoginSuccess: true },
       });

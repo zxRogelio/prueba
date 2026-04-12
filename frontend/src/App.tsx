@@ -26,6 +26,7 @@ import NewPassword from "./pages/NewPassword";
 import OAuthCallbackPage from "./pages/OAuthCallbackPage";
 import TermsAndConditionsPage from "./pages/TermsAndConditionsPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+import FirstLoginPasswordPage from "./pages/FirstLoginPasswordPage";
 
 // Admin
 import AdminLayout from "./components/layout/admin/AdminLayout/AdminLayout";
@@ -38,6 +39,7 @@ import AdminBrandsPage from "./pages/admin/AdminBrandsPage";
 import AdminCategoriesPage from "./pages/admin/AdminCategoriesPage";
 import AdminSummaryPage from "./pages/admin/AdminSummaryPage";
 import AdminAboutPage from "./pages/admin/AdminAboutPage";
+import AdminUsersPage from "./pages/admin/AdminUsersPage";
 
 // Client Portal
 import ClientPortalLayout from "./components/layout/client/ClientPortalLayout/ClientPortalLayout";
@@ -47,6 +49,7 @@ import ClientSubscriptionPage from "./pages/client/ClientSubscriptionPage";
 import ClientPaymentsPage from "./pages/client/ClientPaymentsPage";
 import Configuracion2FA from "./pages/Configuracion2FA";
 import ProtectedRoute from "./components/routing/ProtectedRoute";
+import TrainerDashboardPage from "./pages/trainer/TrainerDashboardPage";
 
 export default function App() {
   return (
@@ -75,6 +78,7 @@ export default function App() {
         <Route path="/verify-account" element={<VerifyAccountPage />} />
 
         <Route path="/confirmar-acceso" element={<ConfirmAccessPage />} />
+        <Route path="/confirm-access" element={<ConfirmAccessPage />} />
         <Route path="/login-totp" element={<LoginTOTP />} />
         <Route path="/verificar-otp" element={<VerificarOTP />} />
         <Route
@@ -102,10 +106,25 @@ export default function App() {
           <Route path="brands" element={<AdminBrandsPage />} />
           <Route path="categories" element={<AdminCategoriesPage />} />
           <Route path="about" element={<AdminAboutPage />} />
+          <Route path="users" element={<AdminUsersPage />} />
         </Route>
       </Route>
 
       {/* ✅ Cliente protegido por rol */}
+      <Route
+        element={
+          <ProtectedRoute
+            allowedRoles={["administrador", "entrenador", "cliente"]}
+          />
+        }
+      >
+        <Route path="/primer-acceso" element={<FirstLoginPasswordPage />} />
+      </Route>
+
+      <Route element={<ProtectedRoute allowedRoles={["entrenador"]} />}>
+        <Route path="/entrenador" element={<TrainerDashboardPage />} />
+      </Route>
+
       <Route element={<ProtectedRoute allowedRoles={["cliente"]} />}>
         <Route path="/cliente" element={<ClientPortalLayout />}>
           <Route index element={<ClientDashboardPage />} />

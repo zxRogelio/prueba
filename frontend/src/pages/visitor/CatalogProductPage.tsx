@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import axios from "axios";
 import { Link, useParams } from "react-router-dom";
 import { FaChevronRight, FaHome } from "react-icons/fa";
 import CatalogProductDetail from "../../components/catalog/CatalogProductDetail";
@@ -28,6 +29,8 @@ export default function CatalogProductPage() {
   );
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+
     if (!productId) {
       setProduct(null);
       setIsLoading(false);
@@ -44,13 +47,13 @@ export default function CatalogProductPage() {
         const nextProduct = await fetchCatalogProductById(productId);
         if (ignore) return;
         setProduct(nextProduct);
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (ignore) return;
 
         console.error("fetchCatalogProductById error:", error);
         setProduct(null);
 
-        if (error?.response?.status !== 404) {
+        if (!axios.isAxiosError(error) || error.response?.status !== 404) {
           setLoadError("No pudimos cargar el detalle del producto.");
         }
       } finally {

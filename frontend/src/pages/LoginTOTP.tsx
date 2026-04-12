@@ -36,19 +36,19 @@ export default function LoginTOTP() {
     try {
       const response = await API.post("/auth/verify-totp", { email, code });
       const token = response.data.token;
+      const responseUser = response.data.user;
 
       if (!token) {
         throw new Error("Token no recibido");
       }
 
-      const payload = JSON.parse(atob(token.split(".")[1]));
       const user = buildAuthUser(
         {
-          id: payload.id,
-          email,
-          role: payload.role,
-          loginMethod:
-            (payload.loginMethod as "local" | "google" | undefined) || "local",
+          id: responseUser?.id,
+          email: responseUser?.email ?? email,
+          role: responseUser?.role ?? responseUser?.rol,
+          loginMethod: "local",
+          mustChangePassword: responseUser?.mustChangePassword,
         },
         email
       );
@@ -56,6 +56,11 @@ export default function LoginTOTP() {
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
       setUser(user);
+
+      if (user.mustChangePassword) {
+        navigate("/primer-acceso", { replace: true });
+        return;
+      }
 
       navigate(getDefaultAuthenticatedRoute(user.rol));
     } catch (error) {

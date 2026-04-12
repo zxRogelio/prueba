@@ -2,6 +2,7 @@ import speakeasy from "speakeasy";
 import jwt from "jsonwebtoken";
 import { User } from "../models/User.js";
 import { Session } from "../models/Session.js"; // ⬅️ IMPORTANTE
+import { getClientIp } from "../utils/clientIp.js";
 
 export const generateTOTP = async (req, res) => {
   try {
@@ -90,7 +91,7 @@ export const verifyTOTP = async (req, res) => {
       userId: user.id,
       token,
       expiresAt: new Date(Date.now() + 60 * 60 * 1000),
-      ipAddress: req.ip || req.connection?.remoteAddress,
+      ipAddress: getClientIp(req),
       userAgent: req.headers["user-agent"] || "Desconocido",
     });
 
@@ -102,6 +103,7 @@ export const verifyTOTP = async (req, res) => {
         id: user.id,
         email: user.email,
         rol: user.role,
+        mustChangePassword: user.mustChangePassword,
       },
     });
   } catch (err) {

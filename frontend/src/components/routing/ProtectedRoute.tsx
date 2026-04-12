@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth, type User } from "../../context/AuthContext";
-import { normalizeAppRole } from "../../utils/authRouting";
+import { getPortalRoute, normalizeAppRole } from "../../utils/authRouting";
 import { showLoginSuccessAlert } from "../../utils/feedback";
 
 type AppRole = User["rol"];
@@ -45,6 +45,14 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
 
   if (!currentRole || !allowedRoles.includes(currentRole)) {
     return <Navigate to="/400" replace />;
+  }
+
+  if (user.mustChangePassword && location.pathname !== "/primer-acceso") {
+    return <Navigate to="/primer-acceso" replace />;
+  }
+
+  if (!user.mustChangePassword && location.pathname === "/primer-acceso") {
+    return <Navigate to={getPortalRoute(user.rol)} replace />;
   }
 
   return <Outlet />;

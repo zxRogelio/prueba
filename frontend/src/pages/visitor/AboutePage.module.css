@@ -1513,6 +1513,14 @@
   box-shadow: 0 20px 45px rgba(15, 15, 15, 0.12);
 }
 
+.story-quote-card-modern .story-mini-title {
+  color: #161616;
+}
+
+.story-quote-card-modern .story-mini-text {
+  color: #5b5b5b;
+}
+
 .story-copy-block {
   display: flex;
   flex-direction: column;

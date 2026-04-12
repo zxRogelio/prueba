@@ -14,7 +14,6 @@ import {
   FaUserCircle,
   FaChevronDown,
   FaSignOutAlt,
-  FaUser,
   FaCogs,
 } from "react-icons/fa";
 
@@ -137,26 +136,6 @@ const Navbar = ({ scrolled, onToggleMobile }: Props) => {
                     >
                       <FaUserCircle /> Ir al portal
                     </button>
-
-                    {role === "cliente" && (
-                      <button
-                        className={headerStyles.dropdownItem}
-                        type="button"
-                        onClick={() => navigate("/cliente/perfil")}
-                      >
-                        <FaUser /> Perfil
-                      </button>
-                    )}
-
-                    {role === "cliente" && (
-                      <button
-                        className={headerStyles.dropdownItem}
-                        type="button"
-                        onClick={() => navigate("/cliente/configuracion")}
-                      >
-                        <FaCogs /> Configuracion (2FA)
-                      </button>
-                    )}
 
                     <div className={headerStyles.divider} />
 

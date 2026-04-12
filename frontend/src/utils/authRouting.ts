@@ -8,6 +8,7 @@ interface AuthUserInput {
   role?: unknown;
   rol?: unknown;
   loginMethod?: User["loginMethod"];
+  mustChangePassword?: unknown;
 }
 
 export function normalizeAppRole(role: unknown): AppRole | null {
@@ -37,6 +38,7 @@ export function buildAuthUser(
     email: String(input.email ?? fallbackEmail),
     rol: normalizeAppRole(input.role ?? input.rol) ?? "cliente",
     loginMethod: input.loginMethod,
+    mustChangePassword: Boolean(input.mustChangePassword),
   };
 }
 
