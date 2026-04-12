@@ -13,9 +13,21 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <AuthProvider>
         <CartProvider>
           <App />
-          <Toaster closeButton position="top-right" richColors />
+          <Toaster
+            closeButton
+            position="top-right"
+            theme="dark"
+            toastOptions={{
+              style: {
+                background: "#10131a",
+                color: "#f8fafc",
+                border: "1px solid rgba(239, 68, 68, 0.18)",
+                boxShadow: "0 18px 38px rgba(3, 7, 18, 0.28)",
+              },
+            }}
+          />
         </CartProvider>
       </AuthProvider>
     </BrowserRouter>
-  </React.StrictMode>
+  </React.StrictMode>,
 );

@@ -3,6 +3,7 @@ import { verifyToken, authorizeRole } from "../middleware/authMiddleware.js";
 import { updateAuthMethod } from "../controllers/userController.js";
 import { User } from "../models/User.js";
 import { checkBlacklist } from "../middleware/checkBlacklist.js";
+import { changePassword } from "../controllers/authController.js";
 
 const router = express.Router();
 
@@ -35,6 +36,13 @@ router.patch(
   verifyToken,
   checkBlacklist,
   updateAuthMethod
+);
+
+router.patch(
+  "/change-password",
+  verifyToken,
+  checkBlacklist,
+  changePassword
 );
 router.get("/perfil", verifyToken, checkBlacklist, (req, res) => {
   res.json({

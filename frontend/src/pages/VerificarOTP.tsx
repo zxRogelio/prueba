@@ -63,6 +63,7 @@ export default function VerificarOTP() {
           email: user?.email,
           role: user?.role ?? user?.rol,
           loginMethod: user?.loginMethod,
+          mustChangePassword: user?.mustChangePassword,
         },
         email
       );
@@ -70,6 +71,11 @@ export default function VerificarOTP() {
       localStorage.setItem("token", accessToken);
       localStorage.setItem("user", JSON.stringify(authUser));
       setUser(authUser);
+
+      if (authUser.mustChangePassword) {
+        navigate("/primer-acceso", { replace: true });
+        return;
+      }
 
       navigate(getDefaultAuthenticatedRoute(authUser.rol));
     } catch (error) {

@@ -1,5 +1,11 @@
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap");
+
 .catalogPage {
+  --font-ui: "Manrope", sans-serif;
+  --font-body: "Manrope", sans-serif;
+  --font-display: "Cormorant Garamond", serif;
   min-height: 100vh;
+  font-family: var(--font-body, "Manrope", sans-serif);
   background:
     radial-gradient(
       circle at top right,
@@ -7,6 +13,11 @@
       transparent 24%
     ),
     linear-gradient(180deg, #f8f5f2 0%, #ffffff 28%, #f7f4f1 100%);
+}
+
+.catalogPage button,
+.catalogPage input {
+  font-family: var(--font-ui, "Manrope", sans-serif);
 }
 
 .catalogShell {
@@ -78,6 +89,7 @@
   display: inline-block;
   margin-bottom: 0.65rem;
   color: #ef4444;
+  font-family: var(--font-ui, "Manrope", sans-serif);
   font-size: 0.82rem;
   font-weight: 700;
   letter-spacing: 0.18em;
@@ -87,16 +99,18 @@
 .catalogTitle {
   margin: 0;
   color: #121212;
-  font-family: "Cormorant Garamond", "Times New Roman", serif;
+  font-family: var(--font-display, "Cormorant Garamond", serif);
   font-size: clamp(2.8rem, 6vw, 4.5rem);
   font-weight: 700;
   line-height: 0.92;
+  letter-spacing: 0.015em;
 }
 
 .catalogDescription {
   max-width: 46rem;
   margin: 0.9rem 0 0;
   color: #5f5f5f;
+  font-family: var(--font-body, "Manrope", sans-serif);
   font-size: 1rem;
   line-height: 1.8;
 }
@@ -118,7 +132,10 @@
 .catalogStat strong {
   display: block;
   color: #111111;
+  font-family: var(--font-display, "Cormorant Garamond", serif);
   font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   line-height: 1;
 }
 
@@ -126,6 +143,7 @@
   display: block;
   margin-top: 0.35rem;
   color: #6a6a6a;
+  font-family: var(--font-body, "Manrope", sans-serif);
   font-size: 0.92rem;
 }
 
@@ -167,6 +185,7 @@
 .catalogFilterHeading {
   margin: 0;
   color: #181818;
+  font-family: var(--font-ui, "Manrope", sans-serif);
   font-size: 0.92rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -194,6 +213,7 @@
   border-radius: 18px;
   background: #fbfbfb;
   color: #111111;
+  font-family: var(--font-body, "Manrope", sans-serif);
   font-size: 0.95rem;
   transition:
     border-color 0.2s ease,
@@ -253,6 +273,7 @@
   border-radius: 18px;
   background: #ffffff;
   color: #343434;
+  font-family: var(--font-ui, "Manrope", sans-serif);
   font-size: 0.93rem;
   font-weight: 600;
   text-align: left;
@@ -300,8 +321,10 @@
 .catalogResultsCount {
   margin: 0;
   color: #141414;
+  font-family: var(--font-display, "Cormorant Garamond", serif);
   font-size: 1.3rem;
-  font-weight: 800;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .catalogResultsContext {
@@ -311,6 +334,7 @@
   gap: 0.55rem;
   margin: 0.45rem 0 0;
   color: #6f6f6f;
+  font-family: var(--font-body, "Manrope", sans-serif);
   font-size: 0.95rem;
 }
 
@@ -321,6 +345,7 @@
   border-radius: 999px;
   background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
+  font-family: var(--font-ui, "Manrope", sans-serif);
   font-size: 0.84rem;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -374,6 +399,7 @@
   border-radius: 999px;
   background: #ef4444;
   color: #ffffff;
+  font-family: var(--font-ui, "Manrope", sans-serif);
   font-size: 0.76rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -451,6 +477,7 @@
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.94);
   color: #111111;
+  font-family: var(--font-ui, "Manrope", sans-serif);
   font-size: 0.92rem;
   font-weight: 700;
   text-decoration: none;
@@ -485,6 +512,7 @@
   border-radius: 999px;
   background: rgba(17, 17, 17, 0.05);
   color: #5b5b5b;
+  font-family: var(--font-ui, "Manrope", sans-serif);
   font-size: 0.74rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -497,10 +525,11 @@
   margin: 0;
   overflow: hidden;
   color: #111111;
-  font-family: "Cormorant Garamond", "Times New Roman", serif;
+  font-family: var(--font-display, "Cormorant Garamond", serif);
   font-size: 2rem;
   font-weight: 700;
   line-height: 0.95;
+  letter-spacing: 0.015em;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
@@ -510,6 +539,7 @@
   align-items: center;
   gap: 0.55rem;
   color: #6f6f6f;
+  font-family: var(--font-body, "Manrope", sans-serif);
   font-size: 0.92rem;
 }
 
@@ -535,12 +565,16 @@
 
 .catalogProductPrice {
   color: #ef4444;
+  font-family: var(--font-display, "Cormorant Garamond", serif);
   font-size: 1.85rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   line-height: 1;
 }
 
 .catalogProductOldPrice {
   color: #8a8a8a;
+  font-family: var(--font-body, "Manrope", sans-serif);
   font-size: 0.98rem;
   text-decoration: line-through;
 }
@@ -562,6 +596,7 @@
   min-height: 3.35rem;
   padding: 0.85rem 1.15rem;
   border-radius: 16px;
+  font-family: var(--font-ui, "Manrope", sans-serif);
   font-size: 0.95rem;
   font-weight: 700;
   text-decoration: none;
@@ -620,6 +655,7 @@
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.94);
   color: #161616;
+  font-family: var(--font-ui, "Manrope", sans-serif);
   font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
@@ -684,14 +720,17 @@
 .catalogEmptyTitle {
   margin: 0;
   color: #121212;
+  font-family: var(--font-display, "Cormorant Garamond", serif);
   font-size: 1.4rem;
-  font-weight: 800;
+  font-weight: 700;
+  letter-spacing: 0.015em;
 }
 
 .catalogEmptyText {
   max-width: 34rem;
   margin: 0;
   color: #666666;
+  font-family: var(--font-body, "Manrope", sans-serif);
   line-height: 1.8;
 }
 

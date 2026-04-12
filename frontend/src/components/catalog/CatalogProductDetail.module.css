@@ -1,7 +1,17 @@
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap");
+
 .productDetail {
+  --font-ui: "Manrope", sans-serif;
+  --font-body: "Manrope", sans-serif;
+  --font-display: "Cormorant Garamond", serif;
   display: flex;
   flex-direction: column;
   gap: 1.55rem;
+  font-family: var(--font-body, "Manrope", sans-serif);
+}
+
+.productDetail button {
+  font-family: var(--font-ui, "Manrope", sans-serif);
 }
 
 .heroGrid {
@@ -45,6 +55,7 @@
   border-radius: 999px;
   background: rgba(239, 68, 68, 0.9);
   color: #ffffff;
+  font-family: var(--font-ui, "Manrope", sans-serif);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -138,6 +149,7 @@
   border: 1px solid rgba(239, 68, 68, 0.35);
   border-radius: 999px;
   color: #ef4444;
+  font-family: var(--font-ui, "Manrope", sans-serif);
   font-size: 0.74rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -145,17 +157,18 @@
 
 .sku {
   color: #7b7b7b;
+  font-family: var(--font-body, "Manrope", sans-serif);
   font-size: 0.82rem;
 }
 
 .title {
   margin: 0;
   color: #101010;
-  font-family: "Bebas Neue", "Arial Narrow", sans-serif;
-  font-size: clamp(1.95rem, 2.8vw, 3rem);
+  font-family: var(--font-display, "Cormorant Garamond", serif);
+  font-size: clamp(2.35rem, 3.3vw, 3.4rem);
   font-weight: 700;
-  line-height: 0.92;
-  letter-spacing: 0.01em;
+  line-height: 0.94;
+  letter-spacing: 0.015em;
 }
 
 .rating {
@@ -163,6 +176,7 @@
   align-items: center;
   gap: 0.55rem;
   color: #6f6f6f;
+  font-family: var(--font-body, "Manrope", sans-serif);
   font-size: 0.82rem;
 }
 
@@ -188,12 +202,16 @@
 
 .price {
   color: #ef4444;
+  font-family: var(--font-display, "Cormorant Garamond", serif);
   font-size: clamp(1.55rem, 2.4vw, 2.2rem);
+  font-weight: 700;
+  letter-spacing: 0.01em;
   line-height: 1;
 }
 
 .oldPrice {
   color: #7f7f7f;
+  font-family: var(--font-body, "Manrope", sans-serif);
   font-size: 0.9rem;
   text-decoration: line-through;
 }
@@ -203,6 +221,7 @@
   border-radius: 999px;
   background: #22c55e;
   color: #ffffff;
+  font-family: var(--font-ui, "Manrope", sans-serif);
   font-size: 0.72rem;
   font-weight: 700;
 }
@@ -211,6 +230,7 @@
   max-width: 48rem;
   margin: 0;
   color: #606060;
+  font-family: var(--font-body, "Manrope", sans-serif);
   font-size: 0.88rem;
   line-height: 1.58;
 }
@@ -220,6 +240,7 @@
   align-items: center;
   gap: 0.5rem;
   color: #16a34a;
+  font-family: var(--font-ui, "Manrope", sans-serif);
   font-size: 0.84rem;
   font-weight: 700;
 }
@@ -274,6 +295,7 @@
 
 .quantityValue {
   color: #111111;
+  font-family: var(--font-ui, "Manrope", sans-serif);
   font-size: 1rem;
   font-weight: 700;
   text-align: center;
@@ -289,6 +311,7 @@
   border-radius: 14px;
   background: linear-gradient(135deg, #ef4444, #f43f3f);
   color: #ffffff;
+  font-family: var(--font-ui, "Manrope", sans-serif);
   font-size: 0.88rem;
   font-weight: 800;
   cursor: pointer;
@@ -328,11 +351,13 @@
 
 .trustCard strong {
   color: #161616;
+  font-family: var(--font-ui, "Manrope", sans-serif);
   font-size: 0.88rem;
 }
 
 .trustCard span {
   color: #6f6f6f;
+  font-family: var(--font-body, "Manrope", sans-serif);
   font-size: 0.82rem;
 }
 
@@ -365,6 +390,7 @@
   border-bottom-color: rgba(17, 17, 17, 0.1);
   background: transparent;
   color: #181818;
+  font-family: var(--font-ui, "Manrope", sans-serif);
   font-size: 0.8rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -389,6 +415,7 @@
 .descriptionPanel,
 .usagePanel {
   color: #575757;
+  font-family: var(--font-body, "Manrope", sans-serif);
   font-size: 0.88rem;
   line-height: 1.6;
 }
@@ -422,6 +449,7 @@
 
 .highlight span {
   color: #353535;
+  font-family: var(--font-body, "Manrope", sans-serif);
   font-size: 0.84rem;
 }
 
@@ -448,11 +476,13 @@
 .specCard strong {
   margin-bottom: 0.25rem;
   color: #161616;
+  font-family: var(--font-ui, "Manrope", sans-serif);
   font-size: 0.84rem;
 }
 
 .specCard span {
   color: #636363;
+  font-family: var(--font-body, "Manrope", sans-serif);
   font-size: 0.82rem;
 }
 
@@ -480,7 +510,7 @@
 
 @media (max-width: 720px) {
   .title {
-    font-size: 1.9rem;
+    font-size: 2.1rem;
   }
 
   .actionRow {

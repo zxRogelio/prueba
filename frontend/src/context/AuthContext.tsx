@@ -5,6 +5,7 @@ export interface User {
   email: string;
   rol: "cliente" | "entrenador" | "administrador";
   loginMethod?: "local" | "google";
+  mustChangePassword?: boolean;
 }
 
 export interface AuthContextType {

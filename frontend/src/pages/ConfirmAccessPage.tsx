@@ -29,18 +29,19 @@ export default function ConfirmAccessPage() {
         );
 
         const accessToken = response.data.token;
+        const responseUser = response.data.user;
         if (!accessToken) {
           throw new Error("Token invalido");
         }
 
         localStorage.setItem("token", accessToken);
 
-        const payload = JSON.parse(atob(accessToken.split(".")[1]));
         const user = buildAuthUser({
-          id: payload.id,
-          email: payload.email,
-          role: payload.role,
-          loginMethod: payload.loginMethod,
+          id: responseUser?.id,
+          email: responseUser?.email,
+          role: responseUser?.role ?? responseUser?.rol,
+          loginMethod: "local",
+          mustChangePassword: responseUser?.mustChangePassword,
         });
 
         localStorage.setItem("user", JSON.stringify(user));
@@ -49,7 +50,12 @@ export default function ConfirmAccessPage() {
         alert("Acceso confirmado correctamente");
 
         setTimeout(() => {
-          navigate(getDefaultAuthenticatedRoute(user.rol), { replace: true });
+          navigate(
+            user.mustChangePassword
+              ? "/primer-acceso"
+              : getDefaultAuthenticatedRoute(user.rol),
+            { replace: true }
+          );
         }, 1000);
       } catch (error: any) {
         console.error(
