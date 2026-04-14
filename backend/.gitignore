@@ -5,9 +5,7 @@
 node_modules/
 
 # Logs
-logs
-*.log
-npm-debug.log*
+
 
 # Sistema operativo y editor
 .DS_Store
