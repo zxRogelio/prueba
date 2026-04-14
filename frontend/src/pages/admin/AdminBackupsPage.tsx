@@ -11,6 +11,7 @@ import {
   Database,
   DatabaseBackup,
   Download,
+  FileText,
   FolderOpen,
   HardDrive,
   HardDriveDownload,
@@ -41,6 +42,7 @@ import {
   deleteBackupSchedule,
   downloadBackupFile,
   getBackupOptions,
+  getBackupLogContent,
   listBackups,
   listBackupSchedules,
   runBackupScheduleNow,
@@ -61,6 +63,13 @@ type ToastItem = {
   type: ToastType;
   title: string;
   message: string;
+};
+
+type LogViewerState = {
+  open: boolean;
+  loading: boolean;
+  filename: string;
+  content: string;
 };
 
 const HISTORY_PAGE_SIZE = 6;
@@ -98,6 +107,18 @@ const getErrorMessage = (error: unknown, fallback: string) => {
   if (error instanceof Error && error.message) return error.message;
 
   return fallback;
+};
+
+const getErrorLogFilename = (error: unknown) => {
+  if (typeof error !== "object" || error === null) return null;
+
+  return (
+    (
+      error as {
+        response?: { data?: { log?: { filename?: string | null } | null } };
+      }
+    ).response?.data?.log?.filename || null
+  );
 };
 
 const getScopeLabel = (scope?: BackupScope | string | null) => {
@@ -222,6 +243,12 @@ export default function AdminBackupsPage() {
   const [historyPage, setHistoryPage] = useState(1);
 
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [logViewer, setLogViewer] = useState<LogViewerState>({
+    open: false,
+    loading: false,
+    filename: "",
+    content: "",
+  });
 
   const pushToast = (type: ToastType, title: string, message: string) => {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -235,6 +262,56 @@ export default function AdminBackupsPage() {
 
   const removeToast = (id: number) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  };
+
+  const closeLogViewer = () => {
+    setLogViewer({
+      open: false,
+      loading: false,
+      filename: "",
+      content: "",
+    });
+  };
+
+  const handleOpenLog = async (filename?: string | null) => {
+    if (!filename) {
+      pushToast(
+        "error",
+        "Log no disponible",
+        "Esta ejecucion no tiene un log asociado.",
+      );
+      return;
+    }
+
+    setLogViewer({
+      open: true,
+      loading: true,
+      filename,
+      content: "",
+    });
+
+    try {
+      const response = await getBackupLogContent(filename);
+
+      setLogViewer({
+        open: true,
+        loading: false,
+        filename: response.filename,
+        content: response.content,
+      });
+    } catch (error: unknown) {
+      setLogViewer((prev) => ({
+        ...prev,
+        loading: false,
+        content: "",
+      }));
+
+      pushToast(
+        "error",
+        "Error al cargar log",
+        getErrorMessage(error, "No se pudo abrir el log solicitado."),
+      );
+    }
   };
 
   const loadData = async () => {
@@ -451,11 +528,19 @@ export default function AdminBackupsPage() {
 
       await loadData();
     } catch (error: unknown) {
+      const logFilename = getErrorLogFilename(error);
+
       pushToast(
         "error",
         "Error al generar backup",
-        getErrorMessage(error, "No se pudo generar el backup."),
+        logFilename
+          ? `${getErrorMessage(error, "No se pudo generar el backup.")} Log: ${logFilename}`
+          : getErrorMessage(error, "No se pudo generar el backup."),
       );
+
+      if (logFilename) {
+        await handleOpenLog(logFilename);
+      }
     } finally {
       setCreatingBackup(false);
     }
@@ -538,6 +623,23 @@ export default function AdminBackupsPage() {
 
     try {
       const response = await runBackupScheduleNow(id);
+
+      if (response.schedule.lastRunStatus === "error") {
+        pushToast(
+          "error",
+          "Programacion ejecutada con error",
+          response.schedule.lastRunMessage ||
+            "La programacion termino con error. Revisa el log.",
+        );
+
+        await loadData();
+
+        if (response.schedule.lastRunLogFilename) {
+          await handleOpenLog(response.schedule.lastRunLogFilename);
+        }
+
+        return;
+      }
 
       pushToast(
         "success",
@@ -1978,6 +2080,17 @@ export default function AdminBackupsPage() {
                             : "Ejecutar ahora"}
                         </button>
 
+                        {schedule.lastRunLogFilename ? (
+                          <button
+                            className={styles.secondaryBtn}
+                            onClick={() => handleOpenLog(schedule.lastRunLogFilename)}
+                            type="button"
+                          >
+                            <FileText size={16} />
+                            Ver log
+                          </button>
+                        ) : null}
+
                         <button
                           className={styles.dangerBtn}
                           onClick={() => handleDeleteSchedule(schedule.id)}
@@ -2228,6 +2341,19 @@ export default function AdminBackupsPage() {
                                 <span className={styles.mutedText}>Sin descarga</span>
                               )}
 
+                              {backup.executionLog?.filename ? (
+                                <button
+                                  type="button"
+                                  className={styles.secondaryBtn}
+                                  onClick={() =>
+                                    handleOpenLog(backup.executionLog?.filename)
+                                  }
+                                >
+                                  <FileText size={15} />
+                                  Ver log
+                                </button>
+                              ) : null}
+
                               {backup.cloudinary?.url ? (
                                 <a
                                   className={styles.cloudLink}
@@ -2286,6 +2412,46 @@ export default function AdminBackupsPage() {
           </div>
         )}
       </section>
+
+      {logViewer.open ? (
+        <div className={styles.logOverlay} role="dialog" aria-modal="true">
+          <div className={styles.logModal}>
+            <div className={styles.logModalHeader}>
+              <div className={styles.logModalTitle}>
+                <span className={`${styles.iconShell} ${styles.toneSlate}`}>
+                  <FileText size={18} />
+                </span>
+                <div>
+                  <h3>
+                    {logViewer.filename
+                      ? `Log de ${logViewer.filename.replace(/\.log$/i, "")}`
+                      : "Log de backup"}
+                  </h3>
+                  <p>{logViewer.filename || "Sin archivo seleccionado"}</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className={styles.secondaryBtn}
+                onClick={closeLogViewer}
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className={styles.logConsole}>
+              {logViewer.loading ? (
+                <div className={styles.logPlaceholder}>Cargando log...</div>
+              ) : (
+                <pre className={styles.logContent}>
+                  {logViewer.content || "No hay contenido disponible."}
+                </pre>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

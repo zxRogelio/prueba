@@ -5,6 +5,11 @@ import { fileURLToPath } from "url";
 import { spawn } from "child_process";
 import { sequelize } from "../config/sequelize.js";
 import cloudinary from "../config/cloudinary.js";
+import {
+  createExecutionLogContext,
+  readExecutionLogContent,
+  writeExecutionLog,
+} from "../services/backupExecutionLog.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -519,6 +524,7 @@ const readCloudinaryBackups = async () => {
       engine: "postgresql",
       downloadUrl: null,
       restoreGuide: null,
+      executionLog: null,
       cloudinary: {
         assetId: item.asset_id,
         publicId: item.public_id,
@@ -548,6 +554,7 @@ const readBackupIndex = async () => {
           mode: parsed.mode || "schema-and-data",
           engine: parsed.engine || "postgresql",
           origin: parsed.origin || "manual",
+          executionLog: parsed.executionLog || null,
           downloadUrl: buildLocalDownloadUrl(
             parsed.filename || path.basename(file, ".meta.json"),
           ),
@@ -567,6 +574,7 @@ export const performBackup = async ({
   uploadToCloudinary = false,
   mode = "schema-and-data",
   origin = "manual",
+  schedule = null,
 } = {}) => {
   if (!["full", "table"].includes(scope)) {
     const error = new Error("El tipo de backup debe ser 'full' o 'table'.");
@@ -588,62 +596,150 @@ export const performBackup = async ({
     throw error;
   }
 
-  await ensurePgDumpAvailable();
-  await ensureBackupsDir();
+  let dbConfig = null;
 
-  const statsInfo = await getBackupTableStats({ scope, schema, table });
-  const filename = getBackupFilename({ scope, schema, table, mode });
-  const filePath = path.join(backupsDir, filename);
+  try {
+    dbConfig = getDbConfig();
+  } catch (error) {
+    const earlyExecution = createExecutionLogContext({
+      scope,
+      schema,
+      table,
+      mode,
+      origin,
+      uploadToCloudinary,
+      dbConfig: null,
+      schedule,
+    });
 
-  await runPgDump({
-    outputPath: filePath,
+    try {
+      error.executionLog = await writeExecutionLog({
+        execution: earlyExecution,
+        finishedAt: new Date(),
+        status: "ERROR",
+        destinationDir: backupsDir,
+        cloudinaryStatus: uploadToCloudinary ? "fallida" : "omitida",
+        errorMessage: error?.message || "No se pudo preparar el backup.",
+        errorDetail: error?.detail || null,
+      });
+    } catch (logError) {
+      console.error("No se pudo escribir el log inicial del backup:", logError);
+    }
+
+    throw error;
+  }
+
+  const execution = createExecutionLogContext({
     scope,
     schema,
     table,
     mode,
+    origin,
+    uploadToCloudinary,
+    dbConfig,
+    schedule,
   });
 
-  const buffer = await fs.readFile(filePath);
-  const stats = await fs.stat(filePath);
+  let filename = null;
+  let filePath = null;
+  let stats = null;
+  let cloudinaryStatus = uploadToCloudinary ? "pendiente" : "omitida";
 
-  const metadata = {
-    id: filename,
-    filename,
-    filePath,
-    createdAt: new Date().toISOString(),
-    scope,
-    schema: scope === "table" ? schema : null,
-    table: scope === "table" ? table : null,
-    mode,
-    source: "local",
-    origin,
-    engine: "postgresql",
-    backupProvider: "spawn-pg_dump-auto",
-    tablesIncluded: statsInfo.tablesIncluded,
-    rowsIncluded: statsInfo.rowsIncluded,
-    sizeBytes: stats.size,
-    sizeKB: bytesToKB(stats.size),
-    format: "sql",
-    downloadUrl: buildLocalDownloadUrl(filename),
-    restoreGuide: getRestoreGuide({ filename, mode, scope, schema, table }),
-    cloudinary: null,
-  };
+  try {
+    await ensurePgDumpAvailable();
+    await ensureBackupsDir();
 
-  if (uploadToCloudinary) {
-    metadata.cloudinary = await uploadBackupToCloudinary({
-      buffer,
-      filename,
-      metadata,
+    const statsInfo = await getBackupTableStats({ scope, schema, table });
+    filename = getBackupFilename({ scope, schema, table, mode });
+    filePath = path.join(backupsDir, filename);
+
+    await runPgDump({
+      outputPath: filePath,
+      scope,
+      schema,
+      table,
+      mode,
     });
+
+    const buffer = await fs.readFile(filePath);
+    stats = await fs.stat(filePath);
+
+    const metadata = {
+      id: filename,
+      filename,
+      filePath,
+      createdAt: new Date().toISOString(),
+      scope,
+      schema: scope === "table" ? schema : null,
+      table: scope === "table" ? table : null,
+      mode,
+      source: "local",
+      origin,
+      engine: "postgresql",
+      backupProvider: "spawn-pg_dump-auto",
+      tablesIncluded: statsInfo.tablesIncluded,
+      rowsIncluded: statsInfo.rowsIncluded,
+      sizeBytes: stats.size,
+      sizeKB: bytesToKB(stats.size),
+      format: "sql",
+      downloadUrl: buildLocalDownloadUrl(filename),
+      restoreGuide: getRestoreGuide({ filename, mode, scope, schema, table }),
+      executionLog: null,
+      cloudinary: null,
+    };
+
+    if (uploadToCloudinary) {
+      metadata.cloudinary = await uploadBackupToCloudinary({
+        buffer,
+        filename,
+        metadata,
+      });
+      cloudinaryStatus = metadata.cloudinary ? "completada" : "omitida";
+    }
+
+    metadata.executionLog = await writeExecutionLog({
+      execution,
+      finishedAt: new Date(),
+      status: "SUCCESS",
+      backupFilename: filename,
+      sizeBytes: stats.size,
+      destinationDir: path.dirname(filePath),
+      cloudinaryStatus,
+    });
+
+    await fs.writeFile(
+      `${filePath}.meta.json`,
+      JSON.stringify(metadata, null, 2),
+      "utf8",
+    );
+
+    return metadata;
+  } catch (error) {
+    const detail =
+      error?.detail || error?.stderr || error?.stdout || error?.message || null;
+
+    if (uploadToCloudinary && cloudinaryStatus === "pendiente") {
+      cloudinaryStatus = "fallida";
+    }
+
+    try {
+      error.executionLog = await writeExecutionLog({
+        execution,
+        finishedAt: new Date(),
+        status: "ERROR",
+        backupFilename: filename,
+        sizeBytes: stats?.size || 0,
+        destinationDir: filePath ? path.dirname(filePath) : backupsDir,
+        cloudinaryStatus,
+        errorMessage: error?.message || "No se pudo generar el backup.",
+        errorDetail: detail,
+      });
+    } catch (logError) {
+      console.error("No se pudo escribir el log del backup:", logError);
+    }
+
+    throw error;
   }
-
-  await fs.writeFile(
-    `${filePath}.meta.json`,
-    JSON.stringify(metadata, null, 2),
-    "utf8",
-  );
-
-  return metadata;
 };
 
 export const getBackupOptions = async (_req, res) => {
@@ -728,6 +824,20 @@ export const createBackup = async (req, res) => {
     return res.status(error.statusCode || 500).json({
       error: error.message || "No se pudo generar el backup.",
       detail: error.detail || undefined,
+      log: error.executionLog || undefined,
+    });
+  }
+};
+
+export const getBackupLogContent = async (req, res) => {
+  try {
+    const { filename } = req.params;
+    const log = await readExecutionLogContent(filename);
+
+    return res.json(log);
+  } catch (error) {
+    return res.status(error.statusCode || 404).json({
+      error: error.message || "No se pudo leer el log solicitado.",
     });
   }
 };

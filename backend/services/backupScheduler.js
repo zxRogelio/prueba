@@ -24,6 +24,7 @@ const defaultScheduleValues = {
   lastRunAt: null,
   lastRunStatus: null,
   lastRunMessage: null,
+  lastRunLogFilename: null,
   createdAt: null,
   updatedAt: null,
 };
@@ -120,6 +121,14 @@ const stopTask = (scheduleId) => {
   }
 };
 
+const getScheduleLabel = (schedule) => {
+  if (schedule.scope === "table" && schedule.schema && schedule.table) {
+    return `${schedule.schema}.${schedule.table}`;
+  }
+
+  return "Base completa";
+};
+
 const executeScheduledBackup = async (scheduleId) => {
   const schedules = await readSchedulesFile();
   const index = schedules.findIndex((item) => item.id === scheduleId);
@@ -142,13 +151,22 @@ const executeScheduledBackup = async (scheduleId) => {
       mode: schedule.mode,
       uploadToCloudinary: schedule.uploadToCloudinary,
       origin: "scheduled",
+      schedule: {
+        id: schedule.id,
+        label: getScheduleLabel(schedule),
+        cronExpression: schedule.cronExpression,
+        timezone: schedule.timezone,
+      },
     });
 
     schedules[index] = {
       ...schedule,
       lastRunAt: new Date().toISOString(),
       lastRunStatus: "success",
-      lastRunMessage: `Backup generado: ${backup.filename}`,
+      lastRunMessage: backup.executionLog?.filename
+        ? `Backup generado: ${backup.filename}. Log: ${backup.executionLog.filename}`
+        : `Backup generado: ${backup.filename}`,
+      lastRunLogFilename: backup.executionLog?.filename || null,
       updatedAt: new Date().toISOString(),
     };
 
@@ -164,8 +182,10 @@ const executeScheduledBackup = async (scheduleId) => {
       ...schedule,
       lastRunAt: new Date().toISOString(),
       lastRunStatus: "error",
-      lastRunMessage:
-        error?.message || "Error al ejecutar backup programado",
+      lastRunMessage: error?.executionLog?.filename
+        ? `${error?.message || "Error al ejecutar backup programado"}. Log: ${error.executionLog.filename}`
+        : error?.message || "Error al ejecutar backup programado",
+      lastRunLogFilename: error?.executionLog?.filename || null,
       updatedAt: new Date().toISOString(),
     };
 
