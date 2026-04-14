@@ -32,6 +32,15 @@ app.use(express.json());
 app.use(secureHeaders);
 app.use(forceHTTPS);
 
+// Ruta para mantener vivo el servicio / monitoreo
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    ok: true,
+    message: "Servidor activo",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.use("/api/products", publicProductRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
