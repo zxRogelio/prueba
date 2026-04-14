@@ -22,12 +22,12 @@ export const createScheduleConfig = async (req, res) => {
   try {
     const schedule = await createBackupSchedule(req.body || {});
     return res.status(201).json({
-      message: "Programación creada correctamente.",
+      message: "Programacion creada correctamente.",
       schedule,
     });
   } catch (error) {
     return res.status(error.statusCode || 500).json({
-      error: error.message || "No se pudo crear la programación.",
+      error: error.message || "No se pudo crear la programacion.",
       detail: error.detail || undefined,
     });
   }
@@ -38,12 +38,12 @@ export const updateScheduleConfig = async (req, res) => {
     const { id } = req.params;
     const schedule = await updateBackupScheduleById(id, req.body || {});
     return res.json({
-      message: "Programación actualizada correctamente.",
+      message: "Programacion actualizada correctamente.",
       schedule,
     });
   } catch (error) {
     return res.status(error.statusCode || 500).json({
-      error: error.message || "No se pudo actualizar la programación.",
+      error: error.message || "No se pudo actualizar la programacion.",
       detail: error.detail || undefined,
     });
   }
@@ -55,12 +55,12 @@ export const deleteScheduleConfig = async (req, res) => {
     const removed = await deleteBackupScheduleById(id);
 
     return res.json({
-      message: "Programación eliminada correctamente.",
+      message: "Programacion eliminada correctamente.",
       schedule: removed,
     });
   } catch (error) {
     return res.status(error.statusCode || 500).json({
-      error: error.message || "No se pudo eliminar la programación.",
+      error: error.message || "No se pudo eliminar la programacion.",
       detail: error.detail || undefined,
     });
   }
@@ -72,12 +72,15 @@ export const runScheduledBackupNow = async (req, res) => {
     const schedule = await runBackupScheduleNowById(id);
 
     return res.json({
-      message: "Programación ejecutada correctamente.",
+      message:
+        schedule.lastRunStatus === "error"
+          ? "Programacion ejecutada con error. Revisa el log generado."
+          : "Programacion ejecutada correctamente.",
       schedule,
     });
   } catch (error) {
     return res.status(error.statusCode || 500).json({
-      error: error.message || "No se pudo ejecutar la programación.",
+      error: error.message || "No se pudo ejecutar la programacion.",
       detail: error.detail || undefined,
     });
   }

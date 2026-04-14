@@ -44,6 +44,29 @@ const downloadFromCloudinary = async (cloudinaryUrl: string) => {
 export type BackupScope = "full" | "table";
 export type BackupMode = "data-only" | "schema-and-data";
 
+export type BackupExecutionLog = {
+  filename: string;
+  filePath: string;
+  startedAt: string;
+  finishedAt: string;
+  durationMs: number;
+  status: string;
+  taskLabel: string;
+  origin: "manual" | "scheduled" | string;
+  targetDatabase: string | null;
+  targetHost: string | null;
+  targetPort: string | null;
+  backupFilename: string | null;
+  sizeBytes: number;
+  cloudinaryStatus: string;
+  schedule?: {
+    id: string | null;
+    label: string | null;
+    cronExpression: string | null;
+    timezone: string | null;
+  } | null;
+};
+
 export type BackupRecord = {
   id: string;
   filename: string;
@@ -62,6 +85,7 @@ export type BackupRecord = {
   format?: string;
   engine?: string;
   downloadUrl?: string | null;
+  executionLog?: BackupExecutionLog | null;
   cloudinary?: {
     assetId?: string;
     publicId?: string;
@@ -112,12 +136,19 @@ export type BackupSchedule = {
   lastRunAt: string | null;
   lastRunStatus: "success" | "error" | null;
   lastRunMessage: string | null;
+  lastRunLogFilename?: string | null;
   createdAt: string;
   updatedAt: string;
 };
 
 export type BackupSchedulesResponse = {
   schedules: BackupSchedule[];
+};
+
+export type BackupLogContentResponse = {
+  filename: string;
+  filePath: string;
+  content: string;
 };
 
 export type SaveBackupSchedulePayload = {
@@ -145,6 +176,15 @@ export const createBackup = async (
   payload: CreateBackupPayload,
 ): Promise<CreateBackupResponse> => {
   const { data } = await API.post("/admin/backups", payload);
+  return data;
+};
+
+export const getBackupLogContent = async (
+  filename: string,
+): Promise<BackupLogContentResponse> => {
+  const { data } = await API.get(
+    `/admin/backups/logs/${encodeURIComponent(filename)}`,
+  );
   return data;
 };
 
