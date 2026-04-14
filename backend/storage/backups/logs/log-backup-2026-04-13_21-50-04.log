@@ -1,0 +1,20 @@
+Log de log-backup-2026-04-13_21-50-04
+
+Tarea: Backup completo
+Origen: manual
+Programacion: Ejecucion manual
+Base objetivo: neondb @ ep-dark-flower-akyaoknb-pooler.c-3.us-west-2.aws.neon.tech:5432
+Inicio: 2026-04-14T03:50:04.860Z
+Fin: 2026-04-14T03:50:42.342Z
+Estado: SUCCESS
+
+Resumen:
+- Tipo de backup: Respaldo completo
+- Modo: Estructura + datos
+- Objeto respaldado: Base completa
+- Archivo generado: backup-completo-estructura-datos-20260414-035005.sql
+- Tamano del dump: 212.43 KB
+- Carpeta destino: /backups
+- Duracion total: 37.48s
+- Subida a Cloudinary: omitida
+- Log generado: log-backup-2026-04-13_21-50-04.log
