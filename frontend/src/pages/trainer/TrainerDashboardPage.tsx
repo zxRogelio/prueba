@@ -1,12 +1,12 @@
 import { ShieldCheck, UserRound } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import styles from "./TrainerDashboardPage.module.css";
+import styles from "./TrainerPortalPage.module.css";
 
 export default function TrainerDashboardPage() {
   const { user, requestLogout } = useAuth();
 
   return (
-    <main className={styles.page}>
+    <section className={styles.page}>
       <section className={styles.hero}>
         <div className={styles.badge}>Portal del entrenador</div>
         <h1 className={styles.title}>Tu cuenta ya esta activa</h1>
@@ -48,6 +48,6 @@ export default function TrainerDashboardPage() {
           Cerrar sesion
         </button>
       </div>
-    </main>
+    </section>
   );
 }

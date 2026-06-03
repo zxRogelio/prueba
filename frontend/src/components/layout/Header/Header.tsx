@@ -40,6 +40,8 @@ const sharedNavItems: NavItem[] = [
   { to: "/AboutePage", label: "ACERCA DE NOSOTROS", icon: FaInfoCircle },
 ];
 
+const MOBILE_NAV_BREAKPOINT = 1180;
+
 export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -62,6 +64,36 @@ export default function Header() {
     if (userMenuOpen) document.addEventListener("click", onDocClick);
     return () => document.removeEventListener("click", onDocClick);
   }, [userMenuOpen]);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+    setUserMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > MOBILE_NAV_BREAKPOINT) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) {
+      document.body.style.overflow = "";
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileMenuOpen]);
 
   const navItems: NavItem[] = useMemo(() => {
     if (role !== "administrador") return sharedNavItems;
@@ -212,19 +244,28 @@ export default function Header() {
 
           <button
             onClick={() => setMobileMenuOpen((prev) => !prev)}
-            className={styles.mobileMenuBtn}
-            aria-label="Abrir menu"
+            className={`${styles.mobileMenuBtn} ${
+              mobileMenuOpen ? styles.mobileMenuBtnOpen : ""
+            }`}
+            aria-label={mobileMenuOpen ? "Cerrar menu" : "Abrir menu"}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-navigation"
             type="button"
           >
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+            <span className={styles.mobileMenuBars} aria-hidden="true">
+              <span className={styles.mobileMenuBar} />
+              <span className={styles.mobileMenuBar} />
+              <span className={styles.mobileMenuBar} />
+            </span>
           </button>
         </div>
       </header>
 
       {mobileMenuOpen && (
-        <MobileMenu onClose={() => setMobileMenuOpen(false)} />
+        <MobileMenu
+          onClose={() => setMobileMenuOpen(false)}
+          transparent={isTransparentHomeHeader}
+        />
       )}
 
       <CartDrawer />

@@ -1,114 +1,135 @@
 import { useEffect, useMemo, useState } from "react";
+import {
+  type SubscriptionBaseFormData,
+  type SubscriptionBilling,
+  type SubscriptionKind,
+} from "../../../../services/admin/subscriptionService";
 import styles from "./ModalSuscripciones.module.css";
 
-type SubscriptionStatus = "Activo" | "Inactivo";
-type SubscriptionBilling = "mes" | "trimestre" | "año";
-type SubscriptionColor = "white" | "red" | "black";
-
-export type SubscriptionFormData = {
-  name: string;
-  level: string;
-  price: number;
-  billing: SubscriptionBilling;
-  status: SubscriptionStatus;
-  color: SubscriptionColor;
-  description: string;
-  features: string[];
-  highlight: boolean;
-};
-
-type FormState = SubscriptionFormData & {
-  featuresText: string;
-};
+type FormState = SubscriptionBaseFormData;
 
 interface Props {
   open: boolean;
   title?: string;
-  initial?: Partial<SubscriptionFormData>;
+  initial?: Partial<SubscriptionBaseFormData>;
   onClose: () => void;
-  onSave: (data: SubscriptionFormData) => void;
+  onSave: (data: SubscriptionBaseFormData) => void;
 }
 
-const defaultData: SubscriptionFormData = {
+const defaultData: SubscriptionBaseFormData = {
   name: "",
-  level: "",
+  kind: "membresia",
+  segment: "General",
   price: 0,
   billing: "mes",
   status: "Activo",
   color: "red",
-  description: "",
-  features: [],
+  summary: "",
+  registrationFee: 0,
+  packageSize: null,
   highlight: false,
 };
 
-const toFeaturesText = (features?: string[]) =>
-  (features || []).filter(Boolean).join("\n");
-
-const toFeaturesList = (value: string) =>
-  value
-    .split("\n")
-    .map((feature) => feature.trim())
-    .filter(Boolean);
+const billingOptionsByKind: Record<
+  SubscriptionKind,
+  Array<{ value: SubscriptionBilling; label: string }>
+> = {
+  membresia: [
+    { value: "mes", label: "Mensual" },
+    { value: "semestre", label: "Semestral" },
+    { value: "ano", label: "Anual" },
+  ],
+  paquete: [{ value: "mes", label: "Mensual" }],
+  pase: [
+    { value: "visita", label: "Visita" },
+    { value: "semana", label: "Semana" },
+    { value: "quincena", label: "Quincena" },
+  ],
+};
 
 export default function ModalSuscripciones({
   open,
-  title = "Nueva suscripción",
+  title = "Nueva suscripcion",
   initial,
   onClose,
   onSave,
 }: Props) {
-  const [data, setData] = useState<FormState>({
-    ...defaultData,
-    featuresText: "",
-  });
+  const [data, setData] = useState<FormState>(defaultData);
 
   useEffect(() => {
-    if (!open) return;
-    const next = { ...defaultData, ...initial } as SubscriptionFormData;
-    setData({
-      ...next,
-      featuresText: toFeaturesText(next.features),
-    });
-  }, [open, initial]);
+    if (!open) {
+      return;
+    }
 
-  const parsedFeatures = useMemo(
-    () => toFeaturesList(data.featuresText),
-    [data.featuresText],
+    setData({
+      ...defaultData,
+      ...initial,
+    });
+  }, [initial, open]);
+
+  const billingOptions = useMemo(
+    () => billingOptionsByKind[data.kind],
+    [data.kind],
   );
 
   const canSave = useMemo(() => {
     return (
       data.name.trim().length >= 3 &&
-      data.level.trim().length >= 3 &&
+      data.segment.trim().length >= 3 &&
+      data.summary.trim().length >= 8 &&
       Number.isFinite(data.price) &&
       data.price > 0 &&
-      data.description.trim().length >= 10 &&
-      parsedFeatures.length >= 2
+      Number.isFinite(data.registrationFee) &&
+      data.registrationFee >= 0 &&
+      (data.kind !== "paquete" ||
+        (Number.isFinite(data.packageSize) &&
+          Number(data.packageSize) >= 2 &&
+          Number(data.packageSize) <= 10))
     );
-  }, [data, parsedFeatures]);
+  }, [data]);
 
   useEffect(() => {
-    const onEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    const onEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
     };
-    if (open) window.addEventListener("keydown", onEsc);
-    return () => window.removeEventListener("keydown", onEsc);
-  }, [open, onClose]);
 
-  if (!open) return null;
+    if (open) {
+      window.addEventListener("keydown", onEsc);
+    }
+
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [onClose, open]);
+
+  if (!open) {
+    return null;
+  }
+
+  const handleKindChange = (kind: SubscriptionKind) => {
+    const nextBilling = billingOptionsByKind[kind][0]?.value ?? "mes";
+
+    setData((previous) => ({
+      ...previous,
+      kind,
+      billing: nextBilling,
+      packageSize: kind === "paquete" ? previous.packageSize ?? 2 : null,
+      registrationFee: kind === "pase" ? 0 : previous.registrationFee,
+    }));
+  };
 
   const handleSave = () => {
-    if (!canSave) return;
+    if (!canSave) {
+      return;
+    }
+
     onSave({
+      ...data,
       name: data.name.trim(),
-      level: data.level.trim(),
-      price: data.price,
-      billing: data.billing,
-      status: data.status,
-      color: data.color,
-      description: data.description.trim(),
-      features: parsedFeatures,
-      highlight: data.highlight,
+      segment: data.segment.trim(),
+      summary: data.summary.trim(),
+      packageSize: data.kind === "paquete" ? Number(data.packageSize) : null,
+      registrationFee: data.kind === "pase" ? 0 : data.registrationFee,
     });
   };
 
@@ -116,7 +137,7 @@ export default function ModalSuscripciones({
     <div className={styles.backdrop} onMouseDown={onClose}>
       <div
         className={styles.modal}
-        onMouseDown={(e) => e.stopPropagation()}
+        onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
@@ -124,52 +145,69 @@ export default function ModalSuscripciones({
           <div>
             <h2 className={styles.title}>{title}</h2>
             <p className={styles.subtitle}>
-              Define precio, beneficios y vigencia de la suscripción.
+              Captura aqui la configuracion base del plan. Una vez guardado,
+              podras entrar al detalle para agregar beneficios, promociones por
+              fecha y reglas de inscripcion.
             </p>
           </div>
+
           <button
+            type="button"
             className={styles.close}
             onClick={onClose}
             aria-label="Cerrar"
           >
-            ✕
+            x
           </button>
         </div>
 
         <div className={styles.body}>
+          <p className={styles.helperText}>
+            Completa nombre, tipo, segmento, periodicidad, precio y estado para
+            dejar lista la ficha inicial. Este formulario aplica para
+            membresias individuales, paquetes grupales y pases temporales.
+          </p>
+
           <div className={styles.grid}>
             <label className={styles.field}>
               <span>Nombre del plan</span>
               <input
                 value={data.name}
-                onChange={(e) =>
-                  setData((p) => ({ ...p, name: e.target.value }))
+                onChange={(event) =>
+                  setData((previous) => ({
+                    ...previous,
+                    name: event.target.value,
+                  }))
                 }
-                placeholder="Ej. Titanium Rojo"
+                placeholder="Ej. Membresia Regular"
               />
             </label>
 
             <label className={styles.field}>
-              <span>Nivel</span>
-              <input
-                value={data.level}
-                onChange={(e) =>
-                  setData((p) => ({ ...p, level: e.target.value }))
+              <span>Tipo</span>
+              <select
+                value={data.kind}
+                onChange={(event) =>
+                  handleKindChange(event.target.value as SubscriptionKind)
                 }
-                placeholder="Ej. Básico / Premium"
-              />
+              >
+                <option value="membresia">Membresia</option>
+                <option value="paquete">Paquete</option>
+                <option value="pase">Pase temporal</option>
+              </select>
             </label>
 
             <label className={styles.field}>
-              <span>Precio (MXN)</span>
+              <span>Segmento</span>
               <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={data.price}
-                onChange={(e) =>
-                  setData((p) => ({ ...p, price: Number(e.target.value) }))
+                value={data.segment}
+                onChange={(event) =>
+                  setData((previous) => ({
+                    ...previous,
+                    segment: event.target.value,
+                  }))
                 }
+                placeholder="Ej. General / Estudiante / Grupal"
               />
             </label>
 
@@ -177,27 +215,81 @@ export default function ModalSuscripciones({
               <span>Periodicidad</span>
               <select
                 value={data.billing}
-                onChange={(e) =>
-                  setData((p) => ({
-                    ...p,
-                    billing: e.target.value as SubscriptionBilling,
+                onChange={(event) =>
+                  setData((previous) => ({
+                    ...previous,
+                    billing: event.target.value as SubscriptionBilling,
                   }))
                 }
               >
-                <option value="mes">Mensual</option>
-                <option value="trimestre">Trimestral</option>
-                <option value="año">Anual</option>
+                {billingOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
             </label>
+
+            <label className={styles.field}>
+              <span>Precio base (MXN)</span>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={data.price}
+                onChange={(event) =>
+                  setData((previous) => ({
+                    ...previous,
+                    price: Number(event.target.value),
+                  }))
+                }
+              />
+            </label>
+
+            <label className={styles.field}>
+              <span>Inscripcion (MXN)</span>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={data.registrationFee}
+                disabled={data.kind === "pase"}
+                onChange={(event) =>
+                  setData((previous) => ({
+                    ...previous,
+                    registrationFee: Number(event.target.value),
+                  }))
+                }
+              />
+            </label>
+
+            {data.kind === "paquete" ? (
+              <label className={styles.field}>
+                <span>Personas incluidas</span>
+                <input
+                  type="number"
+                  min={2}
+                  max={10}
+                  step="1"
+                  value={data.packageSize ?? 2}
+                  onChange={(event) =>
+                    setData((previous) => ({
+                      ...previous,
+                      packageSize: Number(event.target.value),
+                    }))
+                  }
+                />
+              </label>
+            ) : null}
 
             <label className={styles.field}>
               <span>Estado</span>
               <select
                 value={data.status}
-                onChange={(e) =>
-                  setData((p) => ({
-                    ...p,
-                    status: e.target.value as SubscriptionStatus,
+                onChange={(event) =>
+                  setData((previous) => ({
+                    ...previous,
+                    status: event.target.value as SubscriptionBaseFormData["status"],
                   }))
                 }
               >
@@ -207,13 +299,13 @@ export default function ModalSuscripciones({
             </label>
 
             <label className={styles.field}>
-              <span>Color de tarjeta</span>
+              <span>Color visual</span>
               <select
                 value={data.color}
-                onChange={(e) =>
-                  setData((p) => ({
-                    ...p,
-                    color: e.target.value as SubscriptionColor,
+                onChange={(event) =>
+                  setData((previous) => ({
+                    ...previous,
+                    color: event.target.value as SubscriptionBaseFormData["color"],
                   }))
                 }
               >
@@ -227,68 +319,51 @@ export default function ModalSuscripciones({
               <span>Destacado</span>
               <select
                 value={data.highlight ? "yes" : "no"}
-                onChange={(e) =>
-                  setData((p) => ({
-                    ...p,
-                    highlight: e.target.value === "yes",
+                onChange={(event) =>
+                  setData((previous) => ({
+                    ...previous,
+                    highlight: event.target.value === "yes",
                   }))
                 }
               >
                 <option value="no">No</option>
-                <option value="yes">Sí</option>
+                <option value="yes">Si</option>
               </select>
             </label>
 
             <label className={`${styles.field} ${styles.fieldFull}`}>
-              <span>Descripción</span>
+              <span>Resumen operativo</span>
               <textarea
                 rows={3}
-                value={data.description}
-                onChange={(e) =>
-                  setData((p) => ({ ...p, description: e.target.value }))
+                value={data.summary}
+                onChange={(event) =>
+                  setData((previous) => ({
+                    ...previous,
+                    summary: event.target.value,
+                  }))
                 }
-                placeholder="Describe el valor principal del plan."
-              />
-            </label>
-
-            <label className={`${styles.field} ${styles.fieldFull}`}>
-              <span>Características (una por línea)</span>
-              <textarea
-                rows={4}
-                value={data.featuresText}
-                onChange={(e) =>
-                  setData((p) => ({ ...p, featuresText: e.target.value }))
-                }
-                placeholder="Acceso 24/7&#10;Clases grupales premium&#10;App Titanium"
+                placeholder="Ej. Plan mensual para acceso general con renovacion y control administrativo."
               />
             </label>
           </div>
-
-          {!!parsedFeatures.length && (
-            <div className={styles.preview}>
-              <p className={styles.previewTitle}>Características capturadas</p>
-              <ul className={styles.featureList}>
-                {parsedFeatures.map((feature, idx) => (
-                  <li key={`${feature}-${idx}`}>{feature}</li>
-                ))}
-              </ul>
-            </div>
-          )}
         </div>
 
         <div className={styles.footer}>
-          <button className={styles.btnGhost} onClick={onClose}>
+          <button type="button" className={styles.btnGhost} onClick={onClose}>
             Cancelar
           </button>
           <button
+            type="button"
             className={styles.btnPrimary}
             onClick={handleSave}
             disabled={!canSave}
             title={
-              !canSave ? "Completa los campos obligatorios" : "Guardar cambios"
+              !canSave
+                ? "Completa el nombre, segmento, resumen, precio y datos base del plan."
+                : "Guardar plan base"
             }
           >
-            Guardar
+            Guardar plan
           </button>
         </div>
       </div>

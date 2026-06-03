@@ -1,69 +1,106 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  z-index: 9999;
   display: grid;
   place-items: center;
-  z-index: 9999;
-  padding: 16px;
+  padding: 24px;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.7), rgba(15, 23, 42, 0.82)),
+    radial-gradient(circle at top, rgba(239, 68, 68, 0.22), transparent 38%);
+  backdrop-filter: blur(10px);
 }
 
 .modal {
-  width: min(820px, 100%);
-  background: white;
-  border-radius: 18px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
-  overflow: hidden;
+  width: min(860px, 100%);
+  max-height: min(90vh, 900px);
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
+  box-shadow: 0 28px 70px rgba(2, 6, 23, 0.32);
 }
 
 .header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  padding: 16px 16px 10px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  gap: 20px;
+  padding: 24px 24px 18px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.header > div {
+  min-width: 0;
 }
 
 .title {
   margin: 0;
-  font-size: 18px;
+  font-family: var(--font-ui);
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #0f172a;
 }
 
 .subtitle {
-  margin: 6px 0 0;
-  color: #666;
-  font-size: 13px;
+  margin: 8px 0 0;
+  max-width: 560px;
+  color: #556274;
+  line-height: 1.55;
 }
 
 .close {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  background: #fff;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 14px;
+  background: #ffffff;
+  color: #1f2937;
+  font-size: 1rem;
+  font-weight: 800;
   cursor: pointer;
-  font-weight: 900;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.close:hover {
+  transform: translateY(-1px);
+  border-color: rgba(239, 68, 68, 0.28);
+  background: rgba(255, 245, 245, 0.96);
 }
 
 .body {
-  padding: 16px;
+  padding: 24px;
+}
+
+.helperText {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(239, 68, 68, 0.14);
+  border-radius: 18px;
+  background: rgba(255, 245, 245, 0.8);
+  color: #6b7280;
+  line-height: 1.55;
 }
 
 .grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  font-weight: 700;
-  font-size: 12px;
-  color: #444;
+  gap: 8px;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
 .fieldFull {
@@ -73,93 +110,156 @@
 .field input,
 .field select,
 .field textarea {
-  border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  padding: 10px 12px;
-  outline: none;
-  font-weight: 600;
+  width: 100%;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #111827;
   font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
 .field input,
 .field select {
-  height: 40px;
+  min-height: 46px;
+  padding: 0 14px;
 }
 
 .field textarea {
+  min-height: 120px;
+  padding: 12px 14px;
   resize: vertical;
 }
 
 .field input:focus,
 .field select:focus,
 .field textarea:focus {
-  border-color: rgba(239, 68, 68, 0.35);
+  border-color: rgba(239, 68, 68, 0.36);
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.08);
 }
 
 .preview {
-  margin-top: 14px;
-  border-radius: 16px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  padding: 12px;
-  background: rgba(0, 0, 0, 0.02);
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, rgba(248, 250, 252, 0.96), rgba(255, 255, 255, 0.96));
 }
 
 .previewTitle {
-  margin: 0 0 8px;
-  font-size: 13px;
+  margin: 0 0 12px;
+  color: #0f172a;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
   font-weight: 800;
-  color: #333;
 }
 
 .featureList {
   margin: 0;
-  padding-left: 18px;
+  padding-left: 20px;
   display: grid;
-  gap: 6px;
-  color: #444;
-  font-size: 13px;
+  gap: 8px;
+  color: #475569;
+  line-height: 1.5;
 }
 
 .footer {
-  padding: 12px 16px;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 12px;
+  padding: 18px 24px 24px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.btnGhost,
+.btnPrimary {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    opacity 0.2s ease,
+    background 0.2s ease;
 }
 
 .btnGhost {
-  height: 40px;
-  padding: 0 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  background: #fff;
-  cursor: pointer;
-  font-weight: 800;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.btnGhost:hover {
+  transform: translateY(-1px);
+  border-color: rgba(239, 68, 68, 0.22);
 }
 
 .btnPrimary {
-  height: 40px;
-  padding: 0 14px;
-  border-radius: 12px;
-  border: 2px solid var(--primary, #ef4444);
-  background: var(--primary, #ef4444);
-  color: white;
-  cursor: pointer;
-  font-weight: 900;
+  border: 1px solid rgba(239, 68, 68, 0.14);
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  color: #ffffff;
+  box-shadow: 0 16px 30px rgba(239, 68, 68, 0.22);
+}
+
+.btnPrimary:hover:not(:disabled) {
+  transform: translateY(-1px);
 }
 
 .btnPrimary:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 720px) {
+  .backdrop {
+    padding: 16px;
+  }
+
+  .modal {
+    max-height: calc(100vh - 32px);
+    border-radius: 24px;
+  }
+
+  .header {
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .header,
+  .body,
+  .footer {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .close {
+    align-self: flex-end;
+  }
+
   .grid {
     grid-template-columns: 1fr;
   }
 
   .fieldFull {
     grid-column: auto;
+  }
+
+  .footer {
+    flex-direction: column-reverse;
+  }
+
+  .btnGhost,
+  .btnPrimary {
+    width: 100%;
   }
 }

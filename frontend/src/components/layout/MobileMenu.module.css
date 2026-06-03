@@ -11,6 +11,13 @@
   animation: slideDown 0.24s ease;
 }
 
+.menuTransparent {
+  background: rgba(8, 8, 8, 0.18);
+  backdrop-filter: blur(18px);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 42px rgba(0, 0, 0, 0.26);
+}
+
 .nav {
   display: flex;
   flex-direction: column;
@@ -95,6 +102,36 @@
   justify-content: center;
 }
 
+.menuTransparent .link,
+.menuTransparent .cartLink {
+  color: #ffffff;
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+  text-shadow: 0 3px 16px rgba(0, 0, 0, 0.32);
+}
+
+.menuTransparent .link:hover,
+.menuTransparent .cartLink:hover {
+  color: #ffffff;
+}
+
+.actionButtonOutlineTransparent {
+  border-color: rgba(255, 255, 255, 0.55) !important;
+  color: #ffffff !important;
+  background: rgba(8, 8, 8, 0.16) !important;
+  backdrop-filter: blur(14px);
+}
+
+.actionButtonOutlineTransparent:hover {
+  background: #ffffff !important;
+  border-color: #ffffff !important;
+  color: #101010 !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
+}
+
+.actionButtonSolidTransparent {
+  box-shadow: 0 12px 28px rgba(239, 68, 68, 0.28);
+}
+
 @keyframes slideDown {
   from {
     opacity: 0;
@@ -107,7 +144,7 @@
   }
 }
 
-@media (min-width: 1025px) {
+@media (min-width: 1181px) {
   .menu {
     display: none;
   }
