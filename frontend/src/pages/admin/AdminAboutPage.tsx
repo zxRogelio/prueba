@@ -2961,7 +2961,7 @@ export default function AdminAboutPage() {
         {about?.heroImageUrl && (
           <img
             className={styles.preview}
-            src={about.heroImageUrl}
+            src={about?.heroImageUrl ?? undefined}
             alt="Hero actual"
           />
         )}
@@ -3071,7 +3071,7 @@ export default function AdminAboutPage() {
         {about?.introImageUrl && (
           <img
             className={styles.preview}
-            src={about.introImageUrl}
+            src={about?.introImageUrl ?? undefined}
             alt="Intro actual"
           />
         )}

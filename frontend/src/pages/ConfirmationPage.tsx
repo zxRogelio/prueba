@@ -1,17 +1,35 @@
-import React from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import "../styles/confirmation.css";
 import Logo from "../assets/LogoP.png";
-import { Link } from "react-router-dom";
+
+type Membership = {
+  id: number;
+  name: string;
+  price: number;
+  duration: string;
+  features: string[];
+};
+
+type CustomerInfo = {
+  nombre: string;
+  apellido: string;
+  email: string;
+  telefono: string;
+};
+
+type ConfirmationLocationState = {
+  membership?: Membership;
+  customerInfo?: CustomerInfo;
+  transactionId?: string;
+};
 
 export default function ConfirmationPage() {
   const location = useLocation();
-
-
-  const { membership, customerInfo, transactionId } = location.state || {};
+  const locationState = location.state as ConfirmationLocationState | null;
+  const { membership, customerInfo, transactionId } = locationState || {};
 
   // Datos por defecto en caso de que no lleguen por state
-  const selectedMembership = membership || {
+  const selectedMembership: Membership = membership || {
     id: 1,
     name: "CARTE BLANCHE",
     price: 299,
@@ -24,7 +42,7 @@ export default function ConfirmationPage() {
     ],
   };
 
-  const customerData = customerInfo || {
+  const customerData: CustomerInfo = customerInfo || {
     nombre: "Juan",
     apellido: "Pérez",
     email: "juan@example.com",
