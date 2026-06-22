@@ -14,7 +14,12 @@ import { RoutineExercise } from "./RoutineExercise.js";
 import { TrainerProfile } from "./TrainerProfile.js";
 import { TrainerClient } from "./TrainerClient.js";
 import { TrainerAgendaItem } from "./TrainerAgendaItem.js";
-
+import { MembershipPlan } from "./MembershipPlan.js";
+import { Payment } from "./Payment.js";
+import { UserSubscription } from "./UserSubscription.js";
+import { Receipt } from "./Receipt.js";
+import { SubscriptionGroup } from "./SubscriptionGroup.js";
+import { SubscriptionGroupMember } from "./SubscriptionGroupMember.js";
 
 // ✅ Category(id_categoria) <-> Brand(categoryId)
 Category.hasMany(Brand, {
@@ -210,6 +215,172 @@ TrainerAgendaItem.belongsTo(User, {
   targetKey: "id",
   as: "trainer",
 });
+// ===============================
+// MEMBERSHIPS / PAYMENTS
+// ===============================
+
+// USER -> PAYMENTS
+User.hasMany(Payment, {
+  foreignKey: "userId",
+  sourceKey: "id",
+  as: "payments",
+});
+
+Payment.belongsTo(User, {
+  foreignKey: "userId",
+  targetKey: "id",
+  as: "user",
+});
+
+// MEMBERSHIP PLAN -> PAYMENTS
+MembershipPlan.hasMany(Payment, {
+  foreignKey: "planId",
+  sourceKey: "id",
+  as: "payments",
+});
+
+Payment.belongsTo(MembershipPlan, {
+  foreignKey: "planId",
+  targetKey: "id",
+  as: "plan",
+});
+
+// USER -> SUBSCRIPTIONS
+User.hasMany(UserSubscription, {
+  foreignKey: "userId",
+  sourceKey: "id",
+  as: "subscriptions",
+});
+
+UserSubscription.belongsTo(User, {
+  foreignKey: "userId",
+  targetKey: "id",
+  as: "user",
+});
+
+// MEMBERSHIP PLAN -> SUBSCRIPTIONS
+MembershipPlan.hasMany(UserSubscription, {
+  foreignKey: "planId",
+  sourceKey: "id",
+  as: "subscriptions",
+});
+
+UserSubscription.belongsTo(MembershipPlan, {
+  foreignKey: "planId",
+  targetKey: "id",
+  as: "plan",
+});
+
+// PAYMENT -> SUBSCRIPTION
+Payment.hasOne(UserSubscription, {
+  foreignKey: "paymentId",
+  sourceKey: "id",
+  as: "subscription",
+});
+
+UserSubscription.belongsTo(Payment, {
+  foreignKey: "paymentId",
+  targetKey: "id",
+  as: "payment",
+});
+
+// PAYMENT -> RECEIPT
+Payment.hasOne(Receipt, {
+  foreignKey: "paymentId",
+  sourceKey: "id",
+  as: "receipt",
+  onDelete: "CASCADE",
+  hooks: true,
+});
+
+Receipt.belongsTo(Payment, {
+  foreignKey: "paymentId",
+  targetKey: "id",
+  as: "payment",
+});
+
+// MEMBERSHIP PLAN -> SUBSCRIPTION GROUPS
+MembershipPlan.hasMany(SubscriptionGroup, {
+  foreignKey: "planId",
+  sourceKey: "id",
+  as: "subscriptionGroups",
+});
+
+SubscriptionGroup.belongsTo(MembershipPlan, {
+  foreignKey: "planId",
+  targetKey: "id",
+  as: "plan",
+});
+
+// USER OWNER -> SUBSCRIPTION GROUPS
+User.hasMany(SubscriptionGroup, {
+  foreignKey: "ownerUserId",
+  sourceKey: "id",
+  as: "ownedSubscriptionGroups",
+});
+
+SubscriptionGroup.belongsTo(User, {
+  foreignKey: "ownerUserId",
+  targetKey: "id",
+  as: "owner",
+});
+
+// PAYMENT -> SUBSCRIPTION GROUP
+// constraints:false evita problemas de ciclo entre Payment y SubscriptionGroup
+Payment.hasOne(SubscriptionGroup, {
+  foreignKey: "paymentId",
+  sourceKey: "id",
+  as: "subscriptionGroup",
+  constraints: false,
+});
+
+SubscriptionGroup.belongsTo(Payment, {
+  foreignKey: "paymentId",
+  targetKey: "id",
+  as: "payment",
+  constraints: false,
+});
+
+// SUBSCRIPTION GROUP -> MEMBERS
+SubscriptionGroup.hasMany(SubscriptionGroupMember, {
+  foreignKey: "groupId",
+  sourceKey: "id",
+  as: "members",
+  onDelete: "CASCADE",
+  hooks: true,
+});
+
+SubscriptionGroupMember.belongsTo(SubscriptionGroup, {
+  foreignKey: "groupId",
+  targetKey: "id",
+  as: "group",
+});
+
+// USER -> SUBSCRIPTION GROUP MEMBER
+User.hasMany(SubscriptionGroupMember, {
+  foreignKey: "userId",
+  sourceKey: "id",
+  as: "groupMemberships",
+});
+
+SubscriptionGroupMember.belongsTo(User, {
+  foreignKey: "userId",
+  targetKey: "id",
+  as: "user",
+});
+
+// SUBSCRIPTION GROUP -> USER SUBSCRIPTIONS
+SubscriptionGroup.hasMany(UserSubscription, {
+  foreignKey: "groupId",
+  sourceKey: "id",
+  as: "userSubscriptions",
+});
+
+UserSubscription.belongsTo(SubscriptionGroup, {
+  foreignKey: "groupId",
+  targetKey: "id",
+  as: "group",
+});
 export {
   Brand,
   Category,
@@ -227,4 +398,10 @@ export {
   TrainerProfile,
   TrainerClient,
   TrainerAgendaItem,
+  MembershipPlan,
+  Payment,
+  UserSubscription,
+  Receipt,
+  SubscriptionGroup,
+  SubscriptionGroupMember,
 };

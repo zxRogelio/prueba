@@ -7,7 +7,13 @@ import {
   destroyCloudinaryVideo,
 } from "../utils/cloudinaryUpload.js";
 
-const allowedStatuses = ["draft", "published", "archived"];
+const allowedStatuses = [
+  "draft",
+  "pending_review",
+  "published",
+  "archived",
+  "rejected",
+];
 const allowedLevels = ["principiante", "intermedio", "avanzado"];
 const allowedCategories = [
   "fuerza",
@@ -503,22 +509,28 @@ export const publishTrainerRoutine = async (req, res) => {
     });
 
     if (!routine) {
-      return res.status(404).json({ error: "Rutina no encontrada" });
+      return res.status(404).json({
+        error: "Rutina no encontrada",
+      });
     }
 
-    await routine.update({ status: "published" });
+    await routine.update({
+      status: "pending_review",
+    });
 
     const fullRoutine = await Routine.findByPk(routine.id, {
       include: routineInclude,
     });
 
     return res.json({
-      message: "Rutina publicada correctamente",
+      message: "Rutina enviada a revisión del administrador",
       routine: serializeRoutine(fullRoutine),
     });
   } catch (error) {
     console.error("publishTrainerRoutine error:", error);
-    return res.status(500).json({ error: "No se pudo publicar la rutina" });
+    return res.status(500).json({
+      error: "No se pudo enviar la rutina a revisión",
+    });
   }
 };
 
@@ -550,5 +562,234 @@ export const archiveTrainerRoutine = async (req, res) => {
   } catch (error) {
     console.error("archiveTrainerRoutine error:", error);
     return res.status(500).json({ error: "No se pudo archivar la rutina" });
+  }
+};
+
+export const publicTrainerRoutine = async (req, res) => {
+  try {
+    const search = normalizeText(req.query.search);
+    const category = normalizeText(req.query.category);
+    const level = normalizeText(req.query.level);
+
+    const where = {
+      status: "published",
+    };
+
+    if (category && allowedCategories.includes(category)) {
+      where.category = category;
+    }
+
+    if (level && allowedLevels.includes(level)) {
+      where.level = level;
+    }
+
+    if (search) {
+      where[Op.or] = [
+        { title: { [Op.iLike]: `%${search}%` } },
+        { objective: { [Op.iLike]: `%${search}%` } },
+        { description: { [Op.iLike]: `%${search}%` } },
+      ];
+    }
+
+    const routines = await Routine.findAll({
+      where,
+      include: routineInclude,
+      order: [["createdAt", "DESC"]],
+    });
+
+    return res.json({
+      ok: true,
+      routines: routines.map(serializeRoutine),
+      activeSubscription: req.activeSubscription ?? null,
+    });
+  } catch (error) {
+    console.error("publicTrainerRoutine error:", error);
+
+    return res.status(500).json({
+      ok: false,
+      error: "No se pudieron cargar las rutinas disponibles",
+    });
+  }
+};
+
+export const getPublicTrainerRoutineById = async (req, res) => {
+  try {
+    const routine = await Routine.findOne({
+      where: {
+        id: req.params.id,
+        status: "published",
+      },
+      include: routineInclude,
+    });
+
+    if (!routine) {
+      return res.status(404).json({
+        ok: false,
+        error: "Rutina no encontrada o no disponible",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      routine: serializeRoutine(routine),
+      activeSubscription: req.activeSubscription ?? null,
+    });
+  } catch (error) {
+    console.error("getPublicTrainerRoutineById error:", error);
+
+    return res.status(500).json({
+      ok: false,
+      error: "No se pudo cargar la rutina",
+    });
+  }
+};
+export const listAdminRoutinesForReview = async (req, res) => {
+  try {
+    const search = normalizeText(req.query.search);
+    const status = normalizeText(req.query.status) || "pending_review";
+    const category = normalizeText(req.query.category);
+    const level = normalizeText(req.query.level);
+
+    const where = {};
+
+    if (status !== "all") {
+      where.status = status;
+    }
+
+    if (category && allowedCategories.includes(category)) {
+      where.category = category;
+    }
+
+    if (level && allowedLevels.includes(level)) {
+      where.level = level;
+    }
+
+    if (search) {
+      where[Op.or] = [
+        { title: { [Op.iLike]: `%${search}%` } },
+        { objective: { [Op.iLike]: `%${search}%` } },
+        { description: { [Op.iLike]: `%${search}%` } },
+      ];
+    }
+
+    const routines = await Routine.findAll({
+      where,
+      include: routineInclude,
+      order: [["createdAt", "DESC"]],
+    });
+
+    return res.json({
+      ok: true,
+      routines: routines.map(serializeRoutine),
+    });
+  } catch (error) {
+    console.error("listAdminRoutinesForReview error:", error);
+
+    return res.status(500).json({
+      ok: false,
+      error: "No se pudieron cargar las rutinas para revisión",
+    });
+  }
+};
+
+export const approveAdminRoutine = async (req, res) => {
+  try {
+    const routine = await Routine.findByPk(req.params.id);
+
+    if (!routine) {
+      return res.status(404).json({
+        ok: false,
+        error: "Rutina no encontrada",
+      });
+    }
+
+    await routine.update({
+      status: "published",
+    });
+
+    const fullRoutine = await Routine.findByPk(routine.id, {
+      include: routineInclude,
+    });
+
+    return res.json({
+      ok: true,
+      message: "Rutina aprobada y publicada correctamente",
+      routine: serializeRoutine(fullRoutine),
+    });
+  } catch (error) {
+    console.error("approveAdminRoutine error:", error);
+
+    return res.status(500).json({
+      ok: false,
+      error: "No se pudo aprobar la rutina",
+    });
+  }
+};
+
+export const rejectAdminRoutine = async (req, res) => {
+  try {
+    const routine = await Routine.findByPk(req.params.id);
+
+    if (!routine) {
+      return res.status(404).json({
+        ok: false,
+        error: "Rutina no encontrada",
+      });
+    }
+
+    await routine.update({
+      status: "rejected",
+    });
+
+    const fullRoutine = await Routine.findByPk(routine.id, {
+      include: routineInclude,
+    });
+
+    return res.json({
+      ok: true,
+      message: "Rutina rechazada correctamente",
+      routine: serializeRoutine(fullRoutine),
+    });
+  } catch (error) {
+    console.error("rejectAdminRoutine error:", error);
+
+    return res.status(500).json({
+      ok: false,
+      error: "No se pudo rechazar la rutina",
+    });
+  }
+};
+
+export const archiveAdminRoutine = async (req, res) => {
+  try {
+    const routine = await Routine.findByPk(req.params.id);
+
+    if (!routine) {
+      return res.status(404).json({
+        ok: false,
+        error: "Rutina no encontrada",
+      });
+    }
+
+    await routine.update({
+      status: "archived",
+    });
+
+    const fullRoutine = await Routine.findByPk(routine.id, {
+      include: routineInclude,
+    });
+
+    return res.json({
+      ok: true,
+      message: "Rutina archivada correctamente",
+      routine: serializeRoutine(fullRoutine),
+    });
+  } catch (error) {
+    console.error("archiveAdminRoutine error:", error);
+
+    return res.status(500).json({
+      ok: false,
+      error: "No se pudo archivar la rutina",
+    });
   }
 };

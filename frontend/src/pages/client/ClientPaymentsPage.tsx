@@ -1,125 +1,260 @@
-import { FaCheckCircle, FaFileInvoiceDollar, FaWallet } from "react-icons/fa";
+import { useEffect, useMemo, useState } from "react";
+import {
+  FaCheckCircle,
+  FaFileInvoiceDollar,
+  FaReceipt,
+  FaSyncAlt,
+  FaWallet,
+} from "react-icons/fa";
+import { getMyMembershipPayments } from "../../services/membershipService";
 import styles from "./ClientPages.module.css";
+type MembershipPayment = {
+  id: string;
+  paymentType: string;
+  amount: string | number;
+  method: string;
+  provider: string;
+  status: string;
+  reference?: string | null;
+  notes?: string | null;
+  paidAt?: string | null;
+  createdAt: string;
+  plan?: {
+    id: string;
+    name: string;
+    type: string;
+    durationDays: number;
+  } | null;
+  receipt?: {
+    id: string;
+    folio: string;
+    status: string;
+    issuedAt: string;
+    pdfUrl?: string | null;
+  } | null;
+};
 
-const payments = [
-  {
-    date: "18 mar 2026",
-    description: "Renovacion mensual Titanium Premium",
-    amount: "$1,499 MXN",
-    status: "Pagado",
-  },
-  {
-    date: "18 feb 2026",
-    description: "Renovacion mensual Titanium Premium",
-    amount: "$1,499 MXN",
-    status: "Pagado",
-  },
-  {
-    date: "18 ene 2026",
-    description: "Alta de membresia Titanium Premium",
-    amount: "$1,499 MXN",
-    status: "Pagado",
-  },
-];
+const currencyFormatter = new Intl.NumberFormat("es-MX", {
+  style: "currency",
+  currency: "MXN",
+});
+
+function formatCurrency(value: string | number | null | undefined) {
+  const numericValue = Number(value ?? 0);
+  return currencyFormatter.format(Number.isFinite(numericValue) ? numericValue : 0);
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "Sin fecha";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("es-MX", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function getMethodLabel(method?: string) {
+  switch (method) {
+    case "cash":
+      return "Efectivo";
+    case "transfer":
+      return "Transferencia";
+    case "card_terminal":
+      return "Tarjeta presencial / Mercado Pago";
+    case "online_card":
+      return "Pago en línea con tarjeta";
+    case "online_wallet":
+      return "Pago en línea";
+    default:
+      return "No especificado";
+  }
+}
+
+function getStatusLabel(status?: string) {
+  switch (status) {
+    case "paid":
+      return "Pagado";
+    case "pending":
+      return "Pendiente";
+    case "failed":
+      return "Fallido";
+    case "cancelled":
+      return "Cancelado";
+    case "refunded":
+      return "Reembolsado";
+    default:
+      return status ?? "Sin estado";
+  }
+}
 
 export default function ClientPaymentsPage() {
+  const [payments, setPayments] = useState<MembershipPayment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  async function loadPayments() {
+    setLoading(true);
+
+    try {
+      const response = await getMyMembershipPayments();
+      setPayments(response.payments ?? []);
+    } catch (error) {
+      console.error("CLIENT PAYMENTS ERROR:", error);
+      setPayments([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadPayments();
+  }, []);
+
+  const paidPayments = payments.filter((payment) => payment.status === "paid");
+
+  const totalPaid = useMemo(() => {
+    return paidPayments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+  }, [paidPayments]);
+
+  const lastPayment = payments[0] ?? null;
+  const receiptsCount = payments.filter((payment) => payment.receipt).length;
+
   return (
-    <section className={styles.page}>
-      <div className={styles.hero}>
-        <div className={styles.heroContent}>
-          <span className={styles.eyebrow}>Control financiero</span>
-          <h2 className={styles.title}>Pagos y comprobantes en una sola vista</h2>
-          <p className={styles.subtitle}>
-            Consulta tus movimientos recientes, el proximo cargo y el estado de
-            la facturacion sin salir del portal del cliente.
+    <section className={styles.clientPage}>
+      <header className={styles.clientHero}>
+        <div>
+          <span className={styles.clientEyebrow}>Control financiero</span>
+          <h1>Pagos y comprobantes</h1>
+          <p>
+            Consulta tus pagos de membresía registrados por recepción,
+            transferencia, terminal Mercado Pago o futuras compras en línea.
           </p>
         </div>
 
-        <div className={styles.heroAside}>
-          <div className={styles.heroCard}>
-            <span className={styles.heroCardLabel}>Metodo principal</span>
-            <strong className={styles.heroCardValue}>Visa 3344</strong>
-            <div className={styles.heroCardText}>
-              Configurada para cobro automatico y renovacion sin interrupciones.
-            </div>
-          </div>
-        </div>
-      </div>
+        <button
+          type="button"
+          className={styles.heroActionBtn}
+          onClick={() => void loadPayments()}
+          disabled={loading}
+        >
+          <FaSyncAlt />
+          {loading ? "Cargando..." : "Actualizar"}
+        </button>
+      </header>
 
-      <div className={styles.metricsGrid}>
-        <article className={styles.metricCard}>
-          <span className={styles.metricIcon}>
+      <div className={styles.summaryGrid}>
+        <article className={styles.summaryCard}>
+          <span className={styles.summaryIcon}>
             <FaWallet />
           </span>
-          <div className={styles.metricLabel}>Proximo cargo</div>
-          <div className={styles.metricValue}>$1,499</div>
-          <div className={styles.metricMeta}>Se intentara el 18 de abril de 2026.</div>
+          <div>
+            <p>Total pagado</p>
+            <strong>{formatCurrency(totalPaid)}</strong>
+            <span>Solo pagos confirmados.</span>
+          </div>
         </article>
 
-        <article className={styles.metricCard}>
-          <span className={styles.metricIcon}>
+        <article className={styles.summaryCard}>
+          <span className={styles.summaryIcon}>
             <FaCheckCircle />
           </span>
-          <div className={styles.metricLabel}>Pagos exitosos</div>
-          <div className={styles.metricValue}>3</div>
-          <div className={styles.metricMeta}>Ultimos movimientos sin incidencias.</div>
+          <div>
+            <p>Pagos exitosos</p>
+            <strong>{paidPayments.length}</strong>
+            <span>Movimientos con estado pagado.</span>
+          </div>
         </article>
 
-        <article className={styles.metricCard}>
-          <span className={styles.metricIcon}>
+        <article className={styles.summaryCard}>
+          <span className={styles.summaryIcon}>
+            <FaReceipt />
+          </span>
+          <div>
+            <p>Comprobantes</p>
+            <strong>{receiptsCount}</strong>
+            <span>Folios generados por el sistema.</span>
+          </div>
+        </article>
+
+        <article className={styles.summaryCard}>
+          <span className={styles.summaryIcon}>
             <FaFileInvoiceDollar />
           </span>
-          <div className={styles.metricLabel}>Comprobantes</div>
-          <div className={styles.metricValue}>Disponibles</div>
-          <div className={styles.metricMeta}>Listos para consulta cuando los necesites.</div>
-        </article>
-
-        <article className={styles.metricCard}>
-          <span className={styles.metricIcon}>
-            <FaWallet />
-          </span>
-          <div className={styles.metricLabel}>Estado de cobro</div>
-          <div className={styles.metricValue}>Al dia</div>
-          <div className={styles.metricMeta}>No hay montos vencidos ni cargos pendientes.</div>
+          <div>
+            <p>Último pago</p>
+            <strong>{lastPayment ? formatCurrency(lastPayment.amount) : "$0.00"}</strong>
+            <span>
+              {lastPayment
+                ? `${getMethodLabel(lastPayment.method)}`
+                : "Sin pagos registrados."}
+            </span>
+          </div>
         </article>
       </div>
 
-      <article className={styles.panel}>
-        <div className={styles.panelHeader}>
-          <div>
-            <h3 className={styles.panelTitle}>Historial reciente</h3>
-            <p className={styles.panelText}>
-              Ultimos cargos registrados para tu membresia.
-            </p>
-          </div>
-          <span className={styles.pill}>Sin atrasos</span>
-        </div>
+      <section className={styles.panelCard}>
+        <h2>Historial de pagos</h2>
+        <p>Movimientos reales registrados en el backend.</p>
 
-        <div className={styles.tableWrap}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Concepto</th>
-                <th>Monto</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {payments.map((payment) => (
-                <tr key={`${payment.date}-${payment.amount}`}>
-                  <td>{payment.date}</td>
-                  <td>{payment.description}</td>
-                  <td>{payment.amount}</td>
-                  <td>
-                    <span className={styles.pill}>{payment.status}</span>
-                  </td>
+        {loading ? (
+          <div className={styles.emptyStateCard}>Cargando pagos...</div>
+        ) : payments.length > 0 ? (
+          <div className={styles.tableWrap}>
+            <table className={styles.clientTable}>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Plan</th>
+                  <th>Método</th>
+                  <th>Monto</th>
+                  <th>Estado</th>
+                  <th>Comprobante</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </article>
+              </thead>
+              <tbody>
+                {payments.map((payment) => (
+                  <tr key={payment.id}>
+                    <td>{formatDate(payment.paidAt ?? payment.createdAt)}</td>
+                    <td>
+                      <strong>{payment.plan?.name ?? "Membresía"}</strong>
+                      {payment.reference ? <p>{payment.reference}</p> : null}
+                    </td>
+                    <td>{getMethodLabel(payment.method)}</td>
+                    <td>{formatCurrency(payment.amount)}</td>
+                    <td>{getStatusLabel(payment.status)}</td>
+                    <td>
+                      {payment.receipt ? (
+                        payment.receipt.pdfUrl ? (
+                          <a
+                            href={payment.receipt.pdfUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {payment.receipt.folio}
+                          </a>
+                        ) : (
+                          <span>{payment.receipt.folio}</span>
+                        )
+                      ) : (
+                        <span>Sin comprobante</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className={styles.emptyStateCard}>
+            Todavía no tienes pagos de membresía registrados.
+          </div>
+        )}
+      </section>
     </section>
   );
 }
