@@ -1,13 +1,13 @@
 import { Link, NavLink } from "react-router-dom";
 import Logo from "../../../../assets/logo_ULTRA_HD-removebg-preview.png";
-import styles from "./ClientSidebar.module.css";
-import { clientPortalSections } from "../clientPortalNavigation";
+import styles from "./TrainerSidebar.module.css";
+import { trainerPortalSections } from "../trainerPortalNavigation";
 
-interface ClientSidebarProps {
+interface TrainerSidebarProps {
   collapsed: boolean;
 }
 
-export default function ClientSidebar({ collapsed }: ClientSidebarProps) {
+export default function TrainerSidebar({ collapsed }: TrainerSidebarProps) {
   return (
     <div className={`${styles.wrap} ${collapsed ? styles.wrapCollapsed : ""}`}>
       <div className={styles.brand}>
@@ -16,14 +16,14 @@ export default function ClientSidebar({ collapsed }: ClientSidebarProps) {
           {!collapsed && (
             <div className={styles.brandTexts}>
               <span className={styles.brandTitle}>TITANIUM</span>
-              <span className={styles.brandSubtitle}>Client Portal</span>
+              <span className={styles.brandSubtitle}>Trainer Portal</span>
             </div>
           )}
         </Link>
       </div>
 
       <nav className={styles.nav}>
-        {clientPortalSections.map((section) => (
+        {trainerPortalSections.map((section) => (
           <div key={section.title} className={styles.section}>
             {!collapsed && (
               <div className={styles.sectionTitle}>{section.title}</div>

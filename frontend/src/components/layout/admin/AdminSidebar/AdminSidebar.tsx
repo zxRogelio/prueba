@@ -2,20 +2,20 @@ import { useEffect, useMemo, useState, type ReactElement } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import styles from "./AdminSidebar.module.css";
 import {
-  FaChartBar,
-  FaUsers,
   FaBoxOpen,
-  FaIdCard,
-  FaFileAlt,
+  FaBoxes,
+  FaChartBar,
+  FaChevronRight,
   FaCog,
+  FaDatabase,
+  FaFileAlt,
+  FaHdd,
+  FaIdCard,
+  FaInfoCircle,
+  FaServer,
   FaTags,
   FaThLarge,
-  FaChevronRight,
-  FaBoxes,
-  FaServer,
-  FaDatabase,
-  FaHdd,
-  FaInfoCircle,
+  FaUsers,
 } from "react-icons/fa";
 import Logo from "../../../../assets/LogoP.png";
 
@@ -27,13 +27,13 @@ const topItems = [
 const catalogItems = [
   { to: "/admin/products", label: "Productos", icon: <FaBoxOpen /> },
   { to: "/admin/brands", label: "Marcas", icon: <FaTags /> },
-  { to: "/admin/categories", label: "Categorías", icon: <FaThLarge /> },
+  { to: "/admin/categories", label: "Categorias", icon: <FaThLarge /> },
 ];
 
 const bottomItems = [
   { to: "/admin/suscripciones", label: "Suscripciones", icon: <FaIdCard /> },
   { to: "/admin/reports", label: "Reportes", icon: <FaFileAlt /> },
-  { to: "/admin/settings", label: "Gestión del sitio", icon: <FaCog /> },
+  { to: "/admin/settings", label: "Gestion del sitio", icon: <FaCog /> },
   { to: "about", label: "About / Nosotros", icon: <FaInfoCircle /> },
 ];
 
@@ -86,6 +86,8 @@ export default function AdminSidebar({ collapsed }: Props) {
         `${styles.link} ${isActive ? styles.active : ""}`
       }
       data-tooltip={collapsed ? item.label : undefined}
+      title={collapsed ? item.label : undefined}
+      aria-label={collapsed ? item.label : undefined}
     >
       <span className={styles.icon}>{item.icon}</span>
       {!collapsed && <span className={styles.label}>{item.label}</span>}
@@ -107,23 +109,23 @@ export default function AdminSidebar({ collapsed }: Props) {
       </div>
 
       <nav className={styles.nav}>
-        {/* Sección principal */}
         {topItems.map(renderLink)}
 
-        {/* Catálogo */}
         <div>
           <button
             type="button"
             className={`${styles.catalogToggle} ${catalogActive ? styles.active : ""}`}
             onClick={() => setCatalogOpen((prev) => !prev)}
             aria-expanded={catalogOpen}
-            data-tooltip={collapsed ? "Catálogo" : undefined}
+            data-tooltip={collapsed ? "Catalogo" : undefined}
+            title={collapsed ? "Catalogo" : undefined}
+            aria-label={collapsed ? "Catalogo" : undefined}
           >
             <span className={styles.catalogLeft}>
               <span className={styles.icon}>
                 <FaBoxes />
               </span>
-              {!collapsed && <span className={styles.label}>Catálogo</span>}
+              {!collapsed && <span className={styles.label}>Catalogo</span>}
             </span>
             {!collapsed && (
               <span
@@ -152,10 +154,8 @@ export default function AdminSidebar({ collapsed }: Props) {
           )}
         </div>
 
-        {/* Sección de gestión */}
         {bottomItems.map(renderLink)}
 
-        {/* Monitoreo y respaldos */}
         <div>
           <button
             type="button"
@@ -163,6 +163,8 @@ export default function AdminSidebar({ collapsed }: Props) {
             onClick={() => setMonitoringOpen((prev) => !prev)}
             aria-expanded={monitoringOpen}
             data-tooltip={collapsed ? "Monitoreo" : undefined}
+            title={collapsed ? "Monitoreo" : undefined}
+            aria-label={collapsed ? "Monitoreo" : undefined}
           >
             <span className={styles.catalogLeft}>
               <span className={styles.icon}>
@@ -197,7 +199,6 @@ export default function AdminSidebar({ collapsed }: Props) {
           )}
         </div>
 
-        {/* Sección del sistema */}
         {!collapsed && (
           <div className={styles.section}>
             <div className={styles.sectionTitle}>Sistema</div>
@@ -205,7 +206,6 @@ export default function AdminSidebar({ collapsed }: Props) {
           </div>
         )}
 
-        {/* En modo colapsado, los items del sistema se muestran sin título */}
         {collapsed && systemItems.map(renderLink)}
       </nav>
     </div>

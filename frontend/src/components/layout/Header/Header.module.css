@@ -109,3 +109,20 @@
   height: 1px;
   background: rgba(0,0,0,0.08);
 }
+
+@media (max-width: 1360px) {
+  .userMenuBtn {
+    padding: 8px 12px;
+    gap: 8px;
+    font-size: 12px;
+  }
+
+  .avatar {
+    width: 30px;
+    height: 30px;
+  }
+
+  .userText {
+    max-width: 150px;
+  }
+}

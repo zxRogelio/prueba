@@ -49,7 +49,12 @@ import ClientSubscriptionPage from "./pages/client/ClientSubscriptionPage";
 import ClientPaymentsPage from "./pages/client/ClientPaymentsPage";
 import Configuracion2FA from "./pages/Configuracion2FA";
 import ProtectedRoute from "./components/routing/ProtectedRoute";
+import TrainerLayout from "./components/layout/trainer/TrainerLayout/TrainerLayout";
 import TrainerDashboardPage from "./pages/trainer/TrainerDashboardPage";
+import TrainerClientsPage from "./pages/trainer/TrainerClientsPage";
+import TrainerRoutinesPage from "./pages/trainer/TrainerRoutinesPage";
+import TrainerAgendaPage from "./pages/trainer/TrainerAgendaPage";
+import TrainerProfilePage from "./pages/trainer/TrainerProfilePage";
 
 export default function App() {
   return (
@@ -122,7 +127,13 @@ export default function App() {
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={["entrenador"]} />}>
-        <Route path="/entrenador" element={<TrainerDashboardPage />} />
+        <Route path="/entrenador" element={<TrainerLayout />}>
+          <Route index element={<TrainerDashboardPage />} />
+          <Route path="clientes" element={<TrainerClientsPage />} />
+          <Route path="rutinas" element={<TrainerRoutinesPage />} />
+          <Route path="agenda" element={<TrainerAgendaPage />} />
+          <Route path="perfil" element={<TrainerProfilePage />} />
+        </Route>
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={["cliente"]} />}>

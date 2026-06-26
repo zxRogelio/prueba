@@ -21,6 +21,11 @@ import adminAboutRoutes from "./routes/admin/about.routes.js";
 import publicAboutRoutes from "./routes/public/about.routes.js";
 import profileRoutes from "./routes/profileRoutes.js";
 import adminUserRoutes from "./routes/admin/userRoutes.js";
+import trainerRoutineRoutes from "./routes/trainer/routineRoutes.js";
+import trainerClientRoutes from "./routes/trainer/clientRoutes.js";
+import trainerAgendaRoutes from "./routes/trainer/agendaRoutes.js";
+import trainerProfileRoutes from "./routes/trainer/profileRoutes.js";
+
 
 dotenv.config();
 
@@ -56,6 +61,10 @@ app.use("/api/admin/about", adminAboutRoutes);
 app.use("/api/about", publicAboutRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/admin/users", adminUserRoutes);
+app.use("/api/trainer/routines", trainerRoutineRoutes);
+app.use("/api/trainer/clients", trainerClientRoutes);
+app.use("/api/trainer/agenda", trainerAgendaRoutes);
+app.use("/api/trainer/profile", trainerProfileRoutes);
 
 const PORT = process.env.PORT || 5000;
 

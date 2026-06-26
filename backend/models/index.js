@@ -9,6 +9,12 @@ import { User } from "./User.js";
 import { UserProfile } from "./UserProfile.js";
 import { UserWeightHistory } from "./UserWeightHistory.js";
 import { UserCalorieHistory } from "./UserCalorieHistory.js";
+import { Routine } from "./Routine.js";
+import { RoutineExercise } from "./RoutineExercise.js";
+import { TrainerProfile } from "./TrainerProfile.js";
+import { TrainerClient } from "./TrainerClient.js";
+import { TrainerAgendaItem } from "./TrainerAgendaItem.js";
+
 
 // ✅ Category(id_categoria) <-> Brand(categoryId)
 Category.hasMany(Brand, {
@@ -117,7 +123,93 @@ UserCalorieHistory.belongsTo(User, {
   targetKey: "id",
   as: "user",
 });
+// USER -> ROUTINES
+User.hasMany(Routine, {
+  foreignKey: "trainerId",
+  sourceKey: "id",
+  as: "trainerRoutines",
+  onDelete: "CASCADE",
+  hooks: true,
+});
 
+Routine.belongsTo(User, {
+  foreignKey: "trainerId",
+  targetKey: "id",
+  as: "trainer",
+});
+
+// ROUTINE -> EXERCISES
+Routine.hasMany(RoutineExercise, {
+  foreignKey: "routineId",
+  sourceKey: "id",
+  as: "exercises",
+  onDelete: "CASCADE",
+  hooks: true,
+});
+
+RoutineExercise.belongsTo(Routine, {
+  foreignKey: "routineId",
+  targetKey: "id",
+  as: "routine",
+});
+// TRAINER -> PROFILE
+User.hasOne(TrainerProfile, {
+  foreignKey: "trainerId",
+  sourceKey: "id",
+  as: "trainerProfile",
+  onDelete: "CASCADE",
+  hooks: true,
+});
+
+TrainerProfile.belongsTo(User, {
+  foreignKey: "trainerId",
+  targetKey: "id",
+  as: "trainer",
+});
+
+// TRAINER -> CLIENTS
+User.hasMany(TrainerClient, {
+  foreignKey: "trainerId",
+  sourceKey: "id",
+  as: "assignedClients",
+  onDelete: "CASCADE",
+  hooks: true,
+});
+
+TrainerClient.belongsTo(User, {
+  foreignKey: "trainerId",
+  targetKey: "id",
+  as: "trainer",
+});
+
+User.hasMany(TrainerClient, {
+  foreignKey: "clientId",
+  sourceKey: "id",
+  as: "clientTrainerLinks",
+  onDelete: "CASCADE",
+  hooks: true,
+});
+
+TrainerClient.belongsTo(User, {
+  foreignKey: "clientId",
+  targetKey: "id",
+  as: "client",
+});
+
+// TRAINER -> AGENDA
+User.hasMany(TrainerAgendaItem, {
+  foreignKey: "trainerId",
+  sourceKey: "id",
+  as: "agendaItems",
+  onDelete: "CASCADE",
+  hooks: true,
+});
+
+TrainerAgendaItem.belongsTo(User, {
+  foreignKey: "trainerId",
+  targetKey: "id",
+  as: "trainer",
+});
 export {
   Brand,
   Category,
@@ -130,4 +222,9 @@ export {
   UserProfile,
   UserWeightHistory,
   UserCalorieHistory,
+  Routine,
+  RoutineExercise,
+  TrainerProfile,
+  TrainerClient,
+  TrainerAgendaItem,
 };

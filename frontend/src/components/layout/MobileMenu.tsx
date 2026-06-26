@@ -8,9 +8,10 @@ import navStyles from "./Navbar/Navbar.module.css";
 
 interface Props {
   onClose: () => void;
+  transparent?: boolean;
 }
 
-const MobileMenu = ({ onClose }: Props) => {
+const MobileMenu = ({ onClose, transparent = false }: Props) => {
   const navigate = useNavigate();
   const { user, requestLogout } = useAuth();
   const { itemCount, openCart } = useCart();
@@ -29,7 +30,12 @@ const MobileMenu = ({ onClose }: Props) => {
   };
 
   return (
-    <div className={menuStyles.menu}>
+    <div
+      id="mobile-navigation"
+      className={`${menuStyles.menu} ${
+        transparent ? menuStyles.menuTransparent : ""
+      }`}
+    >
       <nav className={menuStyles.nav}>
         <Link to="/" className={menuStyles.link} onClick={onClose}>
           INICIO
@@ -69,14 +75,18 @@ const MobileMenu = ({ onClose }: Props) => {
             <>
               <Link
                 to="/register"
-                className={`${navStyles.btnOutline} ${menuStyles.actionButton}`}
+                className={`${navStyles.btnOutline} ${menuStyles.actionButton} ${
+                  transparent ? menuStyles.actionButtonOutlineTransparent : ""
+                }`}
                 onClick={onClose}
               >
                 SUSCRIBETE
               </Link>
               <Link
                 to="/login"
-                className={`${navStyles.btnSolid} ${menuStyles.actionButton}`}
+                className={`${navStyles.btnSolid} ${menuStyles.actionButton} ${
+                  transparent ? menuStyles.actionButtonSolidTransparent : ""
+                }`}
                 onClick={onClose}
               >
                 INICIA SESION
@@ -86,7 +96,9 @@ const MobileMenu = ({ onClose }: Props) => {
             <>
               <button
                 type="button"
-                className={`${navStyles.btnOutline} ${menuStyles.actionButton}`}
+                className={`${navStyles.btnOutline} ${menuStyles.actionButton} ${
+                  transparent ? menuStyles.actionButtonOutlineTransparent : ""
+                }`}
                 onClick={handlePortalNavigation}
               >
                 IR AL PORTAL
@@ -94,7 +106,9 @@ const MobileMenu = ({ onClose }: Props) => {
               {role === "cliente" && (
                 <Link
                   to="/cliente/perfil"
-                  className={`${navStyles.btnOutline} ${menuStyles.actionButton}`}
+                  className={`${navStyles.btnOutline} ${menuStyles.actionButton} ${
+                    transparent ? menuStyles.actionButtonOutlineTransparent : ""
+                  }`}
                   onClick={onClose}
                 >
                   MI PERFIL
@@ -103,7 +117,9 @@ const MobileMenu = ({ onClose }: Props) => {
               {role === "cliente" && (
                 <Link
                   to="/cliente/configuracion"
-                  className={`${navStyles.btnOutline} ${menuStyles.actionButton}`}
+                  className={`${navStyles.btnOutline} ${menuStyles.actionButton} ${
+                    transparent ? menuStyles.actionButtonOutlineTransparent : ""
+                  }`}
                   onClick={onClose}
                 >
                   CONFIGURACION
@@ -111,7 +127,9 @@ const MobileMenu = ({ onClose }: Props) => {
               )}
               <button
                 type="button"
-                className={`${navStyles.btnSolid} ${menuStyles.actionButton}`}
+                className={`${navStyles.btnSolid} ${menuStyles.actionButton} ${
+                  transparent ? menuStyles.actionButtonSolidTransparent : ""
+                }`}
                 onClick={() => {
                   onClose();
                   void requestLogout();
