@@ -1,725 +1,418 @@
 import { useEffect, useMemo, useState } from "react";
+import axios from "axios";
 import {
   FaCheckCircle,
   FaClock,
-  FaPen,
-  FaPercent,
-  FaPlus,
-  FaPowerOff,
+  FaCreditCard,
+  FaEnvelope,
+  FaMoneyBillWave,
   FaSearch,
-  FaStar,
   FaSyncAlt,
-  FaTag,
-  FaTrash,
   FaUsers,
   FaWallet,
 } from "react-icons/fa";
-import ModalSuscripciones from "../../components/layout/admin/ModalSuscripciones/ModalSuscripciones";
-import AdminPagination from "../../components/layout/admin/AdminPagination/AdminPagination";
-import { usePagination } from "../../hooks/usePagination";
 import {
-  addSubscriptionDiscount,
-  addSubscriptionFeature,
-  createSubscription,
-  deleteSubscription,
-  getSubscriptions,
-  removeSubscriptionDiscount,
-  removeSubscriptionFeature,
-  resetSubscriptions,
-  toggleSubscriptionDiscount,
-  toggleSubscriptionStatus,
-  updateSubscription,
-  type SubscriptionBaseFormData,
-  type SubscriptionBilling,
-  type SubscriptionDTO,
-  type SubscriptionDiscountDTO,
-  type SubscriptionDiscountFormData,
-  type SubscriptionKind,
-} from "../../services/admin/subscriptionService";
+  approveSubscriptionGroup,
+  createManualGroupMembershipPayment,
+  createManualMembershipPayment,
+  getMembershipPlans,
+  getPendingSubscriptionGroups,
+  type ManualGroupPaymentPayload,
+  type ManualPaymentPayload,
+  type MembershipPlan,
+} from "../../services/membershipService";
 import { showAlert, showSuccessToast } from "../../utils/feedback";
 import styles from "./AdminSuscripcionesPage.module.css";
 
-type SortMode = "updated" | "name" | "priceAsc" | "priceDesc";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
+type AdminUser = {
+  id: string;
+  email: string;
+  role: "cliente" | "entrenador" | "administrador";
+  isVerified?: boolean;
+  createdAt?: string;
+};
+
+type PaymentMethod = "cash" | "transfer" | "card_terminal";
+
+type PendingGroupMember = {
+  id: string;
+  invitedEmail: string;
+  status: string;
+  role: string;
+  userId?: string | null;
+  user?: {
+    id: string;
+    email: string;
+    role: string;
+  } | null;
+};
+
+type PendingGroup = {
+  id: string;
+  status: string;
+  memberLimit: number;
+  totalAmount: string | number;
+  pricePerPerson?: string | number | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  plan?: MembershipPlan;
+  owner?: {
+    id: string;
+    email: string;
+    role: string;
+  };
+  members?: PendingGroupMember[];
+  payment?: {
+    id: string;
+    status: string;
+    method: string;
+    provider: string;
+    amount: string | number;
+  };
+};
 
 const currencyFormatter = new Intl.NumberFormat("es-MX", {
   style: "currency",
   currency: "MXN",
-  maximumFractionDigits: 0,
 });
 
-const dateFormatter = new Intl.DateTimeFormat("es-MX", {
-  dateStyle: "medium",
-});
+function getToken() {
+  return localStorage.getItem("token");
+}
 
-const kindLabels: Record<SubscriptionKind, string> = {
-  membresia: "Membresia",
-  paquete: "Paquete",
-  pase: "Pase temporal",
-};
-
-const billingLabels: Record<SubscriptionBilling, string> = {
-  visita: "Visita",
-  semana: "Semana",
-  quincena: "Quincena",
-  mes: "Mensual",
-  semestre: "Semestral",
-  ano: "Anual",
-};
-
-const heroGuideItems = [
-  {
-    step: "Paso 1",
-    title: "Crea el plan base",
-    description:
-      "Registra nombre, tipo, segmento, periodicidad, precio y estado del plan.",
-  },
-  {
-    step: "Paso 2",
-    title: "Completa el detalle",
-    description:
-      "Agrega beneficios, condiciones de inscripcion y notas operativas dentro de cada plan.",
-  },
-  {
-    step: "Paso 3",
-    title: "Activa promociones por fecha",
-    description:
-      "Configura descuentos temporales para precio base o inscripcion sin alterar el plan original.",
-  },
-  {
-    step: "Paso 4",
-    title: "Organiza por formato",
-    description:
-      "Administra por separado membresias individuales, paquetes grupales y pases temporales.",
-  },
-] as const;
-
-function createDefaultDiscountForm(): SubscriptionDiscountFormData {
-  const today = new Date();
-  const endDate = new Date(today);
-  endDate.setDate(endDate.getDate() + 30);
-
+function authHeaders() {
   return {
-    name: "",
-    type: "percentage",
-    target: "plan_price",
-    value: 10,
-    startDate: today.toISOString().slice(0, 10),
-    endDate: endDate.toISOString().slice(0, 10),
-    active: true,
-    note: "",
+    headers: {
+      Authorization: `Bearer ${getToken()}`,
+    },
   };
 }
 
-function formatCurrency(value: number) {
-  return currencyFormatter.format(value);
+function formatCurrency(value: string | number | null | undefined) {
+  const numericValue = Number(value ?? 0);
+  return currencyFormatter.format(Number.isFinite(numericValue) ? numericValue : 0);
 }
 
-function getPreviewCardClass(color: SubscriptionDTO["color"]) {
-  switch (color) {
-    case "white":
-      return styles.previewCardWhite;
-    case "black":
-      return styles.previewCardBlack;
-    default:
-      return styles.previewCardRed;
-  }
-}
-
-function isDiscountCurrentlyActive(discount: SubscriptionDiscountDTO) {
-  if (!discount.active) {
-    return false;
+function getPlanLabel(plan: MembershipPlan) {
+  if (plan.type === "group") {
+    return `Paquete ${plan.maxPeople} personas`;
   }
 
-  const now = new Date();
-  const startDate = new Date(`${discount.startDate}T00:00:00`);
-  const endDate = new Date(`${discount.endDate}T23:59:59`);
-
-  return now >= startDate && now <= endDate;
-}
-
-function getDiscountSummary(subscription: SubscriptionDTO) {
-  let currentPrice = subscription.price;
-  let currentRegistrationFee = subscription.registrationFee;
-
-  const activeDiscounts = subscription.discounts.filter(isDiscountCurrentlyActive);
-
-  activeDiscounts.forEach((discount) => {
-    if (discount.type === "free_registration") {
-      currentRegistrationFee = 0;
-      return;
-    }
-
-    if (discount.target === "plan_price") {
-      if (discount.type === "percentage") {
-        currentPrice = Math.max(0, currentPrice - currentPrice * (discount.value / 100));
-        return;
-      }
-
-      currentPrice = Math.max(0, currentPrice - discount.value);
-      return;
-    }
-
-    if (discount.type === "percentage") {
-      currentRegistrationFee = Math.max(
-        0,
-        currentRegistrationFee - currentRegistrationFee * (discount.value / 100),
-      );
-      return;
-    }
-
-    currentRegistrationFee = Math.max(0, currentRegistrationFee - discount.value);
-  });
-
-  return {
-    activeDiscounts,
-    effectivePrice: currentPrice,
-    effectiveRegistrationFee: currentRegistrationFee,
-  };
-}
-
-function getUnitPrice(subscription: SubscriptionDTO) {
-  if (subscription.kind !== "paquete" || !subscription.packageSize) {
-    return null;
+  if (plan.type === "student") {
+    return "Estudiante";
   }
 
-  return subscription.price / subscription.packageSize;
+  if (plan.type === "visit") {
+    return "Visita";
+  }
+
+  return "Individual";
+}
+
+function getMethodProvider(method: PaymentMethod) {
+  if (method === "card_terminal") {
+    return "mercadopago_point";
+  }
+
+  if (method === "transfer") {
+    return "bank_transfer";
+  }
+
+  return "none";
 }
 
 export default function AdminSuscripcionesPage() {
-  const [subscriptions, setSubscriptions] = useState<SubscriptionDTO[]>([]);
-  const [query, setQuery] = useState("");
-  const [kindFilter, setKindFilter] = useState("Todos");
-  const [statusFilter, setStatusFilter] = useState("Todos");
-  const [sort, setSort] = useState<SortMode>("updated");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [openModal, setOpenModal] = useState(false);
-  const [editing, setEditing] = useState<SubscriptionDTO | null>(null);
+  const [plans, setPlans] = useState<MembershipPlan[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [pendingGroups, setPendingGroups] = useState<PendingGroup[]>([]);
   const [loading, setLoading] = useState(true);
-  const [featureDraft, setFeatureDraft] = useState("");
-  const [discountDraft, setDiscountDraft] = useState<SubscriptionDiscountFormData>(
-    createDefaultDiscountForm(),
+  const [savingIndividual, setSavingIndividual] = useState(false);
+  const [savingGroup, setSavingGroup] = useState(false);
+  const [approvingGroupId, setApprovingGroupId] = useState<string | null>(null);
+
+  const [query, setQuery] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [selectedIndividualPlanId, setSelectedIndividualPlanId] = useState("");
+  const [individualMethod, setIndividualMethod] = useState<PaymentMethod>("cash");
+  const [individualReference, setIndividualReference] = useState("");
+  const [individualNotes, setIndividualNotes] = useState("");
+  const [individualStartsAt, setIndividualStartsAt] = useState("");
+
+  const [ownerUserId, setOwnerUserId] = useState("");
+  const [selectedGroupPlanId, setSelectedGroupPlanId] = useState("");
+  const [groupMethod, setGroupMethod] = useState<PaymentMethod>("cash");
+  const [groupReference, setGroupReference] = useState("");
+  const [groupNotes, setGroupNotes] = useState("");
+  const [groupStartsAt, setGroupStartsAt] = useState("");
+  const [memberEmailsText, setMemberEmailsText] = useState("");
+
+  const clients = useMemo(
+    () => users.filter((user) => user.role === "cliente"),
+    [users]
   );
 
-  useEffect(() => {
-    const initializeSubscriptions = async () => {
-      setLoading(true);
+  const individualPlans = useMemo(
+    () => plans.filter((plan) => plan.type !== "group" && plan.isActive),
+    [plans]
+  );
 
-      try {
-        const result = await getSubscriptions();
-        setSubscriptions(result);
-      } catch (error) {
-        console.error("LOAD SUBSCRIPTIONS ERROR:", error);
-        void showAlert({
-          title: "No se pudieron cargar las suscripciones",
-          text: "Revisa la consola para ver el detalle tecnico.",
-          icon: "error",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
+  const groupPlans = useMemo(
+    () => plans.filter((plan) => plan.type === "group" && plan.isActive),
+    [plans]
+  );
 
-    void initializeSubscriptions();
-  }, []);
-
-  const filtered = useMemo(() => {
+  const filteredPlans = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    return [...subscriptions]
-      .filter((subscription) => {
-        const matchesQuery =
-          !normalizedQuery ||
-          subscription.id.toLowerCase().includes(normalizedQuery) ||
-          subscription.name.toLowerCase().includes(normalizedQuery) ||
-          subscription.segment.toLowerCase().includes(normalizedQuery) ||
-          kindLabels[subscription.kind].toLowerCase().includes(normalizedQuery);
+    if (!normalizedQuery) {
+      return plans;
+    }
 
-        const matchesKind =
-          kindFilter === "Todos" || subscription.kind === kindFilter;
+    return plans.filter((plan) => {
+      return (
+        plan.name.toLowerCase().includes(normalizedQuery) ||
+        plan.slug.toLowerCase().includes(normalizedQuery) ||
+        plan.type.toLowerCase().includes(normalizedQuery)
+      );
+    });
+  }, [plans, query]);
 
-        const matchesStatus =
-          statusFilter === "Todos" || subscription.status === statusFilter;
+  const activePlansCount = plans.filter((plan) => plan.isActive).length;
+  const groupPlansCount = groupPlans.length;
+  const averagePrice =
+    plans.length > 0
+      ? plans.reduce((sum, plan) => sum + Number(plan.price), 0) / plans.length
+      : 0;
 
-        return matchesQuery && matchesKind && matchesStatus;
-      })
-      .sort((left, right) => {
-        if (sort === "name") {
-          return left.name.localeCompare(right.name);
-        }
+  async function loadData() {
+    setLoading(true);
 
-        if (sort === "priceAsc") {
-          return left.price - right.price;
-        }
+    try {
+      const [plansResponse, usersResponse, groupsResponse] = await Promise.all([
+        getMembershipPlans(),
+        axios.get(`${API_URL}/admin/users`, authHeaders()),
+        getPendingSubscriptionGroups(),
+      ]);
 
-        if (sort === "priceDesc") {
-          return right.price - left.price;
-        }
+      const loadedPlans: MembershipPlan[] = plansResponse.plans ?? [];
+      const loadedUsers: AdminUser[] = usersResponse.data.users ?? [];
+      const loadedGroups: PendingGroup[] = groupsResponse.groups ?? [];
 
-        return (
-          new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
-        );
+      setPlans(loadedPlans);
+      setUsers(loadedUsers);
+      setPendingGroups(loadedGroups);
+
+      const firstIndividual = loadedPlans.find(
+        (plan) => plan.type !== "group" && plan.isActive
+      );
+      const firstGroup = loadedPlans.find(
+        (plan) => plan.type === "group" && plan.isActive
+      );
+      const firstClient = loadedUsers.find((user) => user.role === "cliente");
+
+      setSelectedIndividualPlanId((current) => current || firstIndividual?.id || "");
+      setSelectedGroupPlanId((current) => current || firstGroup?.id || "");
+      setSelectedUserId((current) => current || firstClient?.id || "");
+      setOwnerUserId((current) => current || firstClient?.id || "");
+    } catch (error) {
+      console.error("LOAD MEMBERSHIPS ADMIN ERROR:", error);
+      void showAlert({
+        title: "No se pudo cargar el módulo de membresías",
+        text: "Revisa que el backend esté activo y que tu usuario sea administrador.",
+        icon: "error",
       });
-  }, [kindFilter, query, sort, statusFilter, subscriptions]);
-
-  const {
-    currentItems,
-    page,
-    rangeEnd,
-    rangeStart,
-    setPage,
-    totalItems,
-    totalPages,
-  } = usePagination(filtered, 7);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    setPage(1);
-  }, [kindFilter, query, setPage, sort, statusFilter]);
+    void loadData();
+  }, []);
 
-  useEffect(() => {
-    if (filtered.length === 0) {
-      setSelectedId(null);
+  async function handleCreateIndividualPayment() {
+    if (!selectedUserId || !selectedIndividualPlanId) {
+      void showAlert({
+        title: "Faltan datos",
+        text: "Selecciona un cliente y un plan individual.",
+        icon: "warning",
+      });
       return;
     }
 
-    const selectedStillExists = filtered.some(
-      (subscription) => subscription.id === selectedId,
-    );
+    const payload: ManualPaymentPayload = {
+      userId: selectedUserId,
+      planId: selectedIndividualPlanId,
+      method: individualMethod,
+      provider: getMethodProvider(individualMethod),
+      reference: individualReference,
+      notes: individualNotes,
+      startsAt: individualStartsAt || undefined,
+    };
 
-    if (!selectedStillExists) {
-      setSelectedId(filtered[0].id);
-    }
-  }, [filtered, selectedId]);
+    setSavingIndividual(true);
 
-  const selectedSubscription = useMemo(
-    () =>
-      subscriptions.find((subscription) => subscription.id === selectedId) ?? null,
-    [selectedId, subscriptions],
-  );
-
-  useEffect(() => {
-    setFeatureDraft("");
-    setDiscountDraft(createDefaultDiscountForm());
-  }, [selectedId]);
-
-  const totalActive = useMemo(
-    () =>
-      subscriptions.filter((subscription) => subscription.status === "Activo")
-        .length,
-    [subscriptions],
-  );
-
-  const packageCount = useMemo(
-    () =>
-      subscriptions.filter((subscription) => subscription.kind === "paquete")
-        .length,
-    [subscriptions],
-  );
-
-  const activePromotionsCount = useMemo(
-    () =>
-      subscriptions.reduce(
-        (count, subscription) =>
-          count + subscription.discounts.filter(isDiscountCurrentlyActive).length,
-        0,
-      ),
-    [subscriptions],
-  );
-
-  const averagePrice = useMemo(() => {
-    if (subscriptions.length === 0) {
-      return 0;
-    }
-
-    const total = subscriptions.reduce(
-      (sum, subscription) => sum + subscription.price,
-      0,
-    );
-
-    return total / subscriptions.length;
-  }, [subscriptions]);
-
-  const selectedSummary = useMemo(
-    () => (selectedSubscription ? getDiscountSummary(selectedSubscription) : null),
-    [selectedSubscription],
-  );
-
-  const canCreateDiscount = useMemo(() => {
-    if (discountDraft.name.trim().length < 3) {
-      return false;
-    }
-
-    if (discountDraft.endDate < discountDraft.startDate) {
-      return false;
-    }
-
-    if (discountDraft.type === "free_registration") {
-      return true;
-    }
-
-    return Number.isFinite(discountDraft.value) && discountDraft.value > 0;
-  }, [discountDraft]);
-
-  const openCreate = () => {
-    setEditing(null);
-    setOpenModal(true);
-  };
-
-  const openEdit = (subscription: SubscriptionDTO) => {
-    setEditing(subscription);
-    setSelectedId(subscription.id);
-    setOpenModal(true);
-  };
-
-  const closeModal = () => {
-    setOpenModal(false);
-    setEditing(null);
-  };
-
-  const handleSaveBasePlan = async (payload: SubscriptionBaseFormData) => {
     try {
-      if (editing) {
-        const updated = await updateSubscription(editing.id, payload);
+      await createManualMembershipPayment(payload);
 
-        setSubscriptions((previous) =>
-          previous.map((subscription) =>
-            subscription.id === editing.id ? updated : subscription,
-          ),
-        );
+      showSuccessToast(
+        "Membresía activada",
+        "El pago fue registrado y la membresía individual quedó activa."
+      );
 
-        setSelectedId(updated.id);
-        showSuccessToast(
-          "Plan actualizado",
-          "El bloque base del plan quedo guardado correctamente.",
-        );
-      } else {
-        const created = await createSubscription(payload);
-
-        setSubscriptions((previous) => [created, ...previous]);
-        setSelectedId(created.id);
-        setQuery("");
-        setKindFilter("Todos");
-        setStatusFilter("Todos");
-
-        showSuccessToast(
-          "Plan creado",
-          "Ahora ya puedes cargar sus caracteristicas y descuentos por fechas.",
-        );
-      }
-
-      closeModal();
+      setIndividualReference("");
+      setIndividualNotes("");
+      setIndividualStartsAt("");
+      await loadData();
     } catch (error) {
-      console.error("SAVE SUBSCRIPTION ERROR:", error);
+      console.error("CREATE INDIVIDUAL PAYMENT ERROR:", error);
       void showAlert({
-        title: "No se pudo guardar el plan",
-        text: "Revisa la consola para ver el detalle tecnico.",
+        title: "No se pudo registrar el pago",
+        text: "Verifica que el cliente no tenga errores y que el plan no sea grupal.",
         icon: "error",
       });
+    } finally {
+      setSavingIndividual(false);
     }
-  };
+  }
 
-  const handleDelete = async (subscription: SubscriptionDTO) => {
-    const confirmed = window.confirm(`Eliminar el plan ${subscription.name}?`);
+  function parseMemberEmails() {
+    return memberEmailsText
+      .split(/[\n,;]+/)
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean);
+  }
 
-    if (!confirmed) {
+  async function handleCreateGroupPayment() {
+    if (!ownerUserId || !selectedGroupPlanId) {
+      void showAlert({
+        title: "Faltan datos",
+        text: "Selecciona el titular y el plan grupal.",
+        icon: "warning",
+      });
       return;
     }
 
-    try {
-      await deleteSubscription(subscription.id);
+    const selectedPlan = plans.find((plan) => plan.id === selectedGroupPlanId);
+    const memberEmails = parseMemberEmails();
+    const expectedGuests = selectedPlan ? Number(selectedPlan.maxPeople) - 1 : 0;
 
-      setSubscriptions((previous) =>
-        previous.filter((item) => item.id !== subscription.id),
-      );
+    if (memberEmails.length > expectedGuests) {
+      void showAlert({
+        title: "Demasiados integrantes",
+        text: `Este paquete solo permite ${expectedGuests} correos además del titular.`,
+        icon: "warning",
+      });
+      return;
+    }
+
+    const payload: ManualGroupPaymentPayload = {
+      ownerUserId,
+      planId: selectedGroupPlanId,
+      method: groupMethod,
+      provider: getMethodProvider(groupMethod),
+      reference: groupReference,
+      notes: groupNotes,
+      startsAt: groupStartsAt || undefined,
+      memberEmails,
+    };
+
+    setSavingGroup(true);
+
+    try {
+      await createManualGroupMembershipPayment(payload);
 
       showSuccessToast(
-        "Plan eliminado",
-        "La oferta se retiro del catalogo local del admin.",
+        "Paquete registrado",
+        "El pago quedó registrado y el paquete quedó pendiente de aceptación/aprobación."
       );
+
+      setGroupReference("");
+      setGroupNotes("");
+      setGroupStartsAt("");
+      setMemberEmailsText("");
+      await loadData();
     } catch (error) {
-      console.error("DELETE SUBSCRIPTION ERROR:", error);
+      console.error("CREATE GROUP PAYMENT ERROR:", error);
       void showAlert({
-        title: "No se pudo eliminar el plan",
-        text: "Revisa la consola para ver el detalle tecnico.",
+        title: "No se pudo registrar el paquete",
+        text: "Verifica que el plan sea grupal y que los correos sean válidos.",
         icon: "error",
       });
+    } finally {
+      setSavingGroup(false);
     }
-  };
+  }
 
-  const handleToggleStatus = async (subscription: SubscriptionDTO) => {
-    try {
-      const updated = await toggleSubscriptionStatus(subscription.id);
-
-      setSubscriptions((previous) =>
-        previous.map((item) => (item.id === updated.id ? updated : item)),
-      );
-
-      showSuccessToast(
-        updated.status === "Activo" ? "Plan activado" : "Plan desactivado",
-        "El cambio quedo guardado en el modulo local.",
-      );
-    } catch (error) {
-      console.error("TOGGLE SUBSCRIPTION ERROR:", error);
-      void showAlert({
-        title: "No se pudo cambiar el estado",
-        text: "Revisa la consola para ver el detalle tecnico.",
-        icon: "error",
-      });
-    }
-  };
-
-  const handleReset = async () => {
+  async function handleApproveGroup(groupId: string) {
     const confirmed = window.confirm(
-      "Restaurar el demo del modulo de suscripciones?",
+      "¿Aprobar este paquete y activar membresía para todos los integrantes?"
     );
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
+
+    setApprovingGroupId(groupId);
 
     try {
-      const result = await resetSubscriptions();
-
-      setSubscriptions(result);
-      setSelectedId(result[0]?.id ?? null);
-      setQuery("");
-      setKindFilter("Todos");
-      setStatusFilter("Todos");
-      setSort("updated");
+      await approveSubscriptionGroup(groupId);
 
       showSuccessToast(
-        "Demo restaurado",
-        "Se recargaron membresias, paquetes y promociones de referencia.",
+        "Paquete aprobado",
+        "Las membresías de los integrantes fueron activadas correctamente."
       );
+
+      await loadData();
     } catch (error) {
-      console.error("RESET SUBSCRIPTIONS ERROR:", error);
+      console.error("APPROVE GROUP ERROR:", error);
       void showAlert({
-        title: "No se pudo restaurar el demo",
-        text: "Revisa la consola para ver el detalle tecnico.",
+        title: "No se pudo aprobar el paquete",
+        text: "Recuerda que todos los integrantes deben aceptar y tener cuenta registrada.",
         icon: "error",
       });
+    } finally {
+      setApprovingGroupId(null);
     }
-  };
-
-  const handleAddFeature = async () => {
-    if (!selectedSubscription || featureDraft.trim().length < 3) {
-      return;
-    }
-
-    try {
-      const updated = await addSubscriptionFeature(
-        selectedSubscription.id,
-        featureDraft,
-      );
-
-      setSubscriptions((previous) =>
-        previous.map((item) => (item.id === updated.id ? updated : item)),
-      );
-
-      setFeatureDraft("");
-      showSuccessToast(
-        "Caracteristica agregada",
-        "El plan ya quedo enriquecido con su detalle operativo.",
-      );
-    } catch (error) {
-      console.error("ADD FEATURE ERROR:", error);
-      void showAlert({
-        title: "No se pudo agregar la caracteristica",
-        text: "Revisa la consola para ver el detalle tecnico.",
-        icon: "error",
-      });
-    }
-  };
-
-  const handleRemoveFeature = async (featureId: string) => {
-    if (!selectedSubscription) {
-      return;
-    }
-
-    try {
-      const updated = await removeSubscriptionFeature(
-        selectedSubscription.id,
-        featureId,
-      );
-
-      setSubscriptions((previous) =>
-        previous.map((item) => (item.id === updated.id ? updated : item)),
-      );
-
-      showSuccessToast(
-        "Caracteristica eliminada",
-        "La descripcion operativa del plan fue actualizada.",
-      );
-    } catch (error) {
-      console.error("REMOVE FEATURE ERROR:", error);
-      void showAlert({
-        title: "No se pudo eliminar la caracteristica",
-        text: "Revisa la consola para ver el detalle tecnico.",
-        icon: "error",
-      });
-    }
-  };
-
-  const handleDiscountTypeChange = (
-    type: SubscriptionDiscountFormData["type"],
-  ) => {
-    setDiscountDraft((previous) => ({
-      ...previous,
-      type,
-      target: type === "free_registration" ? "registration_fee" : previous.target,
-      value: type === "free_registration" ? 0 : previous.value,
-    }));
-  };
-
-  const handleAddDiscount = async () => {
-    if (!selectedSubscription || !canCreateDiscount) {
-      return;
-    }
-
-    try {
-      const updated = await addSubscriptionDiscount(selectedSubscription.id, {
-        ...discountDraft,
-        name: discountDraft.name.trim(),
-        note: discountDraft.note.trim(),
-        target:
-          discountDraft.type === "free_registration"
-            ? "registration_fee"
-            : discountDraft.target,
-        value: discountDraft.type === "free_registration" ? 0 : discountDraft.value,
-      });
-
-      setSubscriptions((previous) =>
-        previous.map((item) => (item.id === updated.id ? updated : item)),
-      );
-
-      setDiscountDraft(createDefaultDiscountForm());
-      showSuccessToast(
-        "Descuento registrado",
-        "La promocion ya quedo ligada a este plan.",
-      );
-    } catch (error) {
-      console.error("ADD DISCOUNT ERROR:", error);
-      void showAlert({
-        title: "No se pudo registrar el descuento",
-        text: "Revisa la consola para ver el detalle tecnico.",
-        icon: "error",
-      });
-    }
-  };
-
-  const handleRemoveDiscount = async (discountId: string) => {
-    if (!selectedSubscription) {
-      return;
-    }
-
-    try {
-      const updated = await removeSubscriptionDiscount(
-        selectedSubscription.id,
-        discountId,
-      );
-
-      setSubscriptions((previous) =>
-        previous.map((item) => (item.id === updated.id ? updated : item)),
-      );
-
-      showSuccessToast(
-        "Descuento eliminado",
-        "La promocion ya no forma parte de este plan.",
-      );
-    } catch (error) {
-      console.error("REMOVE DISCOUNT ERROR:", error);
-      void showAlert({
-        title: "No se pudo eliminar el descuento",
-        text: "Revisa la consola para ver el detalle tecnico.",
-        icon: "error",
-      });
-    }
-  };
-
-  const handleToggleDiscount = async (discountId: string) => {
-    if (!selectedSubscription) {
-      return;
-    }
-
-    try {
-      const updated = await toggleSubscriptionDiscount(
-        selectedSubscription.id,
-        discountId,
-      );
-
-      setSubscriptions((previous) =>
-        previous.map((item) => (item.id === updated.id ? updated : item)),
-      );
-
-      showSuccessToast(
-        "Promocion actualizada",
-        "El estado del descuento se modifico correctamente.",
-      );
-    } catch (error) {
-      console.error("TOGGLE DISCOUNT ERROR:", error);
-      void showAlert({
-        title: "No se pudo cambiar el descuento",
-        text: "Revisa la consola para ver el detalle tecnico.",
-        icon: "error",
-      });
-    }
-  };
+  }
 
   return (
-    <section className={styles.page}>
-      <header className={styles.hero}>
-        <div className={styles.heroCopy}>
-          <span className={styles.heroEyebrow}>Modulo clave del negocio</span>
-          <h1 className={styles.heroTitle}>Suscripciones y paquetes</h1>
+    <section className={styles.pageShell}>
+      <header className={styles.heroSection}>
+        <div>
+          <span className={styles.heroEyebrow}>Módulo real del negocio</span>
+          <h1 className={styles.heroTitle}>Membresías, pagos y paquetes</h1>
           <p className={styles.heroText}>
-            Desde aqui defines la base comercial de cada oferta. Primero crea el
-            plan con su informacion principal y despues entra al detalle para
-            cargar beneficios, promociones por fecha y reglas de inscripcion.
+            Desde aquí el administrador registra pagos presenciales, pagos con
+            terminal Mercado Pago, transferencias y paquetes grupales. Cada pago
+            confirmado activa la membresía del cliente o deja el paquete en
+            validación.
           </p>
-
-          <div className={styles.heroGuideGrid}>
-            {heroGuideItems.map((item) => (
-              <article key={item.title} className={styles.heroGuideCard}>
-                <span className={styles.heroGuideStep}>{item.step}</span>
-                <strong className={styles.heroGuideTitle}>{item.title}</strong>
-                <p className={styles.heroGuideText}>{item.description}</p>
-              </article>
-            ))}
-          </div>
         </div>
 
-        <div className={styles.heroActions}>
-          <button
-            type="button"
-            className={styles.secondaryBtn}
-            onClick={handleReset}
-          >
-            <FaSyncAlt />
-            Restaurar demo
-          </button>
-
-          <button
-            type="button"
-            className={styles.primaryBtn}
-            onClick={openCreate}
-          >
-            <FaPlus />
-            Crear plan base
-          </button>
-        </div>
+        <button
+          type="button"
+          className={styles.heroActionBtn}
+          onClick={() => void loadData()}
+          disabled={loading}
+        >
+          <FaSyncAlt />
+          {loading ? "Cargando..." : "Actualizar"}
+        </button>
       </header>
 
       <div className={styles.statsGrid}>
         <article className={styles.statCard}>
           <span className={styles.statIcon}>
-            <FaCheckCircle />
+            <FaWallet />
           </span>
           <div>
-            <span className={styles.statLabel}>Planes activos</span>
-            <strong className={styles.statValue}>{totalActive}</strong>
+            <p className={styles.statLabel}>Planes activos</p>
+            <strong className={styles.statValue}>{activePlansCount}</strong>
+            <span className={styles.statHint}>
+              Planes cargados desde PostgreSQL.
+            </span>
           </div>
-          <p className={styles.statHint}>
-            Membresias, paquetes y pases disponibles dentro del catalogo admin.
-          </p>
         </article>
 
         <article className={styles.statCard}>
@@ -727,762 +420,423 @@ export default function AdminSuscripcionesPage() {
             <FaUsers />
           </span>
           <div>
-            <span className={styles.statLabel}>Paquetes grupales</span>
-            <strong className={styles.statValue}>{packageCount}</strong>
+            <p className={styles.statLabel}>Paquetes grupales</p>
+            <strong className={styles.statValue}>{groupPlansCount}</strong>
+            <span className={styles.statHint}>
+              Paquetes para 2, 3 o 4 personas.
+            </span>
           </div>
-          <p className={styles.statHint}>
-            Configuraciones grupales listas para manejar precio por persona.
-          </p>
         </article>
 
         <article className={styles.statCard}>
           <span className={styles.statIcon}>
-            <FaPercent />
+            <FaClock />
           </span>
           <div>
-            <span className={styles.statLabel}>Promociones vigentes</span>
-            <strong className={styles.statValue}>{activePromotionsCount}</strong>
+            <p className={styles.statLabel}>Pendientes</p>
+            <strong className={styles.statValue}>{pendingGroups.length}</strong>
+            <span className={styles.statHint}>
+              Paquetes esperando aceptación o aprobación.
+            </span>
           </div>
-          <p className={styles.statHint}>
-            Descuentos activos segun las fechas configuradas en cada plan.
-          </p>
         </article>
 
         <article className={styles.statCard}>
           <span className={styles.statIcon}>
-            <FaWallet />
+            <FaMoneyBillWave />
           </span>
           <div>
-            <span className={styles.statLabel}>Precio promedio</span>
+            <p className={styles.statLabel}>Precio promedio</p>
             <strong className={styles.statValue}>
               {formatCurrency(averagePrice)}
             </strong>
+            <span className={styles.statHint}>
+              Referencia comercial del catálogo.
+            </span>
           </div>
-          <p className={styles.statHint}>
-            Referencia rapida del ticket base actual del modulo.
-          </p>
         </article>
       </div>
 
-      <div className={styles.workspace}>
-        <section className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <div className={styles.panelTitleGroup}>
-              <span className={styles.panelEyebrow}>Catalogo operativo</span>
-              <h2 className={styles.panelTitle}>Planes configurados</h2>
-              <p className={styles.panelSubtitle}>
-                Encuentra el plan correcto, revisa su base comercial y despues
-                entra al detalle para trabajar beneficios o promociones.
-              </p>
-            </div>
-          </div>
+      <div className={styles.contentGrid}>
+        <main className={styles.mainPanel}>
+          <section className={styles.panelCard}>
+            <div className={styles.sectionHeader}>
+              <div>
+                <span className={styles.detailEyebrow}>Catálogo real</span>
+                <h2 className={styles.detailTitle}>Planes disponibles</h2>
+                <p className={styles.sectionText}>
+                  Estos planes vienen desde la tabla MembershipPlans.
+                </p>
+              </div>
 
-          <div className={styles.toolbar}>
-            <div className={styles.searchGroup}>
-              <span className={styles.filterLabel}>Busqueda</span>
-              <label className={styles.searchField}>
-                <FaSearch className={styles.searchIcon} />
+              <label className={styles.searchBox}>
+                <FaSearch />
                 <input
-                  className={styles.searchInput}
-                  type="search"
-                  placeholder="Buscar por ID, nombre, segmento o tipo"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Buscar plan..."
                 />
               </label>
             </div>
 
-            <div className={styles.filters}>
-              <label className={styles.filterGroup}>
-                <span className={styles.filterLabel}>Tipo</span>
-                <select
-                  className={styles.filterSelect}
-                  value={kindFilter}
-                  onChange={(event) => setKindFilter(event.target.value)}
-                >
-                  <option value="Todos">Todos</option>
-                  <option value="membresia">Membresias</option>
-                  <option value="paquete">Paquetes</option>
-                  <option value="pase">Pases</option>
-                </select>
-              </label>
-
-              <label className={styles.filterGroup}>
-                <span className={styles.filterLabel}>Estado</span>
-                <select
-                  className={styles.filterSelect}
-                  value={statusFilter}
-                  onChange={(event) => setStatusFilter(event.target.value)}
-                >
-                  <option value="Todos">Todos</option>
-                  <option value="Activo">Activo</option>
-                  <option value="Inactivo">Inactivo</option>
-                </select>
-              </label>
-
-              <label className={styles.filterGroup}>
-                <span className={styles.filterLabel}>Orden</span>
-                <select
-                  className={styles.filterSelect}
-                  value={sort}
-                  onChange={(event) => setSort(event.target.value as SortMode)}
-                >
-                  <option value="updated">Ultima edicion</option>
-                  <option value="name">Nombre</option>
-                  <option value="priceAsc">Precio ascendente</option>
-                  <option value="priceDesc">Precio descendente</option>
-                </select>
-              </label>
-            </div>
-          </div>
-
-          <div className={styles.tableScroll}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Plan</th>
-                  <th className={styles.alignRight}>Precio base</th>
-                  <th className={styles.alignRight}>Inscripcion</th>
-                  <th>Promos activas</th>
-                  <th>Estado</th>
-                  <th className={styles.alignRight}>Acciones</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={6} className={styles.emptyRow}>
-                      Cargando suscripciones...
-                    </td>
-                  </tr>
-                ) : currentItems.length > 0 ? (
-                  currentItems.map((subscription) => {
-                    const isSelected = selectedId === subscription.id;
-                    const discountSummary = getDiscountSummary(subscription);
-                    const unitPrice = getUnitPrice(subscription);
-
-                    return (
-                      <tr
-                        key={subscription.id}
-                        className={isSelected ? styles.activeRow : undefined}
-                        onClick={() => setSelectedId(subscription.id)}
-                      >
+            {loading ? (
+              <div className={styles.emptyStateCard}>Cargando planes...</div>
+            ) : filteredPlans.length > 0 ? (
+              <div className={styles.tableWrap}>
+                <table className={styles.adminTable}>
+                  <thead>
+                    <tr>
+                      <th>Plan</th>
+                      <th>Tipo</th>
+                      <th>Duración</th>
+                      <th>Precio</th>
+                      <th>Personas</th>
+                      <th>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredPlans.map((plan) => (
+                      <tr key={plan.id}>
                         <td>
-                          <div className={styles.planCell}>
-                            <div className={styles.planTopRow}>
-                              <span className={styles.planName}>
-                                {subscription.name}
-                              </span>
-                            </div>
-
-                            <div className={styles.planBadgeRow}>
-                              <span className={styles.kindPill}>
-                                {kindLabels[subscription.kind]}
-                              </span>
-                              <span className={styles.neutralPill}>
-                                {billingLabels[subscription.billing]}
-                              </span>
-                              {subscription.highlight ? (
-                                <span className={styles.highlightPill}>
-                                  <FaStar />
-                                  Destacado
-                                </span>
-                              ) : null}
-                            </div>
-
-                            <div className={styles.planMeta}>
-                              <span>{subscription.id}</span>
-                              <span>{subscription.segment}</span>
-                              {subscription.packageSize ? (
-                                <span>{subscription.packageSize} personas</span>
-                              ) : null}
-                              {unitPrice ? (
-                                <span>{formatCurrency(unitPrice)} c/u</span>
-                              ) : null}
-                            </div>
-
-                            <span className={styles.planSummary}>
-                              {subscription.summary}
-                            </span>
-                          </div>
+                          <strong>{plan.name}</strong>
+                          <p>{plan.description}</p>
                         </td>
-
-                        <td className={styles.alignRight}>
-                          <span className={styles.priceValue}>
-                            {formatCurrency(subscription.price)}
-                          </span>
-                        </td>
-
-                        <td className={styles.alignRight}>
-                          <span className={styles.priceValue}>
-                            {formatCurrency(subscription.registrationFee)}
-                          </span>
-                        </td>
-
+                        <td>{getPlanLabel(plan)}</td>
+                        <td>{plan.durationDays} días</td>
                         <td>
-                          {discountSummary.activeDiscounts.length > 0 ? (
-                            <div className={styles.promoList}>
-                              {discountSummary.activeDiscounts.map((discount) => (
-                                <span
-                                  key={discount.id}
-                                  className={styles.promoPill}
-                                >
-                                  {discount.name}
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className={styles.emptyPromoText}>
-                              Sin promo vigente
-                            </span>
-                          )}
+                          <strong>{formatCurrency(plan.price)}</strong>
+                          {plan.type === "group" ? (
+                            <p>{formatCurrency(plan.pricePerPerson)} c/u</p>
+                          ) : null}
                         </td>
-
+                        <td>
+                          {plan.minPeople === plan.maxPeople
+                            ? plan.maxPeople
+                            : `${plan.minPeople}-${plan.maxPeople}`}
+                        </td>
                         <td>
                           <span
-                            className={`${styles.statusPill} ${
-                              subscription.status === "Activo"
-                                ? styles.statusOn
-                                : styles.statusOff
-                            }`}
+                            className={
+                              plan.isActive
+                                ? styles.statusActive
+                                : styles.statusInactive
+                            }
                           >
-                            {subscription.status}
+                            {plan.isActive ? "Activo" : "Inactivo"}
                           </span>
                         </td>
-
-                        <td className={styles.alignRight}>
-                          <div className={styles.actions}>
-                            <button
-                              type="button"
-                              className={styles.ghostBtn}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openEdit(subscription);
-                              }}
-                            >
-                              <FaPen />
-                              Editar base
-                            </button>
-
-                            <button
-                              type="button"
-                              className={styles.ghostBtn}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                void handleToggleStatus(subscription);
-                              }}
-                            >
-                              <FaPowerOff />
-                              {subscription.status === "Activo"
-                                ? "Desactivar"
-                                : "Activar"}
-                            </button>
-
-                            <button
-                              type="button"
-                              className={styles.dangerBtn}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                void handleDelete(subscription);
-                              }}
-                            >
-                              <FaTrash />
-                              Eliminar
-                            </button>
-                          </div>
-                        </td>
                       </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan={6} className={styles.emptyRow}>
-                      No hay planes que coincidan con los filtros actuales.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className={styles.panelFooter}>
-            <AdminPagination
-              itemLabel="planes"
-              onPageChange={setPage}
-              page={page}
-              rangeEnd={rangeEnd}
-              rangeStart={rangeStart}
-              totalItems={totalItems}
-              totalPages={totalPages}
-            />
-          </div>
-        </section>
-
-        <aside className={styles.previewPanel}>
-          <div className={styles.previewHeader}>
-            <span className={styles.previewEyebrow}>Paso 2 del flujo</span>
-            <h2 className={styles.previewTitle}>
-              {selectedSubscription ? "Detalle y promociones" : "Selecciona un plan"}
-            </h2>
-            <p className={styles.previewSubtitle}>
-              {selectedSubscription
-                ? `Estas trabajando sobre ${selectedSubscription.name}. Aqui ajustas caracteristicas, promociones e inscripcion sin perder de vista el precio final.`
-                : "Selecciona un plan de la tabla para administrar sus caracteristicas y descuentos."}
-            </p>
-          </div>
-
-          {selectedSubscription && selectedSummary ? (
-            <>
-              <article
-                className={`${styles.previewCard} ${getPreviewCardClass(
-                  selectedSubscription.color,
-                )}`}
-              >
-                <div className={styles.previewCardTop}>
-                  <div>
-                    <span className={styles.previewCardLevel}>
-                      {kindLabels[selectedSubscription.kind]}
-                    </span>
-                    <h3 className={styles.previewCardName}>
-                      {selectedSubscription.name}
-                    </h3>
-                  </div>
-
-                  {selectedSubscription.highlight ? (
-                    <span className={styles.previewHighlight}>
-                      <FaStar />
-                      Plan foco
-                    </span>
-                  ) : null}
-                </div>
-
-                <p className={styles.previewCardDescription}>
-                  {selectedSubscription.summary}
-                </p>
-
-                <div className={styles.previewPriceGrid}>
-                  <div className={styles.previewPriceItem}>
-                    <span>Precio base</span>
-                    <strong>{formatCurrency(selectedSubscription.price)}</strong>
-                  </div>
-
-                  <div className={styles.previewPriceItem}>
-                    <span>Precio final</span>
-                    <strong>{formatCurrency(selectedSummary.effectivePrice)}</strong>
-                  </div>
-
-                  <div className={styles.previewPriceItem}>
-                    <span>Inscripcion base</span>
-                    <strong>
-                      {formatCurrency(selectedSubscription.registrationFee)}
-                    </strong>
-                  </div>
-
-                  <div className={styles.previewPriceItem}>
-                    <span>Inscripcion final</span>
-                    <strong>
-                      {formatCurrency(selectedSummary.effectiveRegistrationFee)}
-                    </strong>
-                  </div>
-                </div>
-
-                {selectedSubscription.packageSize ? (
-                  <div className={styles.previewPackageNote}>
-                    {selectedSubscription.packageSize} personas |{" "}
-                    {formatCurrency(
-                      selectedSubscription.price / selectedSubscription.packageSize,
-                    )}{" "}
-                    por persona
-                  </div>
-                ) : null}
-              </article>
-
-              <div className={styles.detailGrid}>
-                <section className={styles.detailCard}>
-                  <div className={styles.detailHeader}>
-                    <div>
-                      <span className={styles.detailEyebrow}>
-                        Paso 1 completado
-                      </span>
-                      <h3 className={styles.detailTitle}>Bloque base</h3>
-                    </div>
-                    <button
-                      type="button"
-                      className={styles.inlineGhostBtn}
-                      onClick={() => openEdit(selectedSubscription)}
-                    >
-                      <FaPen />
-                      Editar
-                    </button>
-                  </div>
-
-                  <div className={styles.baseInfoGrid}>
-                    <article className={styles.metaCard}>
-                      <span className={styles.metaLabel}>Segmento</span>
-                      <strong className={styles.metaValue}>
-                        {selectedSubscription.segment}
-                      </strong>
-                    </article>
-
-                    <article className={styles.metaCard}>
-                      <span className={styles.metaLabel}>Periodicidad</span>
-                      <strong className={styles.metaValue}>
-                        {billingLabels[selectedSubscription.billing]}
-                      </strong>
-                    </article>
-
-                    <article className={styles.metaCard}>
-                      <span className={styles.metaLabel}>Estado</span>
-                      <strong className={styles.metaValue}>
-                        {selectedSubscription.status}
-                      </strong>
-                    </article>
-
-                    <article className={styles.metaCard}>
-                      <span className={styles.metaLabel}>Ultima edicion</span>
-                      <strong className={styles.metaValue}>
-                        {dateFormatter.format(
-                          new Date(selectedSubscription.updatedAt),
-                        )}
-                      </strong>
-                    </article>
-                  </div>
-                </section>
-
-                <section className={styles.detailCard}>
-                  <div className={styles.detailHeader}>
-                    <div>
-                      <span className={styles.detailEyebrow}>Paso 2</span>
-                      <h3 className={styles.detailTitle}>Caracteristicas</h3>
-                    </div>
-                    <span className={styles.detailCount}>
-                      {selectedSubscription.features.length} registradas
-                    </span>
-                  </div>
-
-                  <div className={styles.inlineForm}>
-                    <input
-                      className={styles.inlineInput}
-                      value={featureDraft}
-                      onChange={(event) => setFeatureDraft(event.target.value)}
-                      placeholder="Agregar caracteristica o beneficio del plan"
-                    />
-                    <button
-                      type="button"
-                      className={styles.inlinePrimaryBtn}
-                      onClick={() => {
-                        void handleAddFeature();
-                      }}
-                      disabled={featureDraft.trim().length < 3}
-                    >
-                      <FaPlus />
-                      Agregar
-                    </button>
-                  </div>
-
-                  {selectedSubscription.features.length > 0 ? (
-                    <div className={styles.featureStack}>
-                      {selectedSubscription.features.map((feature) => (
-                        <article key={feature.id} className={styles.featureCard}>
-                          <div className={styles.featureContent}>
-                            <span className={styles.featureIcon}>
-                              <FaTag />
-                            </span>
-                            <p className={styles.featureText}>{feature.label}</p>
-                          </div>
-                          <button
-                            type="button"
-                            className={styles.featureDeleteBtn}
-                            onClick={() => {
-                              void handleRemoveFeature(feature.id);
-                            }}
-                          >
-                            <FaTrash />
-                          </button>
-                        </article>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className={styles.emptyStateCard}>
-                      Este plan todavia no tiene caracteristicas. Primero ya
-                      existe el plan base; ahora puedes enriquecerlo aqui.
-                    </div>
-                  )}
-                </section>
-
-                <section className={styles.detailCard}>
-                  <div className={styles.detailHeader}>
-                    <div>
-                      <span className={styles.detailEyebrow}>Promociones</span>
-                      <h3 className={styles.detailTitle}>
-                        Descuentos por fechas
-                      </h3>
-                    </div>
-                    <span className={styles.detailCount}>
-                      {selectedSubscription.discounts.length} configurados
-                    </span>
-                  </div>
-
-                  <div className={styles.discountFormGrid}>
-                    <label className={styles.formField}>
-                      <span>Nombre de la promo</span>
-                      <input
-                        className={styles.inlineInput}
-                        value={discountDraft.name}
-                        onChange={(event) =>
-                          setDiscountDraft((previous) => ({
-                            ...previous,
-                            name: event.target.value,
-                          }))
-                        }
-                        placeholder="Ej. Inscripcion gratis junio"
-                      />
-                    </label>
-
-                    <label className={styles.formField}>
-                      <span>Tipo de descuento</span>
-                      <select
-                        className={styles.inlineSelect}
-                        value={discountDraft.type}
-                        onChange={(event) =>
-                          handleDiscountTypeChange(
-                            event.target.value as SubscriptionDiscountFormData["type"],
-                          )
-                        }
-                      >
-                        <option value="percentage">Porcentaje</option>
-                        <option value="fixed">Monto fijo</option>
-                        <option value="free_registration">
-                          Inscripcion gratis
-                        </option>
-                      </select>
-                    </label>
-
-                    <label className={styles.formField}>
-                      <span>Aplicar sobre</span>
-                      <select
-                        className={styles.inlineSelect}
-                        value={discountDraft.target}
-                        disabled={discountDraft.type === "free_registration"}
-                        onChange={(event) =>
-                          setDiscountDraft((previous) => ({
-                            ...previous,
-                            target:
-                              event.target.value as SubscriptionDiscountFormData["target"],
-                          }))
-                        }
-                      >
-                        <option value="plan_price">Precio del plan</option>
-                        <option value="registration_fee">
-                          Inscripcion
-                        </option>
-                      </select>
-                    </label>
-
-                    <label className={styles.formField}>
-                      <span>Valor</span>
-                      <input
-                        className={styles.inlineInput}
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={discountDraft.type === "free_registration" ? 0 : discountDraft.value}
-                        disabled={discountDraft.type === "free_registration"}
-                        onChange={(event) =>
-                          setDiscountDraft((previous) => ({
-                            ...previous,
-                            value: Number(event.target.value),
-                          }))
-                        }
-                      />
-                    </label>
-
-                    <label className={styles.formField}>
-                      <span>Inicio</span>
-                      <input
-                        className={styles.inlineInput}
-                        type="date"
-                        value={discountDraft.startDate}
-                        onChange={(event) =>
-                          setDiscountDraft((previous) => ({
-                            ...previous,
-                            startDate: event.target.value,
-                          }))
-                        }
-                      />
-                    </label>
-
-                    <label className={styles.formField}>
-                      <span>Fin</span>
-                      <input
-                        className={styles.inlineInput}
-                        type="date"
-                        value={discountDraft.endDate}
-                        onChange={(event) =>
-                          setDiscountDraft((previous) => ({
-                            ...previous,
-                            endDate: event.target.value,
-                          }))
-                        }
-                      />
-                    </label>
-
-                    <label className={`${styles.formField} ${styles.formFieldFull}`}>
-                      <span>Nota</span>
-                      <textarea
-                        className={styles.inlineTextarea}
-                        rows={3}
-                        value={discountDraft.note}
-                        onChange={(event) =>
-                          setDiscountDraft((previous) => ({
-                            ...previous,
-                            note: event.target.value,
-                          }))
-                        }
-                        placeholder="Describe el contexto de la promocion o temporada."
-                      />
-                    </label>
-                  </div>
-
-                  <div className={styles.discountActionRow}>
-                    <button
-                      type="button"
-                      className={styles.inlinePrimaryBtn}
-                      onClick={() => {
-                        void handleAddDiscount();
-                      }}
-                      disabled={!canCreateDiscount}
-                    >
-                      <FaPlus />
-                      Registrar descuento
-                    </button>
-                  </div>
-
-                  {selectedSubscription.discounts.length > 0 ? (
-                    <div className={styles.discountStack}>
-                      {selectedSubscription.discounts.map((discount) => {
-                        const activeNow = isDiscountCurrentlyActive(discount);
-
-                        return (
-                          <article key={discount.id} className={styles.discountCard}>
-                            <div className={styles.discountCardTop}>
-                              <div>
-                                <div className={styles.discountNameRow}>
-                                  <strong className={styles.discountName}>
-                                    {discount.name}
-                                  </strong>
-                                  <span
-                                    className={`${styles.discountState} ${
-                                      activeNow
-                                        ? styles.discountStateOn
-                                        : styles.discountStateOff
-                                    }`}
-                                  >
-                                    {activeNow ? "Vigente" : "No vigente"}
-                                  </span>
-                                </div>
-                                <p className={styles.discountMeta}>
-                                  {discount.type === "free_registration"
-                                    ? "Inscripcion gratis"
-                                    : discount.type === "percentage"
-                                      ? `${discount.value}%`
-                                      : formatCurrency(discount.value)}{" "}
-                                  |{" "}
-                                  {discount.target === "plan_price"
-                                    ? "sobre precio del plan"
-                                    : "sobre inscripcion"}{" "}
-                                  | {discount.startDate} al {discount.endDate}
-                                </p>
-                              </div>
-
-                              <div className={styles.discountActions}>
-                                <button
-                                  type="button"
-                                  className={styles.inlineGhostBtn}
-                                  onClick={() => {
-                                    void handleToggleDiscount(discount.id);
-                                  }}
-                                >
-                                  <FaPowerOff />
-                                  {discount.active ? "Desactivar" : "Activar"}
-                                </button>
-
-                                <button
-                                  type="button"
-                                  className={styles.inlineDangerBtn}
-                                  onClick={() => {
-                                    void handleRemoveDiscount(discount.id);
-                                  }}
-                                >
-                                  <FaTrash />
-                                  Eliminar
-                                </button>
-                              </div>
-                            </div>
-
-                            {discount.note ? (
-                              <p className={styles.discountNote}>{discount.note}</p>
-                            ) : null}
-                          </article>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className={styles.emptyStateCard}>
-                      Este plan aun no tiene promociones configuradas. Puedes
-                      registrar descuentos por monto, porcentaje o inscripcion
-                      gratis con rango de fechas especifico.
-                    </div>
-                  )}
-                </section>
-
-                <section className={styles.detailCard}>
-                  <div className={styles.detailHeader}>
-                    <div>
-                      <span className={styles.detailEyebrow}>Resumen final</span>
-                      <h3 className={styles.detailTitle}>Logica aplicada</h3>
-                    </div>
-                  </div>
-
-                  <div className={styles.readinessCard}>
-                    <div className={styles.readinessHeader}>
-                      <span className={styles.readinessIcon}>
-                        <FaClock />
-                      </span>
-                      <div>
-                        <h4 className={styles.readinessTitle}>
-                          Flujo ya preparado para backend
-                        </h4>
-                        <p className={styles.readinessText}>
-                          El frontend ya distingue alta base, caracteristicas
-                          posteriores, paquetes por numero de personas y
-                          descuentos programados por fecha. Esto deja el modulo
-                          listo para conectar reglas reales de negocio.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </section>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </>
-          ) : (
-            <div className={styles.emptyPreview}>
-              No hay un plan seleccionado con los filtros actuales.
+            ) : (
+              <div className={styles.emptyStateCard}>
+                No hay planes que coincidan con la búsqueda.
+              </div>
+            )}
+          </section>
+
+          <section className={styles.panelCard}>
+            <div className={styles.sectionHeader}>
+              <div>
+                <span className={styles.detailEyebrow}>Paquetes</span>
+                <h2 className={styles.detailTitle}>Paquetes pendientes</h2>
+                <p className={styles.sectionText}>
+                  Aquí se aprueban paquetes cuando los integrantes ya aceptaron.
+                </p>
+              </div>
             </div>
-          )}
+
+            {pendingGroups.length > 0 ? (
+              <div className={styles.cardStack}>
+                {pendingGroups.map((group) => {
+                  const members = group.members ?? [];
+                  const acceptedCount = members.filter((member) =>
+                    ["accepted", "approved", "active"].includes(member.status)
+                  ).length;
+
+                  return (
+                    <article key={group.id} className={styles.detailCard}>
+                      <div className={styles.detailHeader}>
+                        <div>
+                          <span className={styles.detailEyebrow}>
+                            {group.status}
+                          </span>
+                          <h3 className={styles.detailTitle}>
+                            {group.plan?.name ?? "Paquete grupal"}
+                          </h3>
+                          <p className={styles.sectionText}>
+                            Titular: {group.owner?.email ?? "Sin titular"}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          className={styles.inlinePrimaryBtn}
+                          onClick={() => void handleApproveGroup(group.id)}
+                          disabled={
+                            approvingGroupId === group.id ||
+                            acceptedCount !== Number(group.memberLimit)
+                          }
+                        >
+                          <FaCheckCircle />
+                          {approvingGroupId === group.id
+                            ? "Aprobando..."
+                            : "Aprobar paquete"}
+                        </button>
+                      </div>
+
+                      <div className={styles.statsGrid}>
+                        <div className={styles.miniStatCard}>
+                          <span>Pago</span>
+                          <strong>{formatCurrency(group.totalAmount)}</strong>
+                        </div>
+                        <div className={styles.miniStatCard}>
+                          <span>Integrantes</span>
+                          <strong>
+                            {acceptedCount}/{group.memberLimit}
+                          </strong>
+                        </div>
+                        <div className={styles.miniStatCard}>
+                          <span>Vigencia</span>
+                          <strong>
+                            {group.startsAt ?? "Sin iniciar"} -{" "}
+                            {group.endsAt ?? "Sin finalizar"}
+                          </strong>
+                        </div>
+                      </div>
+
+                      <div className={styles.memberList}>
+                        {members.map((member) => (
+                          <div key={member.id} className={styles.memberItem}>
+                            <span>
+                              <FaEnvelope /> {member.invitedEmail}
+                            </span>
+                            <strong>{member.status}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className={styles.emptyStateCard}>
+                No hay paquetes pendientes por ahora.
+              </div>
+            )}
+          </section>
+        </main>
+
+        <aside className={styles.sidePanel}>
+          <section className={styles.detailCard}>
+            <div className={styles.detailHeader}>
+              <div>
+                <span className={styles.detailEyebrow}>Pago manual</span>
+                <h2 className={styles.detailTitle}>Membresía individual</h2>
+                <p className={styles.sectionText}>
+                  Úsalo para visita, semana, quincena, mensualidad, semestre o
+                  anualidad.
+                </p>
+              </div>
+            </div>
+
+            <div className={styles.formStack}>
+              <label>
+                Cliente
+                <select
+                  value={selectedUserId}
+                  onChange={(event) => setSelectedUserId(event.target.value)}
+                >
+                  <option value="">Selecciona cliente</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.email}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                Plan
+                <select
+                  value={selectedIndividualPlanId}
+                  onChange={(event) =>
+                    setSelectedIndividualPlanId(event.target.value)
+                  }
+                >
+                  <option value="">Selecciona plan</option>
+                  {individualPlans.map((plan) => (
+                    <option key={plan.id} value={plan.id}>
+                      {plan.name} - {formatCurrency(plan.price)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                Método
+                <select
+                  value={individualMethod}
+                  onChange={(event) =>
+                    setIndividualMethod(event.target.value as PaymentMethod)
+                  }
+                >
+                  <option value="cash">Efectivo</option>
+                  <option value="transfer">Transferencia</option>
+                  <option value="card_terminal">
+                    Tarjeta presencial / Mercado Pago
+                  </option>
+                </select>
+              </label>
+
+              <label>
+                Fecha de inicio
+                <input
+                  type="date"
+                  value={individualStartsAt}
+                  onChange={(event) => setIndividualStartsAt(event.target.value)}
+                />
+              </label>
+
+              <label>
+                Referencia
+                <input
+                  value={individualReference}
+                  onChange={(event) => setIndividualReference(event.target.value)}
+                  placeholder="Folio, nota o referencia del pago"
+                />
+              </label>
+
+              <label>
+                Notas
+                <textarea
+                  value={individualNotes}
+                  onChange={(event) => setIndividualNotes(event.target.value)}
+                  placeholder="Observaciones del pago"
+                />
+              </label>
+
+              <button
+                type="button"
+                className={styles.inlinePrimaryBtn}
+                onClick={() => void handleCreateIndividualPayment()}
+                disabled={savingIndividual}
+              >
+                <FaCreditCard />
+                {savingIndividual ? "Registrando..." : "Registrar pago"}
+              </button>
+            </div>
+          </section>
+
+          <section className={styles.detailCard}>
+            <div className={styles.detailHeader}>
+              <div>
+                <span className={styles.detailEyebrow}>Pago grupal</span>
+                <h2 className={styles.detailTitle}>Paquete por correos</h2>
+                <p className={styles.sectionText}>
+                  Registra el titular y agrega correos de los demás integrantes.
+                </p>
+              </div>
+            </div>
+
+            <div className={styles.formStack}>
+              <label>
+                Titular
+                <select
+                  value={ownerUserId}
+                  onChange={(event) => setOwnerUserId(event.target.value)}
+                >
+                  <option value="">Selecciona titular</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.email}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                Paquete
+                <select
+                  value={selectedGroupPlanId}
+                  onChange={(event) => setSelectedGroupPlanId(event.target.value)}
+                >
+                  <option value="">Selecciona paquete</option>
+                  {groupPlans.map((plan) => (
+                    <option key={plan.id} value={plan.id}>
+                      {plan.name} - {formatCurrency(plan.price)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                Método
+                <select
+                  value={groupMethod}
+                  onChange={(event) =>
+                    setGroupMethod(event.target.value as PaymentMethod)
+                  }
+                >
+                  <option value="cash">Efectivo</option>
+                  <option value="transfer">Transferencia</option>
+                  <option value="card_terminal">
+                    Tarjeta presencial / Mercado Pago
+                  </option>
+                </select>
+              </label>
+
+              <label>
+                Fecha de inicio
+                <input
+                  type="date"
+                  value={groupStartsAt}
+                  onChange={(event) => setGroupStartsAt(event.target.value)}
+                />
+              </label>
+
+              <label>
+                Correos de integrantes
+                <textarea
+                  value={memberEmailsText}
+                  onChange={(event) => setMemberEmailsText(event.target.value)}
+                  placeholder="correo2@gmail.com&#10;correo3@gmail.com&#10;correo4@gmail.com"
+                />
+              </label>
+
+              <label>
+                Referencia
+                <input
+                  value={groupReference}
+                  onChange={(event) => setGroupReference(event.target.value)}
+                  placeholder="Pago paquete con terminal Mercado Pago"
+                />
+              </label>
+
+              <label>
+                Notas
+                <textarea
+                  value={groupNotes}
+                  onChange={(event) => setGroupNotes(event.target.value)}
+                  placeholder="Observaciones del paquete"
+                />
+              </label>
+
+              <button
+                type="button"
+                className={styles.inlinePrimaryBtn}
+                onClick={() => void handleCreateGroupPayment()}
+                disabled={savingGroup}
+              >
+                <FaUsers />
+                {savingGroup ? "Registrando..." : "Registrar paquete"}
+              </button>
+            </div>
+          </section>
         </aside>
       </div>
-
-      <ModalSuscripciones
-        open={openModal}
-        title={editing ? "Editar plan base" : "Crear plan base"}
-        initial={editing ?? undefined}
-        onClose={closeModal}
-        onSave={(payload) => {
-          void handleSaveBasePlan(payload);
-        }}
-      />
     </section>
   );
 }

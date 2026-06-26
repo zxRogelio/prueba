@@ -8,6 +8,7 @@ import {
   FaChevronRight,
   FaCog,
   FaDatabase,
+  FaDumbbell,
   FaFileAlt,
   FaHdd,
   FaIdCard,
@@ -32,6 +33,7 @@ const catalogItems = [
 
 const bottomItems = [
   { to: "/admin/suscripciones", label: "Suscripciones", icon: <FaIdCard /> },
+  { to: "/admin/routines", label: "Rutinas", icon: <FaDumbbell /> },
   { to: "/admin/reports", label: "Reportes", icon: <FaFileAlt /> },
   { to: "/admin/settings", label: "Gestion del sitio", icon: <FaCog /> },
   { to: "about", label: "About / Nosotros", icon: <FaInfoCircle /> },
@@ -57,12 +59,12 @@ export default function AdminSidebar({ collapsed }: Props) {
 
   const catalogActive = useMemo(
     () => catalogItems.some((item) => pathname.startsWith(item.to)),
-    [pathname],
+    [pathname]
   );
 
   const monitoringActive = useMemo(
     () => monitoringItems.some((item) => pathname.startsWith(item.to)),
-    [pathname],
+    [pathname]
   );
 
   useEffect(() => {
@@ -114,7 +116,9 @@ export default function AdminSidebar({ collapsed }: Props) {
         <div>
           <button
             type="button"
-            className={`${styles.catalogToggle} ${catalogActive ? styles.active : ""}`}
+            className={`${styles.catalogToggle} ${
+              catalogActive ? styles.active : ""
+            }`}
             onClick={() => setCatalogOpen((prev) => !prev)}
             aria-expanded={catalogOpen}
             data-tooltip={collapsed ? "Catalogo" : undefined}
@@ -129,7 +133,9 @@ export default function AdminSidebar({ collapsed }: Props) {
             </span>
             {!collapsed && (
               <span
-                className={`${styles.chevron} ${catalogOpen ? styles.chevronOpen : ""}`}
+                className={`${styles.chevron} ${
+                  catalogOpen ? styles.chevronOpen : ""
+                }`}
               >
                 <FaChevronRight />
               </span>
@@ -159,7 +165,9 @@ export default function AdminSidebar({ collapsed }: Props) {
         <div>
           <button
             type="button"
-            className={`${styles.catalogToggle} ${monitoringActive ? styles.active : ""}`}
+            className={`${styles.catalogToggle} ${
+              monitoringActive ? styles.active : ""
+            }`}
             onClick={() => setMonitoringOpen((prev) => !prev)}
             aria-expanded={monitoringOpen}
             data-tooltip={collapsed ? "Monitoreo" : undefined}
@@ -174,7 +182,9 @@ export default function AdminSidebar({ collapsed }: Props) {
             </span>
             {!collapsed && (
               <span
-                className={`${styles.chevron} ${monitoringOpen ? styles.chevronOpen : ""}`}
+                className={`${styles.chevron} ${
+                  monitoringOpen ? styles.chevronOpen : ""
+                }`}
               >
                 <FaChevronRight />
               </span>

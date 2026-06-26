@@ -1,284 +1,336 @@
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   FaArrowRight,
-  FaChartLine,
   FaCreditCard,
+  FaDumbbell,
   FaShieldAlt,
+  FaSyncAlt,
   FaUserCircle,
   FaWallet,
 } from "react-icons/fa";
+import {
+  getMyActiveSubscription,
+  getMyMembershipPayments,
+  type MembershipPlan,
+} from "../../services/membershipService";
 import styles from "./ClientPages.module.css";
 
-const summaryCards = [
-  {
-    label: "Plan activo",
-    value: "Premium 12 meses",
-    meta: "Incluye acceso completo, seguimiento y soporte.",
-    icon: FaCreditCard,
-  },
-  {
-    label: "Progreso del mes",
-    value: "-2.4 kg",
-    meta: "Con base en tus ultimos registros almacenados.",
-    icon: FaChartLine,
-  },
-  {
-    label: "Proximo cargo",
-    value: "18 abril 2026",
-    meta: "Pago automatico con tarjeta terminacion 3344.",
-    icon: FaWallet,
-  },
-  {
-    label: "Seguridad",
-    value: "2FA activo",
-    meta: "Tu cuenta tiene una capa extra de proteccion.",
-    icon: FaShieldAlt,
-  },
-];
+type ActiveSubscription = {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+  source: string;
+  plan?: MembershipPlan;
+  payment?: {
+    id: string;
+    amount: string | number;
+    method: string;
+    status: string;
+  } | null;
+};
 
-const quickLinks = [
-  {
-    to: "/cliente/perfil",
-    title: "Completar perfil",
-    text: "Actualiza tus datos fisicos y sigue la prediccion de avance.",
-    icon: FaUserCircle,
-  },
-  {
-    to: "/cliente/suscripcion",
-    title: "Ver membresia",
-    text: "Consulta beneficios, vigencia y proximas renovaciones.",
-    icon: FaCreditCard,
-  },
-  {
-    to: "/cliente/pagos",
-    title: "Revisar pagos",
-    text: "Confirma movimientos y prepara tus comprobantes.",
-    icon: FaWallet,
-  },
-  {
-    to: "/cliente/configuracion",
-    title: "Ajustar seguridad",
-    text: "Administra OTP, QR y acceso seguro desde tu cuenta.",
-    icon: FaShieldAlt,
-  },
-];
+type MembershipPayment = {
+  id: string;
+  amount: string | number;
+  status: string;
+  method: string;
+  createdAt: string;
+  paidAt?: string | null;
+  plan?: {
+    name: string;
+  } | null;
+};
 
-const nextSteps = [
-  {
-    title: "Registrar peso actual",
-    detail: "Agrega tu medicion de esta semana para mejorar la prediccion.",
-    status: "Pendiente",
-  },
-  {
-    title: "Actualizar meta fitness",
-    detail: "Verifica si tu objetivo sigue orientado a bajar, mantener o subir.",
-    status: "Revisar",
-  },
-  {
-    title: "Comprobar metodo 2FA",
-    detail: "Asegurate de que tu acceso siga configurado como prefieres.",
-    status: "Listo",
-  },
-];
+const currencyFormatter = new Intl.NumberFormat("es-MX", {
+  style: "currency",
+  currency: "MXN",
+});
 
-const timeline = [
-  {
-    title: "Perfil sincronizado",
-    detail: "Tus datos de peso, objetivo y entrenamiento quedaron guardados.",
-  },
-  {
-    title: "Suscripcion activa",
-    detail: "Tu membresia Premium mantiene acceso al portal y al seguimiento.",
-  },
-  {
-    title: "Sesion protegida",
-    detail: "Puedes volver al sitio publico cuando quieras sin perder la cuenta activa.",
-  },
-];
+function formatCurrency(value: string | number | null | undefined) {
+  const numericValue = Number(value ?? 0);
+  return currencyFormatter.format(Number.isFinite(numericValue) ? numericValue : 0);
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "Sin fecha";
+
+  const date = new Date(`${value}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("es-MX", {
+    dateStyle: "medium",
+  }).format(date);
+}
+
+function getDaysLeft(endsAt?: string | null) {
+  if (!endsAt) return null;
+
+  const today = new Date();
+  const endDate = new Date(`${endsAt}T23:59:59`);
+  const diff = endDate.getTime() - today.getTime();
+
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
 
 export default function ClientDashboardPage() {
-  return (
-    <section className={styles.page}>
-      <div className={styles.hero}>
-        <div className={styles.heroContent}>
-          <span className={styles.eyebrow}>Cuenta activa</span>
-          <h2 className={styles.title}>Tu portal ya esta separado del sitio publico</h2>
-          <p className={styles.subtitle}>
-            Desde aqui administras tu perfil, membresia, pagos y seguridad.
-            Mientras tanto, en el home publico seguiras viendo la sesion activa
-            sin salirte de la experiencia principal del sitio.
-          </p>
+  const [subscription, setSubscription] = useState<ActiveSubscription | null>(null);
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+  const [payments, setPayments] = useState<MembershipPayment[]>([]);
+  const [loading, setLoading] = useState(true);
 
-          <div className={styles.heroActions}>
-            <Link to="/cliente/perfil" className={styles.heroButton}>
-              Ir a mi perfil
+  async function loadDashboard() {
+    setLoading(true);
+
+    try {
+      const [subscriptionResponse, paymentsResponse] = await Promise.all([
+        getMyActiveSubscription(),
+        getMyMembershipPayments(),
+      ]);
+
+      setSubscription(subscriptionResponse.subscription ?? null);
+      setHasActiveSubscription(Boolean(subscriptionResponse.hasActiveSubscription));
+      setPayments(paymentsResponse.payments ?? []);
+    } catch (error) {
+      console.error("CLIENT DASHBOARD ERROR:", error);
+      setSubscription(null);
+      setHasActiveSubscription(false);
+      setPayments([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadDashboard();
+  }, []);
+
+  const lastPayment = payments[0] ?? null;
+  const paidPayments = payments.filter((payment) => payment.status === "paid");
+  const daysLeft = getDaysLeft(subscription?.endsAt);
+
+  const summaryCards = useMemo(
+    () => [
+      {
+        label: "Plan activo",
+        value: hasActiveSubscription
+          ? subscription?.plan?.name ?? "Membresía activa"
+          : "Sin membresía",
+        meta: hasActiveSubscription
+          ? `Vence el ${formatDate(subscription?.endsAt)}`
+          : "Acude a recepción para activar un plan.",
+        icon: FaCreditCard,
+      },
+      {
+        label: "Acceso a rutinas",
+        value: hasActiveSubscription ? "Disponible" : "Bloqueado",
+        meta: hasActiveSubscription
+          ? "Tu membresía permite ver rutinas y entrenamientos."
+          : "Necesitas una membresía activa.",
+        icon: FaDumbbell,
+      },
+      {
+        label: "Último pago",
+        value: lastPayment ? formatCurrency(lastPayment.amount) : "$0.00",
+        meta: lastPayment
+          ? `${lastPayment.plan?.name ?? "Membresía"} - ${lastPayment.status}`
+          : "Sin pagos registrados.",
+        icon: FaWallet,
+      },
+      {
+        label: "Seguridad",
+        value: "Cuenta protegida",
+        meta: "Tu sesión se valida con token de acceso.",
+        icon: FaShieldAlt,
+      },
+    ],
+    [hasActiveSubscription, lastPayment, subscription]
+  );
+
+  const nextSteps = useMemo(() => {
+    if (!hasActiveSubscription) {
+      return [
+        {
+          title: "Activar membresía",
+          detail:
+            "Solicita al administrador registrar tu pago en efectivo, transferencia o terminal Mercado Pago.",
+          status: "Pendiente",
+        },
+        {
+          title: "Revisar planes",
+          detail: "Consulta las opciones disponibles en recepción o en el portal.",
+          status: "Revisar",
+        },
+        {
+          title: "Completar perfil",
+          detail:
+            "Mantén tus datos actualizados para usar correctamente las funciones del portal.",
+          status: "Sugerido",
+        },
+      ];
+    }
+
+    return [
+      {
+        title: "Consultar rutinas",
+        detail: "Tu membresía activa ya puede usarse para desbloquear rutinas.",
+        status: "Activo",
+      },
+      {
+        title: "Revisar vigencia",
+        detail:
+          daysLeft !== null
+            ? `Tu plan vence en ${Math.max(daysLeft, 0)} días.`
+            : "Consulta la fecha de vencimiento en tu membresía.",
+        status: "Vigente",
+      },
+      {
+        title: "Guardar comprobante",
+        detail:
+          "Revisa tu historial de pagos para ubicar el folio generado por el sistema.",
+        status: "Disponible",
+      },
+    ];
+  }, [daysLeft, hasActiveSubscription]);
+
+  return (
+    <section className={styles.clientPage}>
+      <header className={styles.clientHero}>
+        <div>
+          <span className={styles.clientEyebrow}>
+            {hasActiveSubscription ? "Cuenta activa" : "Cuenta sin membresía"}
+          </span>
+          <h1>Portal del cliente</h1>
+          <p>
+            Desde aquí administras tu perfil, membresía, pagos y acceso a
+            rutinas. El estado de tu membresía se obtiene directamente del
+            backend.
+          </p>
+        </div>
+
+        <div className={styles.heroActions}>
+          <button
+            type="button"
+            className={styles.heroActionBtn}
+            onClick={() => void loadDashboard()}
+            disabled={loading}
+          >
+            <FaSyncAlt />
+            {loading ? "Cargando..." : "Actualizar"}
+          </button>
+
+          <Link to="/cliente/perfil" className={styles.heroActionBtn}>
+            <FaUserCircle />
+            Ir a mi perfil
+          </Link>
+        </div>
+      </header>
+
+      <div className={styles.statusBanner}>
+        <div>
+          <span>Estado general</span>
+          <strong>
+            {hasActiveSubscription ? "Membresía activa" : "Membresía pendiente"}
+          </strong>
+          <p>
+            {hasActiveSubscription
+              ? `Tu plan ${
+                  subscription?.plan?.name ?? ""
+                } está vigente hasta ${formatDate(subscription?.endsAt)}.`
+              : "Todavía no tienes una membresía activa registrada en el sistema."}
+          </p>
+        </div>
+
+        <div>
+          <span>Pagos confirmados</span>
+          <strong>{paidPayments.length}</strong>
+          <p>Historial conectado al módulo real de pagos.</p>
+        </div>
+      </div>
+
+      <div className={styles.summaryGrid}>
+        {summaryCards.map((card) => {
+          const Icon = card.icon;
+
+          return (
+            <article key={card.label} className={styles.summaryCard}>
+              <span className={styles.summaryIcon}>
+                <Icon />
+              </span>
+              <div>
+                <p>{card.label}</p>
+                <strong>{card.value}</strong>
+                <span>{card.meta}</span>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+
+      <div className={styles.contentGrid}>
+        <section className={styles.panelCard}>
+          <h2>Próximos pasos</h2>
+          <p>Acciones recomendadas según el estado actual de tu cuenta.</p>
+
+          <ul className={styles.timelineList}>
+            {nextSteps.map((step) => (
+              <li key={step.title}>
+                <div>
+                  <strong>{step.title}</strong>
+                  <p>{step.detail}</p>
+                </div>
+                <span>{step.status}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className={styles.panelCard}>
+          <h2>Accesos rápidos</h2>
+          <p>Atajos principales del portal del cliente.</p>
+
+          <div className={styles.quickGrid}>
+            <Link to="/cliente/perfil" className={styles.quickCard}>
+              <FaUserCircle />
+              <div>
+                <strong>Completar perfil</strong>
+                <span>Actualiza tus datos personales y físicos.</span>
+              </div>
               <FaArrowRight />
             </Link>
-            <Link to="/" className={styles.heroButtonSoft}>
-              Volver al home publico
+
+            <Link to="/cliente/suscripcion" className={styles.quickCard}>
+              <FaCreditCard />
+              <div>
+                <strong>Ver membresía</strong>
+                <span>Consulta beneficios, vigencia y estado.</span>
+              </div>
+              <FaArrowRight />
+            </Link>
+
+            <Link to="/cliente/pagos" className={styles.quickCard}>
+              <FaWallet />
+              <div>
+                <strong>Revisar pagos</strong>
+                <span>Consulta pagos y comprobantes.</span>
+              </div>
+              <FaArrowRight />
+            </Link>
+
+            <Link to="/cliente/configuracion" className={styles.quickCard}>
+              <FaShieldAlt />
+              <div>
+                <strong>Ajustar seguridad</strong>
+                <span>Administra opciones de acceso seguro.</span>
+              </div>
+              <FaArrowRight />
             </Link>
           </div>
-        </div>
-
-        <div className={styles.heroAside}>
-          <div className={styles.heroCard}>
-            <span className={styles.heroCardLabel}>Estado general</span>
-            <strong className={styles.heroCardValue}>En forma y al dia</strong>
-            <div className={styles.heroCardText}>
-              Tu panel centraliza progreso, membresia y seguridad para que no
-              dependas del home para administrar la cuenta.
-            </div>
-          </div>
-
-          <div className={styles.heroCard}>
-            <span className={styles.heroCardLabel}>Siguiente foco</span>
-            <strong className={styles.heroCardValue}>Completar seguimiento</strong>
-            <div className={styles.heroCardText}>
-              Si registras peso y objetivo cada semana, el panel de prediccion
-              te dara una lectura mucho mas util.
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className={styles.metricsGrid}>
-        {summaryCards.map((card) => (
-          <article key={card.label} className={styles.metricCard}>
-            <span className={styles.metricIcon}>
-              <card.icon />
-            </span>
-            <div className={styles.metricLabel}>{card.label}</div>
-            <div className={styles.metricValue}>{card.value}</div>
-            <div className={styles.metricMeta}>{card.meta}</div>
-          </article>
-        ))}
-      </div>
-
-      <div className={styles.grid}>
-        <article className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <div>
-              <h3 className={styles.panelTitle}>Proximos pasos</h3>
-              <p className={styles.panelText}>
-                Prioriza estas acciones para mantener tu portal al dia.
-              </p>
-            </div>
-            <span className={styles.pill}>Activo</span>
-          </div>
-
-          <ul className={styles.list}>
-            {nextSteps.map((step) => (
-              <li key={step.title} className={styles.listItem}>
-                <div className={styles.listContent}>
-                  <span className={styles.listIcon}>
-                    <FaArrowRight />
-                  </span>
-                  <div>
-                    <span className={styles.listHeading}>{step.title}</span>
-                    <span className={styles.listMeta}>{step.detail}</span>
-                  </div>
-                </div>
-                <span
-                  className={
-                    step.status === "Listo"
-                      ? styles.pill
-                      : step.status === "Revisar"
-                      ? styles.pillWarning
-                      : styles.pillMuted
-                  }
-                >
-                  {step.status}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </article>
-
-        <article className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <div>
-              <h3 className={styles.panelTitle}>Accesos rapidos</h3>
-              <p className={styles.panelText}>
-                Entra directo a las secciones que mas vas a usar.
-              </p>
-            </div>
-          </div>
-
-          <div className={styles.quickLinks}>
-            {quickLinks.map((link) => (
-              <Link key={link.to} to={link.to} className={styles.quickLink}>
-                <span className={styles.quickLinkIcon}>
-                  <link.icon />
-                </span>
-                <span className={styles.quickLinkTitle}>{link.title}</span>
-                <span className={styles.quickLinkText}>{link.text}</span>
-              </Link>
-            ))}
-          </div>
-        </article>
-      </div>
-
-      <div className={styles.grid}>
-        <article className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <div>
-              <h3 className={styles.panelTitle}>Actividad reciente</h3>
-              <p className={styles.panelText}>
-                Cambios importantes dentro de tu cuenta.
-              </p>
-            </div>
-          </div>
-
-          <ul className={styles.timeline}>
-            {timeline.map((item) => (
-              <li key={item.title} className={styles.timelineItem}>
-                <span className={styles.timelineDot} />
-                <div>
-                  <h4 className={styles.timelineTitle}>{item.title}</h4>
-                  <p className={styles.timelineText}>{item.detail}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </article>
-
-        <article className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <div>
-              <h3 className={styles.panelTitle}>Lectura rapida</h3>
-              <p className={styles.panelText}>
-                Resumen de lo que mas importa antes de seguir navegando.
-              </p>
-            </div>
-          </div>
-
-          <ul className={styles.list}>
-            <li className={styles.listItem}>
-              <div>
-                <span className={styles.listHeading}>Home publico con sesion activa</span>
-                <span className={styles.listMeta}>
-                  Al iniciar sesion ya no te manda directo al portal si eres cliente.
-                </span>
-              </div>
-            </li>
-            <li className={styles.listItem}>
-              <div>
-                <span className={styles.listHeading}>Portal separado</span>
-                <span className={styles.listMeta}>
-                  Entras desde el menu de usuario cuando quieras administrar la cuenta.
-                </span>
-              </div>
-            </li>
-            <li className={styles.listItem}>
-              <div>
-                <span className={styles.listHeading}>Diseño de panel</span>
-                <span className={styles.listMeta}>
-                  Ahora tiene sidebar, topbar y bloques visuales mas cercanos al admin.
-                </span>
-              </div>
-            </li>
-          </ul>
-        </article>
+        </section>
       </div>
     </section>
   );
