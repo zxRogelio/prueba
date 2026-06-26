@@ -2,9 +2,11 @@ import type { IconType } from "react-icons";
 import {
   FaChartPie,
   FaCreditCard,
+  FaEnvelopeOpenText,
   FaShieldAlt,
   FaUserCircle,
   FaWallet,
+  FaDumbbell,
 } from "react-icons/fa";
 
 export interface ClientPortalItem {
@@ -59,6 +61,21 @@ export const clientPortalSections: ClientPortalSection[] = [
         heading: "Pagos",
         icon: FaWallet,
       },
+      {
+        to: "/cliente/invitaciones",
+        label: "Invitaciones",
+        description:
+          "Consulta y acepta invitaciones para unirte a paquetes grupales.",
+        heading: "Invitaciones a paquetes",
+        icon: FaEnvelopeOpenText,
+      },
+      {
+        to: "/cliente/rutinas",
+        label: "Rutinas",
+        description: "Consulta rutinas disponibles con tu membresía activa.",
+        heading: "Rutinas",
+        icon: FaDumbbell,
+      },
     ],
   },
   {
@@ -75,7 +92,9 @@ export const clientPortalSections: ClientPortalSection[] = [
   },
 ];
 
-const clientPortalItems = clientPortalSections.flatMap((section) => section.items);
+const clientPortalItems = clientPortalSections.flatMap(
+  (section) => section.items
+);
 
 export function getClientPortalMeta(pathname: string) {
   const matchedItem = [...clientPortalItems]

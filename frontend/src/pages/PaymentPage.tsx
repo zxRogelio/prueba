@@ -1,14 +1,52 @@
-import React, { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useState, type ChangeEvent, type FormEvent } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import "../styles/payment.css";
 import Logo from "../assets/LogoP.png";
-import { Link } from "react-router-dom";
+
+type Membership = {
+  id: number;
+  name: string;
+  price: number;
+  duration: string;
+  features: string[];
+};
+
+type PaymentFormData = {
+  nombre: string;
+  apellido: string;
+  email: string;
+  telefono: string;
+  numeroTarjeta: string;
+  nombreTarjeta: string;
+  fechaExpiracion: string;
+  cvv: string;
+};
+
+type PaymentLocationState = {
+  membership?: Membership;
+};
+
+const DEFAULT_MEMBERSHIP: Membership = {
+  id: 1,
+  name: "CARTE BLANCHE",
+  price: 299,
+  duration: "mes",
+  features: [
+    "Acceso a Ã¡rea de pesas",
+    "Clases grupales bÃ¡sicas",
+    "Vestidores y regaderas",
+    "App Titanium bÃ¡sica",
+  ],
+};
 
 export default function PaymentPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [paymentMethod, setPaymentMethod] = useState("card");
-  const [formData, setFormData] = useState({
+  const locationState = location.state as PaymentLocationState | null;
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "paypal">(
+    "card"
+  );
+  const [formData, setFormData] = useState<PaymentFormData>({
     // Información personal
     nombre: "",
     apellido: "",
@@ -23,7 +61,8 @@ export default function PaymentPage() {
   });
 
   // Obtener la membresía seleccionada desde el estado de navegación
-  const selectedMembership = location.state?.membership || {
+  const selectedMembership: Membership =
+    locationState?.membership || DEFAULT_MEMBERSHIP || {
     id: 1,
     name: "CARTE BLANCHE",
     price: 299,
@@ -36,15 +75,16 @@ export default function PaymentPage() {
     ],
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const fieldName = e.target.name as keyof PaymentFormData;
+    const { value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [fieldName]: value,
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     // Mostrar alerta de éxito
@@ -54,7 +94,7 @@ export default function PaymentPage() {
 
     // Redirigir a la pantalla de confirmación después de 2 segundos
     setTimeout(() => {
-      navigate("/confirmacion", {
+      navigate("/confirmation", {
         state: {
           membership: selectedMembership,
           customerInfo: formData,
@@ -69,7 +109,7 @@ export default function PaymentPage() {
     return "TXN-" + Math.random().toString(36).substr(2, 9).toUpperCase();
   };
 
-  const formatCardNumber = (value) => {
+  const formatCardNumber = (value: string): string => {
     const v = value.replace(/\s+/g, "").replace(/[^0-9]/gi, "");
     const matches = v.match(/\d{4,16}/g);
     const match = (matches && matches[0]) || "";
@@ -86,7 +126,7 @@ export default function PaymentPage() {
     }
   };
 
-  const formatExpiryDate = (value) => {
+  const formatExpiryDate = (value: string): string => {
     const v = value.replace(/\s+/g, "").replace(/[^0-9]/gi, "");
     if (v.length >= 2) {
       return v.substring(0, 2) + "/" + v.substring(2, 4);
@@ -480,7 +520,7 @@ export default function PaymentPage() {
                           }));
                         }}
                         className="auth-input"
-                        maxLength="19"
+                        maxLength={19}
                         required
                       />
                     </div>
@@ -555,7 +595,7 @@ export default function PaymentPage() {
                             }));
                           }}
                           className="auth-input"
-                          maxLength="5"
+                          maxLength={5}
                           required
                         />
                       </div>
@@ -585,7 +625,7 @@ export default function PaymentPage() {
                           value={formData.cvv}
                           onChange={handleInputChange}
                           className="auth-input"
-                          maxLength="3"
+                          maxLength={3}
                           required
                         />
                       </div>

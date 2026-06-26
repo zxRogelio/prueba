@@ -25,8 +25,9 @@ import trainerRoutineRoutes from "./routes/trainer/routineRoutes.js";
 import trainerClientRoutes from "./routes/trainer/clientRoutes.js";
 import trainerAgendaRoutes from "./routes/trainer/agendaRoutes.js";
 import trainerProfileRoutes from "./routes/trainer/profileRoutes.js";
-
-
+import membershipRoutes from "./routes/membershipRoutes.js";
+import clientRoutineRoutes from "./routes/client/routineRoutes.js";
+import adminRoutineRoutes from "./routes/admin/routineRoutes.js";
 dotenv.config();
 
 const app = express();
@@ -56,6 +57,11 @@ app.use("/api/trainer/routines", trainerRoutineRoutes);
 app.use("/api/trainer/clients", trainerClientRoutes);
 app.use("/api/trainer/agenda", trainerAgendaRoutes);
 app.use("/api/trainer/profile", trainerProfileRoutes);
+app.use("/api/memberships", membershipRoutes);
+app.use("/api/client/routines", clientRoutineRoutes);
+app.use("/api/admin/routines", adminRoutineRoutes);
+
+
 
 const PORT = process.env.PORT || 5000;
 

@@ -40,8 +40,9 @@ import AdminCategoriesPage from "./pages/admin/AdminCategoriesPage";
 import AdminSummaryPage from "./pages/admin/AdminSummaryPage";
 import AdminAboutPage from "./pages/admin/AdminAboutPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
-
+import AdminRoutinesPage from "./pages/admin/AdminRoutinesPage";
 // Client Portal
+import ClientInvitationsPage from "./pages/client/ClientInvitationsPage";
 import ClientPortalLayout from "./components/layout/client/ClientPortalLayout/ClientPortalLayout";
 import ClientDashboardPage from "./pages/client/ClientDashboardPage";
 import ClientProfilePage from "./pages/client/ClientProfilePage";
@@ -55,6 +56,8 @@ import TrainerClientsPage from "./pages/trainer/TrainerClientsPage";
 import TrainerRoutinesPage from "./pages/trainer/TrainerRoutinesPage";
 import TrainerAgendaPage from "./pages/trainer/TrainerAgendaPage";
 import TrainerProfilePage from "./pages/trainer/TrainerProfilePage";
+import ClientRoutinesPage from "./pages/client/ClientRoutinesPage";
+import ClientRoutineDetailPage from "./pages/client/ClientRoutineDetailPage";
 
 export default function App() {
   return (
@@ -112,6 +115,7 @@ export default function App() {
           <Route path="categories" element={<AdminCategoriesPage />} />
           <Route path="about" element={<AdminAboutPage />} />
           <Route path="users" element={<AdminUsersPage />} />
+          <Route path="/admin/routines" element={<AdminRoutinesPage />} />
         </Route>
       </Route>
 
@@ -133,6 +137,7 @@ export default function App() {
           <Route path="rutinas" element={<TrainerRoutinesPage />} />
           <Route path="agenda" element={<TrainerAgendaPage />} />
           <Route path="perfil" element={<TrainerProfilePage />} />
+          
         </Route>
       </Route>
 
@@ -143,6 +148,9 @@ export default function App() {
           <Route path="suscripcion" element={<ClientSubscriptionPage />} />
           <Route path="pagos" element={<ClientPaymentsPage />} />
           <Route path="configuracion" element={<Configuracion2FA />} />
+          <Route path="/cliente/invitaciones" element={<ClientInvitationsPage />} />
+          <Route path="/cliente/rutinas" element={<ClientRoutinesPage />} />
+          <Route path="/cliente/rutinas/:id" element={<ClientRoutineDetailPage />} />
         </Route>
       </Route>
 
