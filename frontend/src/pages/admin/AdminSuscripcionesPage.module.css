@@ -241,6 +241,8 @@
   width: 100%;
   min-width: 850px;
   border-collapse: collapse;
+  table-layout: fixed;
+  min-width: 920px;
 }
 
 .adminTable th,
