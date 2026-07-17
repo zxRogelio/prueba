@@ -9,6 +9,10 @@ import {
   SubscriptionGroup,
   SubscriptionGroupMember,
 } from "../models/index.js";
+import { createOrder } from "../services/orderService.js";
+import { registerManualPayment } from "../services/paymentService.js";
+import { activateMembershipsFromOrder } from "../services/membershipActivationService.js";
+import { createReceipt } from "../services/receiptService.js";
 
 function toDateOnly(date) {
   return date.toISOString().slice(0, 10);
@@ -18,13 +22,6 @@ function addDays(date, days) {
   const result = new Date(date);
   result.setDate(result.getDate() + Number(days));
   return result;
-}
-
-function createReceiptFolio() {
-  const now = new Date();
-  const datePart = now.toISOString().slice(0, 10).replaceAll("-", "");
-  const randomPart = Math.random().toString(36).slice(2, 8).toUpperCase();
-  return `TSG-${datePart}-${randomPart}`;
 }
 
 function normalizeEmail(email = "") {
@@ -42,7 +39,11 @@ async function findClientByEmail(email, transaction = null) {
   if (!user) return null;
 
   if (user.role !== "cliente") {
-    throw new Error(`El correo ${email} existe, pero no pertenece a un cliente`);
+    const error = new Error(
+      `El correo ${email} existe, pero no pertenece a un cliente`
+    );
+    error.statusCode = 400;
+    throw error;
   }
 
   return user;
@@ -121,9 +122,11 @@ async function validateUserCanReceiveMembership(
   );
 
   if (hasActiveSubscription) {
-    throw new Error(
+    const error = new Error(
       "Este usuario ya tiene una membresía activa. No se puede asignar otra."
     );
+    error.statusCode = 400;
+    throw error;
   }
 
   const isInOpenGroup = await userIsInOpenGroup(
@@ -133,9 +136,11 @@ async function validateUserCanReceiveMembership(
   );
 
   if (isInOpenGroup) {
-    throw new Error(
+    const error = new Error(
       "Este usuario ya pertenece a otro paquete pendiente o activo."
     );
+    error.statusCode = 400;
+    throw error;
   }
 }
 
@@ -151,6 +156,447 @@ async function groupHasEnoughAcceptedMembers(groupId, memberLimit, transaction) 
   });
 
   return members.length >= Number(memberLimit);
+}
+
+function controllerStatusCode(error) {
+  const statusCode = Number(error.statusCode);
+  return Number.isInteger(statusCode) && statusCode >= 400 && statusCode < 600
+    ? statusCode
+    : 500;
+}
+
+function getOrderItems(order) {
+  return order.get?.("items") || order.items || [];
+}
+
+async function createManualMembershipPaymentUsingServices(req, res) {
+  const transaction = await sequelize.transaction();
+
+  try {
+    if (req.user?.role !== "administrador") {
+      await transaction.rollback();
+      return res.status(403).json({
+        ok: false,
+        error: "Solo un administrador puede registrar pagos manuales",
+      });
+    }
+
+    const adminId = req.user.id;
+    const {
+      userId,
+      planId,
+      method = "cash",
+      provider = null,
+      reference = "",
+      notes = "",
+      startsAt,
+    } = req.body;
+
+    if (!userId || !planId) {
+      await transaction.rollback();
+      return res.status(400).json({
+        ok: false,
+        error: "El cliente y el plan son obligatorios",
+      });
+    }
+
+    const allowedMethods = ["cash", "transfer", "card_terminal"];
+
+    if (!allowedMethods.includes(method)) {
+      await transaction.rollback();
+      return res.status(400).json({
+        ok: false,
+        error:
+          "Metodo de pago invalido. Usa cash, transfer o card_terminal para pagos manuales.",
+      });
+    }
+
+    const client = await User.findByPk(userId, { transaction });
+
+    if (!client) {
+      await transaction.rollback();
+      return res.status(404).json({
+        ok: false,
+        error: "Cliente no encontrado",
+      });
+    }
+
+    if (client.role !== "cliente") {
+      await transaction.rollback();
+      return res.status(400).json({
+        ok: false,
+        error: "Solo se pueden activar membresias a usuarios con rol cliente",
+      });
+    }
+
+    const isInOpenGroup = await userIsInOpenGroup(userId, transaction);
+
+    if (isInOpenGroup) {
+      await transaction.rollback();
+      return res.status(400).json({
+        ok: false,
+        error: "Este usuario ya pertenece a otro paquete pendiente o activo.",
+      });
+    }
+
+    const plan = await MembershipPlan.findOne({
+      where: {
+        id: planId,
+        isActive: true,
+      },
+      transaction,
+    });
+
+    if (!plan) {
+      await transaction.rollback();
+      return res.status(404).json({
+        ok: false,
+        error: "Plan de membresia no encontrado o inactivo",
+      });
+    }
+
+    if (plan.type === "group") {
+      await transaction.rollback();
+      return res.status(400).json({
+        ok: false,
+        error:
+          "Este endpoint es solo para membresias individuales. Usa el endpoint de paquetes grupales.",
+      });
+    }
+
+    const startDate = startsAt ? new Date(startsAt) : new Date();
+
+    if (Number.isNaN(startDate.getTime())) {
+      await transaction.rollback();
+      return res.status(400).json({
+        ok: false,
+        error: "La fecha de inicio no es valida",
+      });
+    }
+
+    const order = await createOrder({
+      userId,
+      channel: "reception",
+      status: "pending_payment",
+      createdBy: adminId,
+      notes,
+      metadata: {
+        source: "admin_manual",
+        membershipFlow: "individual",
+      },
+      items: [
+        {
+          itemType: "membership",
+          membershipPlanId: plan.id,
+          quantity: 1,
+        },
+      ],
+      transaction,
+    });
+    const payment = await registerManualPayment({
+      orderId: order.id,
+      method,
+      provider,
+      reference,
+      notes,
+      metadata: {
+        source: "admin_manual",
+        membershipFlow: "individual",
+      },
+      createdBy: adminId,
+      transaction,
+    });
+    const activation = await activateMembershipsFromOrder({
+      orderId: order.id,
+      paymentId: payment.id,
+      createdBy: adminId,
+      startsAt: startDate,
+      transaction,
+    });
+    const activationResult = activation.results.find(
+      (result) => result.itemType === "membership"
+    );
+
+    if (!activationResult?.subscription) {
+      throw new Error("No se pudo activar la membresia de la orden.");
+    }
+
+    const receipt = await createReceipt({
+      orderId: order.id,
+      paymentId: payment.id,
+      createdBy: adminId,
+      metadata: {
+        clientEmail: client.email,
+        planName: plan.name,
+        amount: plan.price,
+        method,
+        source: "admin_manual",
+      },
+      transaction,
+    });
+    const updatedPayment = await Payment.findByPk(payment.id, { transaction });
+
+    await transaction.commit();
+
+    return res.status(201).json({
+      ok: true,
+      message: activationResult.created
+        ? "Pago registrado y membresia activada correctamente"
+        : "Pago registrado; la membresia ya estaba activada para esta orden",
+      order,
+      payment: updatedPayment || payment,
+      subscription: activationResult.subscription,
+      receipt,
+    });
+  } catch (error) {
+    await transaction.rollback();
+    const statusCode = controllerStatusCode(error);
+
+    if (statusCode >= 500) {
+      console.error("Error registrando pago manual:", error);
+    }
+
+    return res.status(statusCode).json({
+      ok: false,
+      error: error.message || "Error al registrar pago manual de membresia",
+    });
+  }
+}
+
+async function createManualGroupMembershipPaymentUsingServices(req, res) {
+  const transaction = await sequelize.transaction();
+
+  try {
+    if (req.user?.role !== "administrador") {
+      await transaction.rollback();
+      return res.status(403).json({
+        ok: false,
+        error: "Solo un administrador puede registrar pagos manuales",
+      });
+    }
+
+    const adminId = req.user.id;
+    const {
+      ownerUserId,
+      planId,
+      method = "cash",
+      provider = null,
+      reference = "",
+      notes = "",
+      startsAt,
+      memberEmails = [],
+    } = req.body;
+
+    if (!ownerUserId || !planId) {
+      await transaction.rollback();
+      return res.status(400).json({
+        ok: false,
+        error: "El titular del paquete y el plan son obligatorios",
+      });
+    }
+
+    const allowedMethods = ["cash", "transfer", "card_terminal"];
+
+    if (!allowedMethods.includes(method)) {
+      await transaction.rollback();
+      return res.status(400).json({
+        ok: false,
+        error:
+          "Metodo de pago invalido. Usa cash, transfer o card_terminal para pagos manuales.",
+      });
+    }
+
+    const owner = await User.findByPk(ownerUserId, { transaction });
+
+    if (!owner) {
+      await transaction.rollback();
+      return res.status(404).json({
+        ok: false,
+        error: "Titular del paquete no encontrado",
+      });
+    }
+
+    if (owner.role !== "cliente") {
+      await transaction.rollback();
+      return res.status(400).json({
+        ok: false,
+        error: "El titular del paquete debe ser un cliente",
+      });
+    }
+
+    await validateUserCanReceiveMembership(ownerUserId, transaction);
+
+    const plan = await MembershipPlan.findOne({
+      where: {
+        id: planId,
+        isActive: true,
+      },
+      transaction,
+    });
+
+    if (!plan) {
+      await transaction.rollback();
+      return res.status(404).json({
+        ok: false,
+        error: "Plan de membresia no encontrado o inactivo",
+      });
+    }
+
+    if (plan.type !== "group") {
+      await transaction.rollback();
+      return res.status(400).json({
+        ok: false,
+        error: "Este endpoint es solo para paquetes grupales",
+      });
+    }
+
+    const ownerEmail = normalizeEmail(owner.email);
+    const requestedMemberEmails = Array.isArray(memberEmails) ? memberEmails : [];
+    const cleanEmails = [...new Set(requestedMemberEmails.map(normalizeEmail))]
+      .filter(Boolean)
+      .filter((email) => email !== ownerEmail);
+    const maxInvitedEmails = Number(plan.maxPeople) - 1;
+
+    if (cleanEmails.length > maxInvitedEmails) {
+      await transaction.rollback();
+      return res.status(400).json({
+        ok: false,
+        error: `Este paquete solo permite agregar ${maxInvitedEmails} integrantes ademas del titular`,
+      });
+    }
+
+    for (const email of cleanEmails) {
+      const invitedUser = await findClientByEmail(email, transaction);
+
+      if (invitedUser) {
+        await validateUserCanReceiveMembership(invitedUser.id, transaction);
+      }
+    }
+
+    const startDate = startsAt ? new Date(startsAt) : new Date();
+
+    if (Number.isNaN(startDate.getTime())) {
+      await transaction.rollback();
+      return res.status(400).json({
+        ok: false,
+        error: "La fecha de inicio no es valida",
+      });
+    }
+
+    const order = await createOrder({
+      userId: ownerUserId,
+      channel: "reception",
+      status: "pending_payment",
+      createdBy: adminId,
+      notes,
+      metadata: {
+        source: "admin_manual",
+        membershipFlow: "group",
+      },
+      items: [
+        {
+          itemType: "group_membership",
+          membershipPlanId: plan.id,
+          quantity: 1,
+          metadata: {
+            memberEmails: cleanEmails,
+          },
+        },
+      ],
+      transaction,
+    });
+    const groupOrderItem = getOrderItems(order).find(
+      (item) => item.itemType === "group_membership"
+    );
+
+    if (!groupOrderItem) {
+      throw new Error("No se pudo crear el item de paquete grupal.");
+    }
+
+    const payment = await registerManualPayment({
+      orderId: order.id,
+      method,
+      provider,
+      reference,
+      notes,
+      metadata: {
+        source: "admin_manual",
+        membershipFlow: "group",
+      },
+      createdBy: adminId,
+      transaction,
+    });
+    const activation = await activateMembershipsFromOrder({
+      orderId: order.id,
+      paymentId: payment.id,
+      createdBy: adminId,
+      startsAt: startDate,
+      groupMemberEmailsByOrderItemId: {
+        [groupOrderItem.id]: cleanEmails,
+      },
+      transaction,
+    });
+    const groupResult = activation.results.find(
+      (result) => result.itemType === "group_membership"
+    );
+
+    if (!groupResult?.group) {
+      throw new Error("No se pudo crear el paquete grupal desde la orden.");
+    }
+
+    const receipt = await createReceipt({
+      orderId: order.id,
+      paymentId: payment.id,
+      createdBy: adminId,
+      metadata: {
+        ownerEmail: owner.email,
+        planName: plan.name,
+        amount: plan.price,
+        method,
+        provider,
+        source: "admin_manual",
+        groupId: groupResult.group.id,
+      },
+      transaction,
+    });
+    const updatedPayment = await Payment.findByPk(payment.id, { transaction });
+
+    await transaction.commit();
+
+    return res.status(201).json({
+      ok: true,
+      message:
+        "Pago de paquete registrado. El grupo quedo pendiente de aceptacion/aprobacion.",
+      order,
+      payment: updatedPayment || payment,
+      group: groupResult.group,
+      ownerMember: groupResult.ownerMember
+        ? {
+            userId: owner.id,
+            invitedEmail: ownerEmail,
+            status: groupResult.ownerMember.status,
+          }
+        : {
+            userId: owner.id,
+            invitedEmail: ownerEmail,
+            status: "accepted",
+          },
+      invitedMembers: groupResult.invitedMembers || [],
+      receipt,
+    });
+  } catch (error) {
+    await transaction.rollback();
+    const statusCode = controllerStatusCode(error);
+
+    if (statusCode >= 500) {
+      console.error("Error registrando paquete grupal:", error);
+    }
+
+    return res.status(statusCode).json({
+      ok: false,
+      error: error.message || "Error al registrar paquete grupal",
+    });
+  }
 }
 
 export async function listMembershipPlans(req, res) {
@@ -295,411 +741,11 @@ export async function listMyMembershipPayments(req, res) {
 }
 
 export async function createManualMembershipPayment(req, res) {
-  const transaction = await sequelize.transaction();
-
-  try {
-    const adminId = req.user.id;
-
-    const {
-      userId,
-      planId,
-      method = "cash",
-      provider = "none",
-      reference = "",
-      notes = "",
-      startsAt,
-    } = req.body;
-
-    if (!userId || !planId) {
-      await transaction.rollback();
-      return res.status(400).json({
-        ok: false,
-        error: "El cliente y el plan son obligatorios",
-      });
-    }
-
-    const allowedMethods = ["cash", "transfer", "card_terminal"];
-
-    if (!allowedMethods.includes(method)) {
-      await transaction.rollback();
-      return res.status(400).json({
-        ok: false,
-        error:
-          "Método de pago inválido. Usa cash, transfer o card_terminal para pagos manuales.",
-      });
-    }
-
-    const client = await User.findByPk(userId, { transaction });
-
-    if (!client) {
-      await transaction.rollback();
-      return res.status(404).json({
-        ok: false,
-        error: "Cliente no encontrado",
-      });
-    }
-
-    if (client.role !== "cliente") {
-      await transaction.rollback();
-      return res.status(400).json({
-        ok: false,
-        error: "Solo se pueden activar membresías a usuarios con rol cliente",
-      });
-    }
-
-    await validateUserCanReceiveMembership(userId, transaction);
-
-    const plan = await MembershipPlan.findOne({
-      where: {
-        id: planId,
-        isActive: true,
-      },
-      transaction,
-    });
-
-    if (!plan) {
-      await transaction.rollback();
-      return res.status(404).json({
-        ok: false,
-        error: "Plan de membresía no encontrado o inactivo",
-      });
-    }
-
-    if (plan.type === "group") {
-      await transaction.rollback();
-      return res.status(400).json({
-        ok: false,
-        error:
-          "Este endpoint es solo para membresías individuales. Usa el endpoint de paquetes grupales.",
-      });
-    }
-
-    const startDate = startsAt ? new Date(startsAt) : new Date();
-
-    if (Number.isNaN(startDate.getTime())) {
-      await transaction.rollback();
-      return res.status(400).json({
-        ok: false,
-        error: "La fecha de inicio no es válida",
-      });
-    }
-
-    const endDate = addDays(startDate, plan.durationDays);
-
-    const payment = await Payment.create(
-      {
-        userId,
-        planId,
-        paymentType: "membership",
-        amount: plan.price,
-        method,
-        source: "admin_manual",
-        provider,
-        status: "paid",
-        reference,
-        notes,
-        paidAt: new Date(),
-        createdBy: adminId,
-      },
-      { transaction }
-    );
-
-    const subscription = await UserSubscription.create(
-      {
-        userId,
-        planId,
-        paymentId: payment.id,
-        startsAt: toDateOnly(startDate),
-        endsAt: toDateOnly(endDate),
-        status: "active",
-        source: "admin_manual",
-        autoRenew: false,
-        createdBy: adminId,
-        notes,
-      },
-      { transaction }
-    );
-
-    await payment.update(
-      {
-        subscriptionId: subscription.id,
-      },
-      { transaction }
-    );
-
-    const receipt = await Receipt.create(
-      {
-        paymentId: payment.id,
-        folio: createReceiptFolio(),
-        status: "issued",
-        issuedAt: new Date(),
-        metadata: {
-          clientEmail: client.email,
-          planName: plan.name,
-          amount: plan.price,
-          method,
-          source: "admin_manual",
-        },
-        createdBy: adminId,
-      },
-      { transaction }
-    );
-
-    await transaction.commit();
-
-    return res.status(201).json({
-      ok: true,
-      message: "Pago registrado y membresía activada correctamente",
-      payment,
-      subscription,
-      receipt,
-    });
-  } catch (error) {
-    await transaction.rollback();
-    console.error("❌ Error registrando pago manual:", error);
-
-    return res.status(500).json({
-      ok: false,
-      error: error.message || "Error al registrar pago manual de membresía",
-    });
-  }
+  return createManualMembershipPaymentUsingServices(req, res);
 }
 
 export async function createManualGroupMembershipPayment(req, res) {
-  const transaction = await sequelize.transaction();
-
-  try {
-    const adminId = req.user.id;
-
-    const {
-      ownerUserId,
-      planId,
-      method = "cash",
-      provider = "none",
-      reference = "",
-      notes = "",
-      startsAt,
-      memberEmails = [],
-    } = req.body;
-
-    if (!ownerUserId || !planId) {
-      await transaction.rollback();
-      return res.status(400).json({
-        ok: false,
-        error: "El titular del paquete y el plan son obligatorios",
-      });
-    }
-
-    const allowedMethods = ["cash", "transfer", "card_terminal"];
-
-    if (!allowedMethods.includes(method)) {
-      await transaction.rollback();
-      return res.status(400).json({
-        ok: false,
-        error:
-          "Método de pago inválido. Usa cash, transfer o card_terminal para pagos manuales.",
-      });
-    }
-
-    const owner = await User.findByPk(ownerUserId, { transaction });
-
-    if (!owner) {
-      await transaction.rollback();
-      return res.status(404).json({
-        ok: false,
-        error: "Titular del paquete no encontrado",
-      });
-    }
-
-    if (owner.role !== "cliente") {
-      await transaction.rollback();
-      return res.status(400).json({
-        ok: false,
-        error: "El titular del paquete debe ser un cliente",
-      });
-    }
-
-    await validateUserCanReceiveMembership(ownerUserId, transaction);
-
-    const plan = await MembershipPlan.findOne({
-      where: {
-        id: planId,
-        isActive: true,
-      },
-      transaction,
-    });
-
-    if (!plan) {
-      await transaction.rollback();
-      return res.status(404).json({
-        ok: false,
-        error: "Plan de membresía no encontrado o inactivo",
-      });
-    }
-
-    if (plan.type !== "group") {
-      await transaction.rollback();
-      return res.status(400).json({
-        ok: false,
-        error: "Este endpoint es solo para paquetes grupales",
-      });
-    }
-
-    const ownerEmail = normalizeEmail(owner.email);
-
-    const cleanEmails = [...new Set(memberEmails.map(normalizeEmail))]
-      .filter(Boolean)
-      .filter((email) => email !== ownerEmail);
-
-    const maxInvitedEmails = Number(plan.maxPeople) - 1;
-
-    if (cleanEmails.length > maxInvitedEmails) {
-      await transaction.rollback();
-      return res.status(400).json({
-        ok: false,
-        error: `Este paquete solo permite agregar ${maxInvitedEmails} integrantes además del titular`,
-      });
-    }
-
-    const startDate = startsAt ? new Date(startsAt) : new Date();
-
-    if (Number.isNaN(startDate.getTime())) {
-      await transaction.rollback();
-      return res.status(400).json({
-        ok: false,
-        error: "La fecha de inicio no es válida",
-      });
-    }
-
-    const endDate = addDays(startDate, plan.durationDays);
-
-    const payment = await Payment.create(
-      {
-        userId: ownerUserId,
-        planId,
-        paymentType: "membership",
-        amount: plan.price,
-        method,
-        source: "admin_manual",
-        provider,
-        status: "paid",
-        reference,
-        notes,
-        paidAt: new Date(),
-        createdBy: adminId,
-      },
-      { transaction }
-    );
-
-    const group = await SubscriptionGroup.create(
-      {
-        planId,
-        ownerUserId,
-        paymentId: payment.id,
-        memberLimit: plan.maxPeople,
-        totalAmount: plan.price,
-        pricePerPerson: plan.pricePerPerson,
-        startsAt: toDateOnly(startDate),
-        endsAt: toDateOnly(endDate),
-        status:
-          cleanEmails.length + 1 >= Number(plan.maxPeople)
-            ? "pending_admin_approval"
-            : "pending_members",
-        createdBy: adminId,
-        notes,
-      },
-      { transaction }
-    );
-
-    await payment.update(
-      {
-        groupId: group.id,
-      },
-      { transaction }
-    );
-
-    await SubscriptionGroupMember.create(
-      {
-        groupId: group.id,
-        userId: owner.id,
-        invitedEmail: ownerEmail,
-        role: "owner",
-        status: "accepted",
-        priceShare: plan.pricePerPerson,
-        acceptedAt: new Date(),
-      },
-      { transaction }
-    );
-
-    const createdMembers = [];
-
-    for (const email of cleanEmails) {
-      const invitedUser = await findClientByEmail(email, transaction);
-
-      if (invitedUser) {
-        await validateUserCanReceiveMembership(invitedUser.id, transaction);
-      }
-
-      const member = await SubscriptionGroupMember.create(
-        {
-          groupId: group.id,
-          userId: invitedUser?.id || null,
-          invitedEmail: email,
-          role: "member",
-          status: "pending_invitation",
-          priceShare: plan.pricePerPerson,
-        },
-        { transaction }
-      );
-
-      createdMembers.push(member);
-    }
-
-    const receipt = await Receipt.create(
-      {
-        paymentId: payment.id,
-        folio: createReceiptFolio(),
-        status: "issued",
-        issuedAt: new Date(),
-        metadata: {
-          ownerEmail: owner.email,
-          planName: plan.name,
-          amount: plan.price,
-          method,
-          provider,
-          source: "admin_manual",
-          groupId: group.id,
-        },
-        createdBy: adminId,
-      },
-      { transaction }
-    );
-
-    await transaction.commit();
-
-    return res.status(201).json({
-      ok: true,
-      message:
-        "Pago de paquete registrado. El grupo quedó pendiente de aceptación/aprobación.",
-      payment,
-      group,
-      ownerMember: {
-        userId: owner.id,
-        invitedEmail: ownerEmail,
-        status: "accepted",
-      },
-      invitedMembers: createdMembers,
-      receipt,
-    });
-  } catch (error) {
-    await transaction.rollback();
-    console.error("❌ Error registrando paquete grupal:", error);
-
-    return res.status(500).json({
-      ok: false,
-      error: error.message || "Error al registrar paquete grupal",
-    });
-  }
+  return createManualGroupMembershipPaymentUsingServices(req, res);
 }
 
 export async function addMemberToMyGroup(req, res) {

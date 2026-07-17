@@ -6,6 +6,7 @@ import { AboutPage } from "./AboutPage.js";
 import { AboutValue } from "./AboutValue.js";
 import { AboutTeamMember } from "./AboutTeamMember.js";
 import { User } from "./User.js";
+import { Session } from "./Session.js";
 import { UserProfile } from "./UserProfile.js";
 import { UserWeightHistory } from "./UserWeightHistory.js";
 import { UserCalorieHistory } from "./UserCalorieHistory.js";
@@ -15,11 +16,23 @@ import { TrainerProfile } from "./TrainerProfile.js";
 import { TrainerClient } from "./TrainerClient.js";
 import { TrainerAgendaItem } from "./TrainerAgendaItem.js";
 import { MembershipPlan } from "./MembershipPlan.js";
+import { Cart } from "./Cart.js";
+import { CartItem } from "./CartItem.js";
+import { Order } from "./Order.js";
+import { OrderItem } from "./OrderItem.js";
 import { Payment } from "./Payment.js";
+import { PaymentWebhookEvent } from "./PaymentWebhookEvent.js";
+import { PaymentRefund } from "./PaymentRefund.js";
 import { UserSubscription } from "./UserSubscription.js";
 import { Receipt } from "./Receipt.js";
 import { SubscriptionGroup } from "./SubscriptionGroup.js";
 import { SubscriptionGroupMember } from "./SubscriptionGroupMember.js";
+import { BehaviorEvent } from "./BehaviorEvent.js";
+import { InventoryMovement } from "./InventoryMovement.js";
+import { ProductPriceHistory } from "./ProductPriceHistory.js";
+import { Promotion } from "./Promotion.js";
+import { PromotionProduct } from "./PromotionProduct.js";
+import { OrderDiscount } from "./OrderDiscount.js";
 
 // ✅ Category(id_categoria) <-> Brand(categoryId)
 Category.hasMany(Brand, {
@@ -219,6 +232,217 @@ TrainerAgendaItem.belongsTo(User, {
 // MEMBERSHIPS / PAYMENTS
 // ===============================
 
+// USER -> CARTS
+User.hasMany(Cart, {
+  foreignKey: "userId",
+  sourceKey: "id",
+  as: "carts",
+});
+
+Cart.belongsTo(User, {
+  foreignKey: "userId",
+  targetKey: "id",
+  as: "user",
+});
+
+// CART -> ORDER
+Cart.belongsTo(Order, {
+  foreignKey: "convertedOrderId",
+  targetKey: "id",
+  as: "convertedOrder",
+});
+
+Order.hasOne(Cart, {
+  foreignKey: "convertedOrderId",
+  sourceKey: "id",
+  as: "sourceCart",
+});
+
+// CART -> ITEMS
+Cart.hasMany(CartItem, {
+  foreignKey: "cartId",
+  sourceKey: "id",
+  as: "items",
+  onDelete: "CASCADE",
+  hooks: true,
+});
+
+CartItem.belongsTo(Cart, {
+  foreignKey: "cartId",
+  targetKey: "id",
+  as: "cart",
+});
+
+// CART ITEM -> PRODUCT
+Product.hasMany(CartItem, {
+  foreignKey: "productId",
+  sourceKey: "id_producto",
+  as: "cartItems",
+});
+
+CartItem.belongsTo(Product, {
+  foreignKey: "productId",
+  targetKey: "id_producto",
+  as: "product",
+});
+
+// USER -> ORDERS
+User.hasMany(Order, {
+  foreignKey: "userId",
+  sourceKey: "id",
+  as: "customerOrders",
+});
+
+Order.belongsTo(User, {
+  foreignKey: "userId",
+  targetKey: "id",
+  as: "customer",
+});
+
+User.hasMany(Order, {
+  foreignKey: "createdBy",
+  sourceKey: "id",
+  as: "createdOrders",
+});
+
+Order.belongsTo(User, {
+  foreignKey: "createdBy",
+  targetKey: "id",
+  as: "createdByUser",
+});
+
+// ORDER -> ITEMS
+Order.hasMany(OrderItem, {
+  foreignKey: "orderId",
+  sourceKey: "id",
+  as: "items",
+  onDelete: "CASCADE",
+  hooks: true,
+});
+
+OrderItem.belongsTo(Order, {
+  foreignKey: "orderId",
+  targetKey: "id",
+  as: "order",
+});
+
+// ORDER ITEM -> PRODUCT
+Product.hasMany(OrderItem, {
+  foreignKey: "productId",
+  sourceKey: "id_producto",
+  as: "orderItems",
+});
+
+OrderItem.belongsTo(Product, {
+  foreignKey: "productId",
+  targetKey: "id_producto",
+  as: "product",
+});
+
+// ORDER ITEM -> MEMBERSHIP PLAN
+MembershipPlan.hasMany(OrderItem, {
+  foreignKey: "membershipPlanId",
+  sourceKey: "id",
+  as: "orderItems",
+});
+
+OrderItem.belongsTo(MembershipPlan, {
+  foreignKey: "membershipPlanId",
+  targetKey: "id",
+  as: "membershipPlan",
+});
+
+// ORDER ITEM -> USER SUBSCRIPTION
+OrderItem.hasOne(UserSubscription, {
+  foreignKey: "orderItemId",
+  sourceKey: "id",
+  as: "userSubscription",
+});
+
+UserSubscription.belongsTo(OrderItem, {
+  foreignKey: "orderItemId",
+  targetKey: "id",
+  as: "orderItem",
+});
+
+// ORDER ITEM -> SUBSCRIPTION GROUP
+OrderItem.hasOne(SubscriptionGroup, {
+  foreignKey: "orderItemId",
+  sourceKey: "id",
+  as: "subscriptionGroup",
+});
+
+SubscriptionGroup.belongsTo(OrderItem, {
+  foreignKey: "orderItemId",
+  targetKey: "id",
+  as: "orderItem",
+});
+
+// ORDER -> PAYMENTS
+Order.hasMany(Payment, {
+  foreignKey: "orderId",
+  sourceKey: "id",
+  as: "payments",
+});
+
+Payment.belongsTo(Order, {
+  foreignKey: "orderId",
+  targetKey: "id",
+  as: "order",
+});
+
+// PAYMENT -> WEBHOOK EVENTS
+Payment.hasMany(PaymentWebhookEvent, {
+  foreignKey: "paymentId",
+  sourceKey: "id",
+  as: "webhookEvents",
+});
+
+PaymentWebhookEvent.belongsTo(Payment, {
+  foreignKey: "paymentId",
+  targetKey: "id",
+  as: "payment",
+});
+
+// PAYMENT -> REFUNDS
+Payment.hasMany(PaymentRefund, {
+  foreignKey: "paymentId",
+  sourceKey: "id",
+  as: "refunds",
+});
+
+PaymentRefund.belongsTo(Payment, {
+  foreignKey: "paymentId",
+  targetKey: "id",
+  as: "payment",
+});
+
+// ORDER -> PAYMENT REFUNDS
+Order.hasMany(PaymentRefund, {
+  foreignKey: "orderId",
+  sourceKey: "id",
+  as: "refunds",
+});
+
+PaymentRefund.belongsTo(Order, {
+  foreignKey: "orderId",
+  targetKey: "id",
+  as: "order",
+});
+
+// USER -> REQUESTED REFUNDS
+User.hasMany(PaymentRefund, {
+  foreignKey: "requestedBy",
+  sourceKey: "id",
+  as: "requestedPaymentRefunds",
+});
+
+PaymentRefund.belongsTo(User, {
+  foreignKey: "requestedBy",
+  targetKey: "id",
+  as: "requestedByUser",
+});
+
 // USER -> PAYMENTS
 User.hasMany(Payment, {
   foreignKey: "userId",
@@ -297,6 +521,19 @@ Receipt.belongsTo(Payment, {
   foreignKey: "paymentId",
   targetKey: "id",
   as: "payment",
+});
+
+// ORDER -> RECEIPTS
+Order.hasMany(Receipt, {
+  foreignKey: "orderId",
+  sourceKey: "id",
+  as: "receipts",
+});
+
+Receipt.belongsTo(Order, {
+  foreignKey: "orderId",
+  targetKey: "id",
+  as: "order",
 });
 
 // MEMBERSHIP PLAN -> SUBSCRIPTION GROUPS
@@ -381,6 +618,159 @@ UserSubscription.belongsTo(SubscriptionGroup, {
   targetKey: "id",
   as: "group",
 });
+
+// USER / SESSION -> BEHAVIOR EVENTS
+User.hasMany(BehaviorEvent, {
+  foreignKey: "userId",
+  sourceKey: "id",
+  as: "behaviorEvents",
+});
+
+BehaviorEvent.belongsTo(User, {
+  foreignKey: "userId",
+  targetKey: "id",
+  as: "user",
+});
+
+Session.hasMany(BehaviorEvent, {
+  foreignKey: "sessionId",
+  sourceKey: "id",
+  as: "behaviorEvents",
+});
+
+BehaviorEvent.belongsTo(Session, {
+  foreignKey: "sessionId",
+  targetKey: "id",
+  as: "session",
+});
+
+// PRODUCT -> INVENTORY MOVEMENTS
+Product.hasMany(InventoryMovement, {
+  foreignKey: "productId",
+  sourceKey: "id_producto",
+  as: "inventoryMovements",
+});
+
+InventoryMovement.belongsTo(Product, {
+  foreignKey: "productId",
+  targetKey: "id_producto",
+  as: "product",
+});
+
+OrderItem.hasMany(InventoryMovement, {
+  foreignKey: "orderItemId",
+  sourceKey: "id",
+  as: "inventoryMovements",
+});
+
+InventoryMovement.belongsTo(OrderItem, {
+  foreignKey: "orderItemId",
+  targetKey: "id",
+  as: "orderItem",
+});
+
+User.hasMany(InventoryMovement, {
+  foreignKey: "createdBy",
+  sourceKey: "id",
+  as: "createdInventoryMovements",
+});
+
+InventoryMovement.belongsTo(User, {
+  foreignKey: "createdBy",
+  targetKey: "id",
+  as: "createdByUser",
+});
+
+// PRODUCT -> PRICE HISTORY
+Product.hasMany(ProductPriceHistory, {
+  foreignKey: "productId",
+  sourceKey: "id_producto",
+  as: "priceHistory",
+});
+
+ProductPriceHistory.belongsTo(Product, {
+  foreignKey: "productId",
+  targetKey: "id_producto",
+  as: "product",
+});
+
+User.hasMany(ProductPriceHistory, {
+  foreignKey: "changedBy",
+  sourceKey: "id",
+  as: "changedProductPrices",
+});
+
+ProductPriceHistory.belongsTo(User, {
+  foreignKey: "changedBy",
+  targetKey: "id",
+  as: "changedByUser",
+});
+
+// PROMOTIONS -> PRODUCTS
+Promotion.hasMany(PromotionProduct, {
+  foreignKey: "promotionId",
+  sourceKey: "id",
+  as: "products",
+  onDelete: "CASCADE",
+  hooks: true,
+});
+
+PromotionProduct.belongsTo(Promotion, {
+  foreignKey: "promotionId",
+  targetKey: "id",
+  as: "promotion",
+});
+
+Product.hasMany(PromotionProduct, {
+  foreignKey: "productId",
+  sourceKey: "id_producto",
+  as: "promotionLinks",
+});
+
+PromotionProduct.belongsTo(Product, {
+  foreignKey: "productId",
+  targetKey: "id_producto",
+  as: "product",
+});
+
+// ORDER DISCOUNTS
+Order.hasMany(OrderDiscount, {
+  foreignKey: "orderId",
+  sourceKey: "id",
+  as: "discounts",
+  onDelete: "CASCADE",
+  hooks: true,
+});
+
+OrderDiscount.belongsTo(Order, {
+  foreignKey: "orderId",
+  targetKey: "id",
+  as: "order",
+});
+
+OrderItem.hasMany(OrderDiscount, {
+  foreignKey: "orderItemId",
+  sourceKey: "id",
+  as: "discounts",
+});
+
+OrderDiscount.belongsTo(OrderItem, {
+  foreignKey: "orderItemId",
+  targetKey: "id",
+  as: "orderItem",
+});
+
+Promotion.hasMany(OrderDiscount, {
+  foreignKey: "promotionId",
+  sourceKey: "id",
+  as: "orderDiscounts",
+});
+
+OrderDiscount.belongsTo(Promotion, {
+  foreignKey: "promotionId",
+  targetKey: "id",
+  as: "promotion",
+});
 export {
   Brand,
   Category,
@@ -390,6 +780,7 @@ export {
   AboutValue,
   AboutTeamMember,
   User,
+  Session,
   UserProfile,
   UserWeightHistory,
   UserCalorieHistory,
@@ -399,9 +790,21 @@ export {
   TrainerClient,
   TrainerAgendaItem,
   MembershipPlan,
+  Cart,
+  CartItem,
+  Order,
+  OrderItem,
   Payment,
+  PaymentWebhookEvent,
+  PaymentRefund,
   UserSubscription,
   Receipt,
   SubscriptionGroup,
   SubscriptionGroupMember,
+  BehaviorEvent,
+  InventoryMovement,
+  ProductPriceHistory,
+  Promotion,
+  PromotionProduct,
+  OrderDiscount,
 };

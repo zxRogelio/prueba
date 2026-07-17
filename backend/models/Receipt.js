@@ -15,6 +15,11 @@ export const Receipt = sequelize.define(
       allowNull: false,
     },
 
+    orderId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+    },
+
     folio: {
       type: DataTypes.STRING(80),
       allowNull: false,
@@ -57,6 +62,9 @@ export const Receipt = sequelize.define(
     indexes: [
       {
         fields: ["paymentId"],
+      },
+      {
+        fields: ["orderId"],
       },
       {
         fields: ["folio"],

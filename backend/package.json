@@ -6,7 +6,14 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon --config nodemon.json index.js",
-    "monitor:postgres": "node scripts/postgresMonitor.js"
+    "monitor:postgres": "node scripts/postgresMonitor.js",
+    "migrate": "node scripts/migrate.js up",
+    "migrate:up": "node scripts/migrate.js up",
+    "migrate:down": "node scripts/migrate.js down",
+    "migrate:status": "node scripts/migrate.js status",
+    "backfill:legacy-membership-orders": "node scripts/backfillLegacyMembershipOrders.js",
+    "backfill:legacy-membership-orders:rollback-test": "node scripts/backfillLegacyMembershipOrders.js --rollback-test",
+    "backfill:legacy-membership-orders:apply": "node scripts/backfillLegacyMembershipOrders.js --apply"
   },
   "keywords": [],
   "author": "",

@@ -1,4 +1,4 @@
-import { DataTypes } from "sequelize";
+import { DataTypes, Op } from "sequelize";
 import { sequelize } from "../config/sequelize.js";
 
 export const UserSubscription = sequelize.define(
@@ -21,6 +21,11 @@ export const UserSubscription = sequelize.define(
     },
 
     paymentId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+    },
+
+    orderItemId: {
       type: DataTypes.UUID,
       allowNull: true,
     },
@@ -94,6 +99,15 @@ export const UserSubscription = sequelize.define(
       },
       {
         fields: ["paymentId"],
+      },
+      {
+        fields: ["orderItemId"],
+        unique: true,
+        where: {
+          orderItemId: {
+            [Op.ne]: null,
+          },
+        },
       },
       {
         fields: ["groupId"],
