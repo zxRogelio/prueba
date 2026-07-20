@@ -294,8 +294,6 @@ const ensurePgDumpAvailable = async () => {
 const getPsqlBin = () => "psql";
 
 const getRestoreGuide = ({ filename, mode, scope, schema, table }) => {
-  const { dbName, dbUser, dbHost, dbPort } = getDbConfig();
-
   return {
     type:
       mode === "data-only"
@@ -309,8 +307,8 @@ const getRestoreGuide = ({ filename, mode, scope, schema, table }) => {
         : "El respaldo corresponde a la base completa o a múltiples tablas.",
     ],
     commands: {
-      restoreSameDatabase: `${getPsqlBin()} "postgresql://${dbUser}@${dbHost}:${dbPort}/${dbName}?sslmode=require" -f "${filename}"`,
-      restoreOtherDatabase: `${getPsqlBin()} "postgresql://${dbUser}@${dbHost}:${dbPort}/TU_BASE_DESTINO?sslmode=require" -f "${filename}"`,
+      restoreSameDatabase: `${getPsqlBin()} "$DATABASE_URL_RUNTIME" -f "${filename}"`,
+      restoreOtherDatabase: `${getPsqlBin()} "$DATABASE_URL_DESTINO" -f "${filename}"`,
     },
   };
 };
