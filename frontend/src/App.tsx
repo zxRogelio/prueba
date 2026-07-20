@@ -6,6 +6,7 @@ import RegisterPage from "./pages/auth/RegisterPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import PaymentPage from "./pages/PaymentPage";
 import ConfirmationPage from "./pages/ConfirmationPage";
+import PagoResultadoPage from "./pages/PagoResultadoPage";
 import HomePage from "./pages/visitor/HomePage";
 import CatalogePage from "./pages/visitor/CatalogePage";
 import CatalogProductPage from "./pages/visitor/CatalogProductPage";
@@ -74,6 +75,7 @@ export default function App() {
 
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/payment" element={<PaymentPage />} />
+        <Route path="/pago/resultado" element={<PagoResultadoPage />} />
         <Route path="/confirmation" element={<ConfirmationPage />} />
 
         <Route path="/login" element={<LoginPage />} />

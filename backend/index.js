@@ -26,6 +26,7 @@ import trainerClientRoutes from "./routes/trainer/clientRoutes.js";
 import trainerAgendaRoutes from "./routes/trainer/agendaRoutes.js";
 import trainerProfileRoutes from "./routes/trainer/profileRoutes.js";
 import membershipRoutes from "./routes/membershipRoutes.js";
+import checkoutRoutes from "./routes/checkoutRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import clientRoutineRoutes from "./routes/client/routineRoutes.js";
@@ -60,6 +61,7 @@ app.use("/api/trainer/clients", trainerClientRoutes);
 app.use("/api/trainer/agenda", trainerAgendaRoutes);
 app.use("/api/trainer/profile", trainerProfileRoutes);
 app.use("/api/memberships", membershipRoutes);
+app.use("/api", checkoutRoutes);
 app.use("/api", orderRoutes);
 app.use("/api", paymentRoutes);
 app.use("/api/client/routines", clientRoutineRoutes);
@@ -82,8 +84,12 @@ async function bootstrap() {
     await sequelize.authenticate();
     console.log("✅ Conectado a PostgreSQL");
 
-    await sequelize.sync();
-    console.log("✅ Tablas sincronizadas");
+    if (String(process.env.SEQUELIZE_SYNC_ON_START || "").toLowerCase() === "true") {
+      await sequelize.sync();
+      console.log("✅ Tablas sincronizadas");
+    } else {
+      console.log("✅ Tablas gestionadas por migraciones");
+    }
 
     await ensureDatabaseSchema();
     await initializeBackupScheduler();

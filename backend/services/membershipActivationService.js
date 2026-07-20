@@ -10,11 +10,19 @@ import {
   User,
   UserSubscription,
 } from "../models/index.js";
+import {
+  recordMembershipActivationEvents,
+  recordSubscriptionCancellation,
+} from "./subscriptionEventService.js";
 
 function serviceError(message, statusCode = 400) {
   const error = new Error(message);
   error.statusCode = statusCode;
   return error;
+}
+
+function serviceErrorWithDetails(message, statusCode = 400, details = {}) {
+  return Object.assign(serviceError(message, statusCode), details);
 }
 
 async function withTransaction(transaction, callback) {
@@ -84,6 +92,98 @@ async function getActiveSubscription(userId, transaction) {
       },
     },
     order: [["endsAt", "DESC"]],
+    transaction,
+    lock: transaction.LOCK.UPDATE,
+  });
+}
+
+async function getCurrentActiveSubscription(userId, transaction) {
+  const today = toDateOnly(new Date());
+
+  return UserSubscription.findOne({
+    where: {
+      userId,
+      status: "active",
+      startsAt: {
+        [Op.lte]: today,
+      },
+      endsAt: {
+        [Op.gte]: today,
+      },
+    },
+    transaction,
+    lock: transaction.LOCK.UPDATE,
+  });
+}
+
+async function userIsInOpenGroup(userId, transaction, ignoreGroupId = null) {
+  const groupWhere = {
+    status: {
+      [Op.in]: ["pending_members", "pending_admin_approval", "active"],
+    },
+  };
+
+  if (ignoreGroupId) {
+    groupWhere.id = {
+      [Op.ne]: ignoreGroupId,
+    };
+  }
+
+  const groupMember = await SubscriptionGroupMember.findOne({
+    where: {
+      userId,
+      status: {
+        [Op.in]: ["pending_invitation", "accepted", "approved", "active"],
+      },
+    },
+    include: [
+      {
+        model: SubscriptionGroup,
+        as: "group",
+        where: groupWhere,
+        required: true,
+      },
+    ],
+    transaction,
+  });
+
+  return Boolean(groupMember);
+}
+
+async function assertUserCanReceiveGroupSubscription({
+  userId,
+  groupId,
+  transaction,
+}) {
+  const activeSubscription = await getCurrentActiveSubscription(
+    userId,
+    transaction
+  );
+
+  if (activeSubscription) {
+    throw serviceError(
+      "Este usuario ya tiene una membresia activa. No se puede asignar otra."
+    );
+  }
+
+  const isInOpenGroup = await userIsInOpenGroup(userId, transaction, groupId);
+
+  if (isInOpenGroup) {
+    throw serviceError(
+      "Este usuario ya pertenece a otro paquete pendiente o activo."
+    );
+  }
+}
+
+async function getLatestSubscription(userId, transaction) {
+  return UserSubscription.findOne({
+    where: {
+      userId,
+    },
+    order: [
+      ["endsAt", "DESC"],
+      ["createdAt", "DESC"],
+    ],
     transaction,
     lock: transaction.LOCK.UPDATE,
   });
@@ -195,10 +295,12 @@ export async function createOrRenewUserSubscription({
   planId,
   orderItemId = null,
   paymentId = null,
+  orderId = null,
   groupId = null,
   source = "admin_manual",
   createdBy = null,
   startsAt = null,
+  endsAt = null,
   notes = null,
   transaction = null,
 }) {
@@ -251,12 +353,23 @@ export async function createOrRenewUserSubscription({
       throw serviceError("Plan de membresia no encontrado o inactivo.", 404);
     }
 
-    const dates = await calculateSubscriptionDates({
-      userId,
-      durationDays: plan.durationDays,
-      requestedStartAt: startsAt,
-      transaction: t,
-    });
+    const latestSubscription = await getLatestSubscription(userId, t);
+    const explicitEndDate = normalizeDate(endsAt, "endsAt");
+    const explicitStartDate = explicitEndDate
+      ? normalizeDate(startsAt, "startsAt") || new Date()
+      : null;
+    const dates = explicitEndDate
+      ? {
+          startsAt: toDateOnly(explicitStartDate),
+          endsAt: toDateOnly(explicitEndDate),
+          extendedFromSubscriptionId: null,
+        }
+      : await calculateSubscriptionDates({
+          userId,
+          durationDays: plan.durationDays,
+          requestedStartAt: startsAt,
+          transaction: t,
+        });
     const subscription = await UserSubscription.create(
       {
         userId,
@@ -274,11 +387,27 @@ export async function createOrRenewUserSubscription({
       },
       { transaction: t }
     );
+    const events = await recordMembershipActivationEvents({
+      subscription,
+      orderId,
+      paymentId,
+      created: true,
+      extendedFromSubscriptionId: dates.extendedFromSubscriptionId,
+      renewedFromSubscriptionId: latestSubscription?.id || null,
+      metadata: {
+        source,
+        orderItemId,
+        groupId,
+      },
+      transaction: t,
+    });
 
     return {
       subscription,
       created: true,
       extendedFromSubscriptionId: dates.extendedFromSubscriptionId,
+      renewedFromSubscriptionId: latestSubscription?.id || null,
+      events,
     };
   });
 }
@@ -296,6 +425,7 @@ async function activateIndividualOrderItem({
     planId: item.membershipPlanId,
     orderItemId: item.id,
     paymentId: payment?.id || null,
+    orderId: order.id,
     source: payment?.source || (order.channel === "online" ? "online_checkout" : "admin_manual"),
     createdBy,
     startsAt,
@@ -547,6 +677,105 @@ export async function activateMembershipsFromPayment({
   });
 }
 
+export async function cancelMembershipEntitlementsForRefund({
+  paymentId,
+  refundId = null,
+  cancelledBy = null,
+  reason = null,
+  effectiveAt = new Date(),
+  transaction = null,
+}) {
+  return withTransaction(transaction, async (t) => {
+    if (!paymentId) {
+      throw serviceError("paymentId es obligatorio para cancelar membresias.");
+    }
+
+    const cancelledAt = normalizeDate(effectiveAt, "effectiveAt") || new Date();
+    const subscriptions = await UserSubscription.findAll({
+      where: { paymentId },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    const cancellationEvents = [];
+
+    for (const subscription of subscriptions) {
+      if (subscription.status === "cancelled") continue;
+
+      cancellationEvents.push(
+        await recordSubscriptionCancellation({
+          subscriptionId: subscription.id,
+          cancelledBy,
+          reason,
+          effectiveAt: cancelledAt,
+          metadata: {
+            refundId,
+            source: "payment_refund",
+          },
+          transaction: t,
+        })
+      );
+    }
+
+    const groups = await SubscriptionGroup.findAll({
+      where: { paymentId },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    let cancelledGroups = 0;
+    let removedMembers = 0;
+
+    for (const group of groups) {
+      if (group.status !== "cancelled") {
+        await group.update(
+          {
+            status: "cancelled",
+            notes: [
+              group.notes,
+              `Cancelado por reembolso ${refundId || ""} el ${cancelledAt.toISOString()}.`,
+              reason ? `Motivo: ${reason}` : null,
+            ]
+              .filter(Boolean)
+              .join("\n"),
+          },
+          { transaction: t }
+        );
+        cancelledGroups += 1;
+      }
+
+      const members = await SubscriptionGroupMember.findAll({
+        where: {
+          groupId: group.id,
+          status: {
+            [Op.notIn]: ["removed", "rejected"],
+          },
+        },
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+
+      for (const member of members) {
+        await member.update(
+          {
+            status: "removed",
+            removedAt: cancelledAt,
+            rejectedReason: reason || member.rejectedReason,
+          },
+          { transaction: t }
+        );
+        removedMembers += 1;
+      }
+    }
+
+    return {
+      subscriptions,
+      cancellationEvents,
+      cancelledSubscriptions: cancellationEvents.length,
+      cancelledGroups,
+      removedMembers,
+    };
+  });
+}
+
 export async function activateSubscriptionGroupMembers({
   groupId,
   approvedBy = null,
@@ -569,33 +798,46 @@ export async function activateSubscriptionGroupMembers({
       throw serviceError("Paquete no encontrado o no esta pendiente.", 404);
     }
 
-    const [plan, payment, members] = await Promise.all([
-      MembershipPlan.findByPk(group.planId, { transaction: t }),
-      Payment.findByPk(group.paymentId, { transaction: t }),
-      SubscriptionGroupMember.findAll({
-        where: { groupId: group.id },
-        transaction: t,
-      }),
-    ]);
+    const plan = await MembershipPlan.findByPk(group.planId, {
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    const payment = await Payment.findByPk(group.paymentId, {
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    const members = await SubscriptionGroupMember.findAll({
+      where: { groupId: group.id },
+      order: [["createdAt", "ASC"]],
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    const groupOrderItem = group.orderItemId
+      ? await OrderItem.findByPk(group.orderItemId, {
+          transaction: t,
+          lock: t.LOCK.UPDATE,
+        })
+      : null;
 
     group.setDataValue("plan", plan);
     group.setDataValue("payment", payment);
     group.setDataValue("members", members);
+    group.setDataValue("orderItem", groupOrderItem);
 
-    if (!group.plan) {
+    if (!plan) {
       throw serviceError("Plan del paquete no encontrado.", 404);
     }
 
-    if (!group.payment || group.payment.status !== "paid") {
+    if (!payment || payment.status !== "paid") {
       throw serviceError("No se puede aprobar un paquete sin pago confirmado.");
     }
 
-    let validMembers = group.members.filter((member) =>
+    let validMembers = members.filter((member) =>
       ["accepted", "approved", "active"].includes(member.status)
     );
 
     if (forceApprovePending) {
-      const pendingMembersWithAccount = group.members.filter(
+      const pendingMembersWithAccount = members.filter(
         (member) => member.status === "pending_invitation" && member.userId
       );
       validMembers = [...validMembers, ...pendingMembersWithAccount];
@@ -603,34 +845,63 @@ export async function activateSubscriptionGroupMembers({
 
     if (validMembers.length !== Number(group.memberLimit)) {
       throw serviceError(
-        `El paquete necesita ${group.memberLimit} integrantes validos para aprobarse.`
+        forceApprovePending
+          ? `El paquete necesita ${group.memberLimit} integrantes con cuenta registrada para aprobarse`
+          : `El paquete necesita ${group.memberLimit} integrantes aceptados para aprobarse`
       );
     }
 
     const membersWithoutAccount = validMembers.filter((member) => !member.userId);
 
     if (membersWithoutAccount.length > 0) {
-      throw serviceError(
-        "Todos los integrantes deben tener cuenta registrada antes de aprobar el paquete."
+      throw serviceErrorWithDetails(
+        "Todos los integrantes deben tener cuenta registrada antes de aprobar el paquete",
+        400,
+        {
+          pendingEmails: membersWithoutAccount.map((member) => member.invitedEmail),
+        }
       );
     }
 
-    const createdSubscriptions = [];
+    const startDate = normalizeDate(group.startsAt, "startsAt") || new Date();
+    const endDate = group.endsAt
+      ? normalizeDate(group.endsAt, "endsAt")
+      : addDays(startDate, plan.durationDays);
+    const activationResults = [];
 
     for (const member of validMembers) {
+      const existingGroupSubscription = await UserSubscription.findOne({
+        where: {
+          groupId: group.id,
+          userId: member.userId,
+        },
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+
+      if (!existingGroupSubscription) {
+        await assertUserCanReceiveGroupSubscription({
+          userId: member.userId,
+          groupId: group.id,
+          transaction: t,
+        });
+      }
+
       const result = await createOrRenewUserSubscription({
         userId: member.userId,
         planId: group.planId,
         paymentId: group.paymentId,
+        orderId: groupOrderItem?.orderId || null,
         groupId: group.id,
         source: "group_package",
         createdBy: approvedBy,
-        startsAt: group.startsAt,
+        startsAt: startDate,
+        endsAt: endDate,
         notes: `Membresia activada por paquete grupal ${group.id}`,
         transaction: t,
       });
 
-      createdSubscriptions.push(result);
+      activationResults.push(result);
 
       await member.update(
         {
@@ -645,6 +916,8 @@ export async function activateSubscriptionGroupMembers({
     await group.update(
       {
         status: "active",
+        startsAt: toDateOnly(startDate),
+        endsAt: toDateOnly(endDate),
         approvedAt: new Date(),
         approvedBy,
       },
@@ -653,7 +926,8 @@ export async function activateSubscriptionGroupMembers({
 
     return {
       group,
-      subscriptions: createdSubscriptions,
+      subscriptions: activationResults.map((result) => result.subscription),
+      activationResults,
     };
   });
 }

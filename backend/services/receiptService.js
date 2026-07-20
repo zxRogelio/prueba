@@ -228,6 +228,10 @@ export async function preparePrintableReceipt({
 export async function cancelReceiptsForFullRefund({
   orderId = null,
   paymentId = null,
+  refundId = null,
+  cancelledBy = null,
+  reason = null,
+  cancelledAt = new Date(),
   transaction = null,
 }) {
   return withTransaction(transaction, async (t) => {
@@ -242,16 +246,28 @@ export async function cancelReceiptsForFullRefund({
       throw serviceError("orderId o paymentId es obligatorio.");
     }
 
-    const [updatedCount] = await Receipt.update(
-      {
-        status: "cancelled",
-      },
-      {
-        where,
-        transaction: t,
-      }
-    );
+    const receipts = await Receipt.findAll({
+      where,
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
 
-    return updatedCount;
+    for (const receipt of receipts) {
+      await receipt.update(
+        {
+          status: "cancelled",
+          metadata: {
+            ...(receipt.metadata || {}),
+            refundId,
+            cancelledBy,
+            cancelReason: reason,
+            cancelledAt: cancelledAt.toISOString(),
+          },
+        },
+        { transaction: t }
+      );
+    }
+
+    return receipts.length;
   });
 }

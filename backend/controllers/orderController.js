@@ -11,6 +11,7 @@ import {
   User,
 } from "../models/index.js";
 import { createOrder as createOrderService } from "../services/orderService.js";
+import { getOrderPaymentStatus as getOrderPaymentStatusService } from "../services/mercadoPagoCheckoutService.js";
 
 const ORDER_STATUSES = new Set([
   "draft",
@@ -475,6 +476,28 @@ export async function getOrderById(req, res) {
     });
   } catch (error) {
     return handleControllerError(res, error, "Error obteniendo orden");
+  }
+}
+
+export async function getOrderPaymentStatus(req, res) {
+  try {
+    const isAdmin = req.user.role === "administrador";
+    const result = await getOrderPaymentStatusService({
+      orderId: req.params.orderId,
+      userId: req.user.id,
+      isAdmin,
+    });
+
+    return res.json({
+      ok: true,
+      ...result,
+    });
+  } catch (error) {
+    return handleControllerError(
+      res,
+      error,
+      "Error consultando estado de pago de orden"
+    );
   }
 }
 

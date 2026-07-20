@@ -405,7 +405,7 @@ export default function SuscripcionesPage() {
                   </ul>
 
                   <Link
-                    to="/register"
+                    to="/payment"
                     className={`${styles.planButton} ${
                       plan.featured ? styles.planButtonFeatured : styles.planButtonNeutral
                     }`}
@@ -596,7 +596,7 @@ export default function SuscripcionesPage() {
               </h3>
             </div>
 
-            <Link to="/register" className={styles.supportButton}>
+            <Link to="/payment" className={styles.supportButton}>
               Quiero mi membresia
             </Link>
           </div>

@@ -323,12 +323,34 @@ export async function recordProductReturnFromOrderItem({
       throw serviceError("Solo se pueden devolver items de producto.");
     }
 
+    const normalizedReference = normalizeText(reference);
+
+    if (normalizedReference) {
+      const existingReturn = await InventoryMovement.findOne({
+        where: {
+          orderItemId: orderItem.id,
+          movementType: "return",
+          reference: normalizedReference,
+        },
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+
+      if (existingReturn) {
+        return {
+          movement: existingReturn,
+          skipped: true,
+          reason: "return_already_recorded",
+        };
+      }
+    }
+
     return applyInventoryMovement({
       productId: orderItem.productId,
       orderItemId: orderItem.id,
       movementType: "return",
       quantity: quantity || orderItem.quantity,
-      reference: reference || `order-item:${orderItem.id}`,
+      reference: normalizedReference || `order-item:${orderItem.id}`,
       createdBy,
       notes,
       transaction: t,

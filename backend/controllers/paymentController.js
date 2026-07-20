@@ -1,5 +1,4 @@
 import { Op } from "sequelize";
-import { sequelize } from "../config/sequelize.js";
 import {
   MembershipPlan,
   Order,
@@ -7,6 +6,7 @@ import {
   Payment,
   User,
 } from "../models/index.js";
+import { processRefund } from "../services/paymentService.js";
 
 const PAYMENT_STATUSES = new Set([
   "pending",
@@ -360,90 +360,59 @@ export async function listAdminPayments(req, res) {
 }
 
 export async function refundPayment(req, res) {
-  const transaction = await sequelize.transaction();
-
   try {
-    const payment = await Payment.findByPk(req.params.paymentId, {
-      include: [
-        {
-          model: Order,
-          as: "order",
-        },
-      ],
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
+    const { paymentId } = req.params;
 
-    if (!payment) {
-      await transaction.rollback();
-      return res.status(404).json({ ok: false, error: "Pago no encontrado" });
-    }
-
-    if (payment.status !== "paid") {
-      await transaction.rollback();
+    if (!paymentId) {
       return res.status(400).json({
         ok: false,
-        error: "Solo se pueden reembolsar pagos con estado paid",
+        error: "paymentId es obligatorio",
       });
     }
 
-    const refundedAt = new Date();
-    const refundMetadata = {
-      ...(payment.metadata || {}),
-      lastManualRefund: {
-        reason: req.body?.reason || null,
-        requestedBy: req.user.id,
-        requestedAt: refundedAt.toISOString(),
-      },
-    };
-
-    await payment.update(
-      {
-        status: "refunded",
-        refundedAt,
-        metadata: refundMetadata,
-      },
-      { transaction }
-    );
-
-    if (payment.orderId) {
-      const order = await Order.findByPk(payment.orderId, {
-        transaction,
-        lock: transaction.LOCK.UPDATE,
+    if (!req.user?.id) {
+      return res.status(401).json({
+        ok: false,
+        error: "Usuario autenticado requerido",
       });
-
-      if (order) {
-        const orderPayments = await Payment.findAll({
-          where: {
-            orderId: order.id,
-          },
-          transaction,
-        });
-        const hasPaidPayment = orderPayments.some(
-          (orderPayment) =>
-            orderPayment.id !== payment.id && orderPayment.status === "paid"
-        );
-
-        await order.update(
-          {
-            status: hasPaidPayment ? "partially_refunded" : "refunded",
-            refundedAt: hasPaidPayment ? order.refundedAt : refundedAt,
-          },
-          { transaction }
-        );
-      }
     }
 
-    await transaction.commit();
-
-    const refunded = await findPaymentById(payment.id, { admin: true });
+    const amount = Object.prototype.hasOwnProperty.call(req.body || {}, "amount")
+      ? req.body.amount
+      : null;
+    const refundItems = Object.prototype.hasOwnProperty.call(req.body || {}, "items")
+      ? req.body.items
+      : req.body?.refundItems ?? null;
+    const refund = await processRefund({
+      paymentId,
+      amount,
+      reason: req.body?.reason ?? null,
+      providerRefundId: req.body?.providerRefundId ?? req.body?.idempotencyKey ?? null,
+      requestedBy: req.user.id,
+      status: "approved",
+      items: refundItems,
+      metadata: {
+        source: "admin_manual",
+      },
+    });
+    const refunded = await findPaymentById(refund.paymentId, { admin: true });
 
     return res.json({
       ok: true,
       payment: sanitizePayment(refunded, { admin: true }),
+      refund: {
+        id: refund.id,
+        paymentId: refund.paymentId,
+        orderId: refund.orderId,
+        amount: refund.amount,
+        reason: refund.reason,
+        status: refund.status,
+        requestedAt: refund.requestedAt,
+        approvedAt: refund.approvedAt,
+        items: refund.get?.("items") || refund.items || [],
+      },
     });
   } catch (error) {
-    await transaction.rollback();
     return handleControllerError(res, error, "Error registrando reembolso");
   }
 }

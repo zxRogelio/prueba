@@ -2,6 +2,8 @@ import { Op } from "sequelize";
 import { sequelize } from "../config/sequelize.js";
 import {
   MembershipPlan,
+  Order,
+  OrderItem,
   Payment,
   UserSubscription,
   Receipt,
@@ -10,18 +12,18 @@ import {
   SubscriptionGroupMember,
 } from "../models/index.js";
 import { createOrder } from "../services/orderService.js";
-import { registerManualPayment } from "../services/paymentService.js";
-import { activateMembershipsFromOrder } from "../services/membershipActivationService.js";
+import {
+  registerManualPayment,
+  resolveManualPaymentProvider,
+} from "../services/paymentService.js";
+import {
+  activateMembershipsFromOrder,
+  activateSubscriptionGroupMembers,
+} from "../services/membershipActivationService.js";
 import { createReceipt } from "../services/receiptService.js";
 
 function toDateOnly(date) {
   return date.toISOString().slice(0, 10);
-}
-
-function addDays(date, days) {
-  const result = new Date(date);
-  result.setDate(result.getDate() + Number(days));
-  return result;
 }
 
 function normalizeEmail(email = "") {
@@ -169,8 +171,258 @@ function getOrderItems(order) {
   return order.get?.("items") || order.items || [];
 }
 
+function normalizeNullableString(value) {
+  if (value == null) return null;
+
+  const normalized = String(value).trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function toCents(value) {
+  const numberValue = Number(value);
+
+  if (!Number.isFinite(numberValue)) {
+    const error = new Error("amount debe ser un monto valido.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return Math.round(numberValue * 100);
+}
+
+function normalizeIdempotencyMemberEmails(memberEmails = []) {
+  return [...new Set(memberEmails.map(normalizeEmail))]
+    .filter(Boolean)
+    .sort();
+}
+
+function buildManualPaymentIdempotencyOperation({
+  flow,
+  userId,
+  planId,
+  amount,
+  method,
+  provider,
+  startsAt = null,
+  memberEmails = [],
+}) {
+  return {
+    flow,
+    userId,
+    planId,
+    amount: toCents(amount),
+    method,
+    provider,
+    startsAt: normalizeNullableString(startsAt),
+    memberEmails:
+      flow === "group" ? normalizeIdempotencyMemberEmails(memberEmails) : [],
+  };
+}
+
+function sameArrayValues(left = [], right = []) {
+  if (left.length !== right.length) return false;
+  return left.every((value, index) => value === right[index]);
+}
+
+function manualPaymentIdempotencyConflict(mismatches) {
+  const error = new Error(
+    `idempotencyKey ya existe para otra operacion manual: ${mismatches.join(", ")}.`
+  );
+  error.statusCode = 409;
+  return error;
+}
+
+function isIdempotencyDuplicateError(error, idempotencyKey) {
+  if (!idempotencyKey) return false;
+  if (error?.message === "idempotencyKey ya existe.") return true;
+  if (error?.parent?.constraint === "payments_idempotency_key_unique") {
+    return true;
+  }
+
+  if (error?.name !== "SequelizeUniqueConstraintError") return false;
+
+  return (error.errors || []).some((entry) => entry.path === "idempotencyKey");
+}
+
+async function findMembershipPlanIdForPayment(payment, transaction) {
+  if (payment.planId) return payment.planId;
+  if (!payment.orderId) return null;
+
+  const orderItem = await OrderItem.findOne({
+    where: {
+      orderId: payment.orderId,
+      itemType: {
+        [Op.in]: ["membership", "group_membership"],
+      },
+    },
+    transaction,
+  });
+
+  return orderItem?.membershipPlanId || null;
+}
+
+async function assertExistingManualPaymentMatchesOperation({
+  payment,
+  operation,
+  transaction,
+}) {
+  if (!operation) {
+    const error = new Error("No se pudo validar la operacion idempotente.");
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const mismatches = [];
+  const existingPlanId = await findMembershipPlanIdForPayment(
+    payment,
+    transaction
+  );
+  const storedOperation = payment.metadata?.manualPaymentOperation || null;
+
+  if (!payment.orderId) mismatches.push("orderId");
+  if (toCents(payment.amount) !== operation.amount) mismatches.push("amount");
+  if (payment.provider !== operation.provider) mismatches.push("provider");
+  if (payment.method !== operation.method) mismatches.push("method");
+  if (payment.userId !== operation.userId) mismatches.push("userId");
+  if (existingPlanId !== operation.planId) mismatches.push("planId");
+
+  if (storedOperation) {
+    const storedMemberEmails = normalizeIdempotencyMemberEmails(
+      storedOperation.memberEmails || []
+    );
+
+    if (storedOperation.flow !== operation.flow) mismatches.push("flow");
+    if (normalizeNullableString(storedOperation.startsAt) !== operation.startsAt) {
+      mismatches.push("startsAt");
+    }
+    if (!sameArrayValues(storedMemberEmails, operation.memberEmails)) {
+      mismatches.push("memberEmails");
+    }
+  }
+
+  if (mismatches.length > 0) {
+    throw manualPaymentIdempotencyConflict([...new Set(mismatches)]);
+  }
+}
+
+async function buildExistingManualPaymentResponse({ payment, flow, transaction }) {
+  const [order, receipt] = await Promise.all([
+    payment.orderId
+      ? Order.findByPk(payment.orderId, { transaction })
+      : null,
+    Receipt.findOne({
+      where: { paymentId: payment.id },
+      transaction,
+    }),
+  ]);
+
+  if (flow === "individual") {
+    const subscription = await UserSubscription.findOne({
+      where: { paymentId: payment.id },
+      order: [["createdAt", "ASC"]],
+      transaction,
+    });
+
+    return {
+      ok: true,
+      message: "Pago registrado y membresia activada correctamente",
+      order,
+      payment,
+      subscription,
+      receipt,
+    };
+  }
+
+  const group = await SubscriptionGroup.findOne({
+    where: { paymentId: payment.id },
+    transaction,
+  });
+  const members = group
+    ? await SubscriptionGroupMember.findAll({
+        where: { groupId: group.id },
+        order: [["createdAt", "ASC"]],
+        transaction,
+      })
+    : [];
+  const ownerMember =
+    members.find((member) => member.role === "owner") || members[0] || null;
+
+  return {
+    ok: true,
+    message:
+      "Pago de paquete registrado. El grupo quedo pendiente de aceptacion/aprobacion.",
+    order,
+    payment,
+    group,
+    ownerMember: ownerMember
+      ? {
+          userId: ownerMember.userId,
+          invitedEmail: ownerMember.invitedEmail,
+          status: ownerMember.status,
+        }
+      : null,
+    invitedMembers: members.filter((member) => member.id !== ownerMember?.id),
+    receipt,
+  };
+}
+
+async function getExistingManualPaymentResponse({
+  idempotencyKey,
+  operation,
+  flow,
+  transaction,
+}) {
+  if (!idempotencyKey) return null;
+
+  const payment = await Payment.findOne({
+    where: { idempotencyKey },
+    transaction,
+    lock: transaction.LOCK.UPDATE,
+  });
+
+  if (!payment) return null;
+
+  await assertExistingManualPaymentMatchesOperation({
+    payment,
+    operation,
+    transaction,
+  });
+
+  return buildExistingManualPaymentResponse({
+    payment,
+    flow,
+    transaction,
+  });
+}
+
+async function resolveManualIdempotencyConflict({
+  error,
+  idempotencyKey,
+  operation,
+  flow,
+}) {
+  if (!operation || !isIdempotencyDuplicateError(error, idempotencyKey)) {
+    throw error;
+  }
+
+  return sequelize.transaction(async (transaction) => {
+    const response = await getExistingManualPaymentResponse({
+      idempotencyKey,
+      operation,
+      flow,
+      transaction,
+    });
+
+    if (!response) throw error;
+
+    return response;
+  });
+}
+
 async function createManualMembershipPaymentUsingServices(req, res) {
   const transaction = await sequelize.transaction();
+  let manualIdempotencyKey = null;
+  let manualIdempotencyOperation = null;
 
   try {
     if (req.user?.role !== "administrador") {
@@ -190,6 +442,7 @@ async function createManualMembershipPaymentUsingServices(req, res) {
       reference = "",
       notes = "",
       startsAt,
+      idempotencyKey: rawIdempotencyKey = null,
     } = req.body;
 
     if (!userId || !planId) {
@@ -211,6 +464,10 @@ async function createManualMembershipPaymentUsingServices(req, res) {
       });
     }
 
+    const resolvedProvider = resolveManualPaymentProvider(method, provider);
+
+    manualIdempotencyKey = normalizeNullableString(rawIdempotencyKey);
+
     const client = await User.findByPk(userId, { transaction });
 
     if (!client) {
@@ -226,16 +483,6 @@ async function createManualMembershipPaymentUsingServices(req, res) {
       return res.status(400).json({
         ok: false,
         error: "Solo se pueden activar membresias a usuarios con rol cliente",
-      });
-    }
-
-    const isInOpenGroup = await userIsInOpenGroup(userId, transaction);
-
-    if (isInOpenGroup) {
-      await transaction.rollback();
-      return res.status(400).json({
-        ok: false,
-        error: "Este usuario ya pertenece a otro paquete pendiente o activo.",
       });
     }
 
@@ -274,6 +521,38 @@ async function createManualMembershipPaymentUsingServices(req, res) {
       });
     }
 
+    manualIdempotencyOperation = buildManualPaymentIdempotencyOperation({
+      flow: "individual",
+      userId,
+      planId: plan.id,
+      amount: plan.price,
+      method,
+      provider: resolvedProvider,
+      startsAt: startsAt || null,
+    });
+
+    const existingIdempotentResponse = await getExistingManualPaymentResponse({
+      idempotencyKey: manualIdempotencyKey,
+      operation: manualIdempotencyOperation,
+      flow: "individual",
+      transaction,
+    });
+
+    if (existingIdempotentResponse) {
+      await transaction.commit();
+      return res.status(200).json(existingIdempotentResponse);
+    }
+
+    const isInOpenGroup = await userIsInOpenGroup(userId, transaction);
+
+    if (isInOpenGroup) {
+      await transaction.rollback();
+      return res.status(400).json({
+        ok: false,
+        error: "Este usuario ya pertenece a otro paquete pendiente o activo.",
+      });
+    }
+
     const order = await createOrder({
       userId,
       channel: "reception",
@@ -283,6 +562,7 @@ async function createManualMembershipPaymentUsingServices(req, res) {
       metadata: {
         source: "admin_manual",
         membershipFlow: "individual",
+        idempotencyKey: manualIdempotencyKey,
       },
       items: [
         {
@@ -296,14 +576,16 @@ async function createManualMembershipPaymentUsingServices(req, res) {
     const payment = await registerManualPayment({
       orderId: order.id,
       method,
-      provider,
+      provider: resolvedProvider,
       reference,
       notes,
       metadata: {
         source: "admin_manual",
         membershipFlow: "individual",
+        manualPaymentOperation: manualIdempotencyOperation,
       },
       createdBy: adminId,
+      idempotencyKey: manualIdempotencyKey,
       transaction,
     });
     const activation = await activateMembershipsFromOrder({
@@ -330,6 +612,8 @@ async function createManualMembershipPaymentUsingServices(req, res) {
         planName: plan.name,
         amount: plan.price,
         method,
+        provider: resolvedProvider,
+        idempotencyKey: manualIdempotencyKey,
         source: "admin_manual",
       },
       transaction,
@@ -350,21 +634,39 @@ async function createManualMembershipPaymentUsingServices(req, res) {
     });
   } catch (error) {
     await transaction.rollback();
-    const statusCode = controllerStatusCode(error);
+    let handledError = error;
+
+    try {
+      const existingIdempotentResponse = await resolveManualIdempotencyConflict({
+        error,
+        idempotencyKey: manualIdempotencyKey,
+        operation: manualIdempotencyOperation,
+        flow: "individual",
+      });
+
+      return res.status(200).json(existingIdempotentResponse);
+    } catch (idempotencyError) {
+      handledError = idempotencyError;
+    }
+
+    const statusCode = controllerStatusCode(handledError);
 
     if (statusCode >= 500) {
-      console.error("Error registrando pago manual:", error);
+      console.error("Error registrando pago manual:", handledError);
     }
 
     return res.status(statusCode).json({
       ok: false,
-      error: error.message || "Error al registrar pago manual de membresia",
+      error:
+        handledError.message || "Error al registrar pago manual de membresia",
     });
   }
 }
 
 async function createManualGroupMembershipPaymentUsingServices(req, res) {
   const transaction = await sequelize.transaction();
+  let manualIdempotencyKey = null;
+  let manualIdempotencyOperation = null;
 
   try {
     if (req.user?.role !== "administrador") {
@@ -385,6 +687,7 @@ async function createManualGroupMembershipPaymentUsingServices(req, res) {
       notes = "",
       startsAt,
       memberEmails = [],
+      idempotencyKey: rawIdempotencyKey = null,
     } = req.body;
 
     if (!ownerUserId || !planId) {
@@ -406,6 +709,10 @@ async function createManualGroupMembershipPaymentUsingServices(req, res) {
       });
     }
 
+    const resolvedProvider = resolveManualPaymentProvider(method, provider);
+
+    manualIdempotencyKey = normalizeNullableString(rawIdempotencyKey);
+
     const owner = await User.findByPk(ownerUserId, { transaction });
 
     if (!owner) {
@@ -423,8 +730,6 @@ async function createManualGroupMembershipPaymentUsingServices(req, res) {
         error: "El titular del paquete debe ser un cliente",
       });
     }
-
-    await validateUserCanReceiveMembership(ownerUserId, transaction);
 
     const plan = await MembershipPlan.findOne({
       where: {
@@ -465,14 +770,6 @@ async function createManualGroupMembershipPaymentUsingServices(req, res) {
       });
     }
 
-    for (const email of cleanEmails) {
-      const invitedUser = await findClientByEmail(email, transaction);
-
-      if (invitedUser) {
-        await validateUserCanReceiveMembership(invitedUser.id, transaction);
-      }
-    }
-
     const startDate = startsAt ? new Date(startsAt) : new Date();
 
     if (Number.isNaN(startDate.getTime())) {
@@ -481,6 +778,39 @@ async function createManualGroupMembershipPaymentUsingServices(req, res) {
         ok: false,
         error: "La fecha de inicio no es valida",
       });
+    }
+
+    manualIdempotencyOperation = buildManualPaymentIdempotencyOperation({
+      flow: "group",
+      userId: ownerUserId,
+      planId: plan.id,
+      amount: plan.price,
+      method,
+      provider: resolvedProvider,
+      startsAt: startsAt || null,
+      memberEmails: cleanEmails,
+    });
+
+    const existingIdempotentResponse = await getExistingManualPaymentResponse({
+      idempotencyKey: manualIdempotencyKey,
+      operation: manualIdempotencyOperation,
+      flow: "group",
+      transaction,
+    });
+
+    if (existingIdempotentResponse) {
+      await transaction.commit();
+      return res.status(200).json(existingIdempotentResponse);
+    }
+
+    await validateUserCanReceiveMembership(ownerUserId, transaction);
+
+    for (const email of cleanEmails) {
+      const invitedUser = await findClientByEmail(email, transaction);
+
+      if (invitedUser) {
+        await validateUserCanReceiveMembership(invitedUser.id, transaction);
+      }
     }
 
     const order = await createOrder({
@@ -492,6 +822,7 @@ async function createManualGroupMembershipPaymentUsingServices(req, res) {
       metadata: {
         source: "admin_manual",
         membershipFlow: "group",
+        idempotencyKey: manualIdempotencyKey,
       },
       items: [
         {
@@ -516,14 +847,16 @@ async function createManualGroupMembershipPaymentUsingServices(req, res) {
     const payment = await registerManualPayment({
       orderId: order.id,
       method,
-      provider,
+      provider: resolvedProvider,
       reference,
       notes,
       metadata: {
         source: "admin_manual",
         membershipFlow: "group",
+        manualPaymentOperation: manualIdempotencyOperation,
       },
       createdBy: adminId,
+      idempotencyKey: manualIdempotencyKey,
       transaction,
     });
     const activation = await activateMembershipsFromOrder({
@@ -553,7 +886,8 @@ async function createManualGroupMembershipPaymentUsingServices(req, res) {
         planName: plan.name,
         amount: plan.price,
         method,
-        provider,
+        provider: resolvedProvider,
+        idempotencyKey: manualIdempotencyKey,
         source: "admin_manual",
         groupId: groupResult.group.id,
       },
@@ -586,15 +920,30 @@ async function createManualGroupMembershipPaymentUsingServices(req, res) {
     });
   } catch (error) {
     await transaction.rollback();
-    const statusCode = controllerStatusCode(error);
+    let handledError = error;
+
+    try {
+      const existingIdempotentResponse = await resolveManualIdempotencyConflict({
+        error,
+        idempotencyKey: manualIdempotencyKey,
+        operation: manualIdempotencyOperation,
+        flow: "group",
+      });
+
+      return res.status(200).json(existingIdempotentResponse);
+    } catch (idempotencyError) {
+      handledError = idempotencyError;
+    }
+
+    const statusCode = controllerStatusCode(handledError);
 
     if (statusCode >= 500) {
-      console.error("Error registrando paquete grupal:", error);
+      console.error("Error registrando paquete grupal:", handledError);
     }
 
     return res.status(statusCode).json({
       ok: false,
-      error: error.message || "Error al registrar paquete grupal",
+      error: handledError.message || "Error al registrar paquete grupal",
     });
   }
 }
@@ -1082,149 +1431,33 @@ export async function approveSubscriptionGroup(req, res) {
     const { groupId } = req.params;
     const { forceApprovePending = false } = req.body;
 
-    const group = await SubscriptionGroup.findOne({
-      where: {
-        id: groupId,
-        status: {
-          [Op.in]: ["pending_admin_approval", "pending_members"],
-        },
-      },
-      include: [
-        {
-          model: MembershipPlan,
-          as: "plan",
-        },
-        {
-          model: Payment,
-          as: "payment",
-        },
-        {
-          model: SubscriptionGroupMember,
-          as: "members",
-        },
-      ],
+    const activation = await activateSubscriptionGroupMembers({
+      groupId,
+      approvedBy: adminId,
+      forceApprovePending,
       transaction,
     });
-
-    if (!group) {
-      await transaction.rollback();
-      return res.status(404).json({
-        ok: false,
-        error: "Paquete no encontrado o no está pendiente de aprobación",
-      });
-    }
-
-    if (!group.payment || group.payment.status !== "paid") {
-      await transaction.rollback();
-      return res.status(400).json({
-        ok: false,
-        error: "No se puede aprobar un paquete sin pago confirmado",
-      });
-    }
-
-    let validMembers = group.members.filter((member) =>
-      ["accepted", "approved", "active"].includes(member.status)
-    );
-
-    if (forceApprovePending) {
-      const pendingMembersWithAccount = group.members.filter(
-        (member) => member.status === "pending_invitation" && member.userId
-      );
-
-      validMembers = [...validMembers, ...pendingMembersWithAccount];
-    }
-
-    if (validMembers.length !== Number(group.memberLimit)) {
-      await transaction.rollback();
-      return res.status(400).json({
-        ok: false,
-        error: forceApprovePending
-          ? `El paquete necesita ${group.memberLimit} integrantes con cuenta registrada para aprobarse`
-          : `El paquete necesita ${group.memberLimit} integrantes aceptados para aprobarse`,
-      });
-    }
-
-    const membersWithoutAccount = validMembers.filter((member) => !member.userId);
-
-    if (membersWithoutAccount.length > 0) {
-      await transaction.rollback();
-      return res.status(400).json({
-        ok: false,
-        error:
-          "Todos los integrantes deben tener cuenta registrada antes de aprobar el paquete",
-        pendingEmails: membersWithoutAccount.map((member) => member.invitedEmail),
-      });
-    }
-
-    for (const member of validMembers) {
-      await validateUserCanReceiveMembership(member.userId, transaction, {
-        ignoreGroupId: group.id,
-      });
-    }
-
-    const startDate = group.startsAt ? new Date(group.startsAt) : new Date();
-    const endDate = group.endsAt
-      ? new Date(group.endsAt)
-      : addDays(startDate, group.plan.durationDays);
-
-    const createdSubscriptions = [];
-
-    for (const member of validMembers) {
-      const subscription = await UserSubscription.create(
-        {
-          userId: member.userId,
-          planId: group.planId,
-          paymentId: group.paymentId,
-          groupId: group.id,
-          startsAt: toDateOnly(startDate),
-          endsAt: toDateOnly(endDate),
-          status: "active",
-          source: "group_package",
-          autoRenew: false,
-          createdBy: adminId,
-          notes: `Membresía activada por paquete grupal ${group.id}`,
-        },
-        { transaction }
-      );
-
-      createdSubscriptions.push(subscription);
-
-      await member.update(
-        {
-          status: "active",
-          approvedAt: new Date(),
-          approvedBy: adminId,
-        },
-        { transaction }
-      );
-    }
-
-    await group.update(
-      {
-        status: "active",
-        startsAt: toDateOnly(startDate),
-        endsAt: toDateOnly(endDate),
-        approvedAt: new Date(),
-        approvedBy: adminId,
-      },
-      { transaction }
-    );
 
     await transaction.commit();
 
     return res.json({
       ok: true,
-      message: "Paquete aprobado y membresías activadas correctamente",
-      group,
-      subscriptions: createdSubscriptions,
+      message: "Paquete aprobado y membresias activadas correctamente",
+      group: activation.group,
+      subscriptions: activation.subscriptions,
     });
   } catch (error) {
     await transaction.rollback();
-    console.error("❌ Error aprobando paquete:", error);
+    const statusCode = controllerStatusCode(error);
 
-    return res.status(500).json({
+    if (statusCode >= 500) {
+      console.error("Error aprobando paquete:", error);
+    }
+
+    return res.status(statusCode).json({
       ok: false,
       error: error.message || "Error al aprobar paquete grupal",
+      ...(error.pendingEmails ? { pendingEmails: error.pendingEmails } : {}),
     });
   }
 }

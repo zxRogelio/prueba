@@ -4,6 +4,13 @@ import { FaShoppingCart, FaTimes } from "react-icons/fa";
 import { useCart } from "../../context/CartContext";
 import "./CartDrawer.css";
 
+function formatMoney(value: number) {
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+  }).format(value);
+}
+
 export default function CartDrawer() {
   const {
     items,
@@ -76,7 +83,7 @@ export default function CartDrawer() {
                       <p className="shared-cart-item-category">{item.category}</p>
                     )}
                     <p className="shared-cart-item-price">
-                      ${item.price}.00 MXN
+                      {formatMoney(Number(item.price))}
                     </p>
 
                     <div className="shared-cart-item-controls">
@@ -116,16 +123,26 @@ export default function CartDrawer() {
         <div className="shared-cart-footer">
           <div className="shared-cart-total">
             <span>Total</span>
-            <strong>${subtotal}.00 MXN</strong>
+            <strong>{formatMoney(subtotal)}</strong>
           </div>
 
-          <Link
-            to="/checkout"
-            className="shared-cart-checkout"
-            onClick={closeCart}
-          >
-            Proceder al pago
-          </Link>
+          {items.length > 0 ? (
+            <Link
+              to="/checkout"
+              className="shared-cart-checkout"
+              onClick={closeCart}
+            >
+              Proceder al pago
+            </Link>
+          ) : (
+            <Link
+              to="/catalogue"
+              className="shared-cart-checkout"
+              onClick={closeCart}
+            >
+              Ver catalogo
+            </Link>
+          )}
         </div>
       </aside>
     </div>

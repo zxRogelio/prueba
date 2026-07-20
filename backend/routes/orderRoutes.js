@@ -3,6 +3,7 @@ import {
   cancelOrder,
   createAdminOrder,
   getOrderById,
+  getOrderPaymentStatus,
   listAdminOrders,
   listMyOrders,
 } from "../controllers/orderController.js";
@@ -33,6 +34,14 @@ router.get(
   checkBlacklist,
   authorizeRole("cliente", "administrador"),
   listMyOrders
+);
+
+router.get(
+  "/orders/:orderId/payment-status",
+  verifyToken,
+  checkBlacklist,
+  authorizeRole("cliente", "administrador"),
+  getOrderPaymentStatus
 );
 
 router.get(

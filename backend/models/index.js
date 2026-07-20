@@ -23,6 +23,7 @@ import { OrderItem } from "./OrderItem.js";
 import { Payment } from "./Payment.js";
 import { PaymentWebhookEvent } from "./PaymentWebhookEvent.js";
 import { PaymentRefund } from "./PaymentRefund.js";
+import { PaymentRefundItem } from "./PaymentRefundItem.js";
 import { UserSubscription } from "./UserSubscription.js";
 import { Receipt } from "./Receipt.js";
 import { SubscriptionGroup } from "./SubscriptionGroup.js";
@@ -33,6 +34,7 @@ import { ProductPriceHistory } from "./ProductPriceHistory.js";
 import { Promotion } from "./Promotion.js";
 import { PromotionProduct } from "./PromotionProduct.js";
 import { OrderDiscount } from "./OrderDiscount.js";
+import { SubscriptionEvent } from "./SubscriptionEvent.js";
 
 // ✅ Category(id_categoria) <-> Brand(categoryId)
 Category.hasMany(Brand, {
@@ -443,6 +445,33 @@ PaymentRefund.belongsTo(User, {
   as: "requestedByUser",
 });
 
+// PAYMENT REFUND -> ITEMS
+PaymentRefund.hasMany(PaymentRefundItem, {
+  foreignKey: "refundId",
+  sourceKey: "id",
+  as: "items",
+  onDelete: "CASCADE",
+  hooks: true,
+});
+
+PaymentRefundItem.belongsTo(PaymentRefund, {
+  foreignKey: "refundId",
+  targetKey: "id",
+  as: "refund",
+});
+
+OrderItem.hasMany(PaymentRefundItem, {
+  foreignKey: "orderItemId",
+  sourceKey: "id",
+  as: "refundItems",
+});
+
+PaymentRefundItem.belongsTo(OrderItem, {
+  foreignKey: "orderItemId",
+  targetKey: "id",
+  as: "orderItem",
+});
+
 // USER -> PAYMENTS
 User.hasMany(Payment, {
   foreignKey: "userId",
@@ -495,11 +524,11 @@ UserSubscription.belongsTo(MembershipPlan, {
   as: "plan",
 });
 
-// PAYMENT -> SUBSCRIPTION
-Payment.hasOne(UserSubscription, {
+// PAYMENT -> SUBSCRIPTIONS
+Payment.hasMany(UserSubscription, {
   foreignKey: "paymentId",
   sourceKey: "id",
-  as: "subscription",
+  as: "subscriptions",
 });
 
 UserSubscription.belongsTo(Payment, {
@@ -771,6 +800,55 @@ OrderDiscount.belongsTo(Promotion, {
   targetKey: "id",
   as: "promotion",
 });
+
+// SUBSCRIPTION EVENTS
+UserSubscription.hasMany(SubscriptionEvent, {
+  foreignKey: "subscriptionId",
+  sourceKey: "id",
+  as: "events",
+});
+
+SubscriptionEvent.belongsTo(UserSubscription, {
+  foreignKey: "subscriptionId",
+  targetKey: "id",
+  as: "subscription",
+});
+
+User.hasMany(SubscriptionEvent, {
+  foreignKey: "userId",
+  sourceKey: "id",
+  as: "subscriptionEvents",
+});
+
+SubscriptionEvent.belongsTo(User, {
+  foreignKey: "userId",
+  targetKey: "id",
+  as: "user",
+});
+
+Order.hasMany(SubscriptionEvent, {
+  foreignKey: "orderId",
+  sourceKey: "id",
+  as: "subscriptionEvents",
+});
+
+SubscriptionEvent.belongsTo(Order, {
+  foreignKey: "orderId",
+  targetKey: "id",
+  as: "order",
+});
+
+Payment.hasMany(SubscriptionEvent, {
+  foreignKey: "paymentId",
+  sourceKey: "id",
+  as: "subscriptionEvents",
+});
+
+SubscriptionEvent.belongsTo(Payment, {
+  foreignKey: "paymentId",
+  targetKey: "id",
+  as: "payment",
+});
 export {
   Brand,
   Category,
@@ -797,6 +875,7 @@ export {
   Payment,
   PaymentWebhookEvent,
   PaymentRefund,
+  PaymentRefundItem,
   UserSubscription,
   Receipt,
   SubscriptionGroup,
@@ -807,4 +886,5 @@ export {
   Promotion,
   PromotionProduct,
   OrderDiscount,
+  SubscriptionEvent,
 };

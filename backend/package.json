@@ -11,6 +11,7 @@
     "migrate:up": "node scripts/migrate.js up",
     "migrate:down": "node scripts/migrate.js down",
     "migrate:status": "node scripts/migrate.js status",
+    "verify:mercadopago-checkout": "node scripts/verifyMercadoPagoCheckoutPro.js",
     "backfill:legacy-membership-orders": "node scripts/backfillLegacyMembershipOrders.js",
     "backfill:legacy-membership-orders:rollback-test": "node scripts/backfillLegacyMembershipOrders.js --rollback-test",
     "backfill:legacy-membership-orders:apply": "node scripts/backfillLegacyMembershipOrders.js --apply"
@@ -36,6 +37,7 @@
     "helmet": "^8.1.0",
     "json2csv": "^6.0.0-alpha.2",
     "jsonwebtoken": "^9.0.2",
+    "mercadopago": "^3.2.0",
     "mongoose": "^8.19.2",
     "multer": "^2.0.2",
     "node-cron": "^4.2.1",
