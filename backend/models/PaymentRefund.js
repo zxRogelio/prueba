@@ -33,6 +33,12 @@ export const PaymentRefund = sequelize.define(
       unique: true,
     },
 
+    idempotencyKey: {
+      type: DataTypes.STRING(160),
+      allowNull: true,
+      unique: true,
+    },
+
     amount: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false,
@@ -84,6 +90,11 @@ export const PaymentRefund = sequelize.define(
         unique: true,
       },
       {
+        name: "payment_refunds_idempotency_key_unique",
+        fields: ["idempotencyKey"],
+        unique: true,
+      },
+      {
         name: "payment_refunds_payment_id_idx",
         fields: ["paymentId"],
       },
@@ -111,6 +122,11 @@ PaymentRefund.beforeValidate((refund) => {
   if (typeof refund.providerRefundId === "string") {
     const trimmed = refund.providerRefundId.trim();
     refund.providerRefundId = trimmed.length > 0 ? trimmed : null;
+  }
+
+  if (typeof refund.idempotencyKey === "string") {
+    const trimmed = refund.idempotencyKey.trim();
+    refund.idempotencyKey = trimmed.length > 0 ? trimmed : null;
   }
 
   if (typeof refund.reason === "string") {

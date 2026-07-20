@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   InvalidWebhookSignatureError,
   MercadoPagoConfig,
@@ -17,6 +18,7 @@ import {
   PaymentWebhookEvent,
 } from "../models/index.js";
 import { markCartConverted } from "./cartService.js";
+import { createInventoryReservationsForOrder } from "./inventoryReservationService.js";
 import { createOrder, getOrderWithDetails } from "./orderService.js";
 import {
   confirmPaidPayment,
@@ -27,12 +29,54 @@ import {
 const PROVIDER = "mercadopago_checkout";
 const CHECKOUT_SOURCE = "mercadopago_checkout_pro";
 const CURRENCY = "MXN";
-const FINAL_PAYMENT_STATUSES = new Set(["paid", "cancelled", "refunded"]);
+const REVIEW_PAYMENT_STATUSES = new Set(["disputed", "charged_back"]);
+const FINAL_PAYMENT_STATUSES = new Set([
+  "paid",
+  "cancelled",
+  "refunded",
+  ...REVIEW_PAYMENT_STATUSES,
+]);
+const PREFERENCE_CREATION_STALE_MS = 2 * 60 * 1000;
+const PREFERENCE_WAIT_TIMEOUT_MS = 10 * 1000;
+const PREFERENCE_WAIT_INTERVAL_MS = 100;
 
-function serviceError(message, statusCode = 400) {
+function serviceError(message, statusCode = 400, options = {}) {
   const error = new Error(message);
   error.statusCode = statusCode;
+  if (options.retryable !== undefined) {
+    error.webhookRetryable = Boolean(options.retryable);
+  }
   return error;
+}
+
+function nonRetryableWebhookError(message, statusCode = 400) {
+  return serviceError(message, statusCode, { retryable: false });
+}
+
+function shouldRetryWebhookError(error) {
+  return error?.webhookRetryable !== false;
+}
+
+function safeWebhookErrorMessage(error) {
+  const fallback = "Error procesando webhook de Mercado Pago.";
+  let message = normalizeNullableString(error?.message) || fallback;
+
+  for (const secret of [
+    process.env.MERCADOPAGO_ACCESS_TOKEN,
+    process.env.MERCADOPAGO_WEBHOOK_SECRET,
+  ]) {
+    const normalizedSecret = normalizeNullableString(secret);
+
+    if (normalizedSecret) {
+      message = message.split(normalizedSecret).join("[redacted]");
+    }
+  }
+
+  return message.slice(0, 1000);
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function normalizeNullableString(value) {
@@ -249,11 +293,84 @@ function assertSameCheckoutRequest(existingPayment, checkoutRequest) {
   }
 }
 
+function checkoutIdempotencyConflict() {
+  throw serviceError("idempotencyKey ya existe para otra operacion.", 409);
+}
+
+function assertSameCheckoutOperation({
+  existingPayment,
+  userId,
+  checkoutRequest,
+}) {
+  const order = existingPayment.order || existingPayment.get?.("order") || null;
+
+  if (existingPayment.userId !== userId || order?.userId !== userId) {
+    checkoutIdempotencyConflict();
+  }
+
+  if (!existingPayment.orderId || !order || existingPayment.orderId !== order.id) {
+    throw serviceError(
+      "idempotencyKey ya existe para una operacion incompleta.",
+      409
+    );
+  }
+
+  if (
+    existingPayment.method !== "online_checkout" ||
+    existingPayment.source !== "online_checkout" ||
+    existingPayment.provider !== PROVIDER
+  ) {
+    checkoutIdempotencyConflict();
+  }
+
+  if (
+    normalizeNullableString(existingPayment.metadata?.source) !== CHECKOUT_SOURCE ||
+    normalizeNullableString(order.metadata?.source) !== CHECKOUT_SOURCE
+  ) {
+    checkoutIdempotencyConflict();
+  }
+
+  if (
+    normalizeNullableString(existingPayment.currency) !== CURRENCY ||
+    normalizeNullableString(order.currency) !== CURRENCY
+  ) {
+    throw serviceError(
+      "idempotencyKey ya existe para una operacion con moneda diferente.",
+      409
+    );
+  }
+
+  if (toCents(existingPayment.amount, "payment.amount") !== toCents(order.total, "order.total")) {
+    throw serviceError(
+      "idempotencyKey ya existe para una operacion con monto diferente.",
+      409
+    );
+  }
+
+  const externalReference = normalizeNullableString(existingPayment.externalReference);
+
+  if (externalReference && externalReference !== String(order.id)) {
+    throw serviceError(
+      "idempotencyKey ya existe para una orden diferente.",
+      409
+    );
+  }
+
+  assertSameCheckoutRequest(existingPayment, checkoutRequest);
+}
+
 function isUniqueConstraintError(error, fieldName = null) {
   if (error?.name !== "SequelizeUniqueConstraintError") return false;
   if (!fieldName) return true;
 
   return (error.errors || []).some((entry) => entry.path === fieldName);
+}
+
+function isIdempotencyKeyConflictError(error) {
+  if (error?.message === "idempotencyKey ya existe.") return true;
+  if (error?.parent?.constraint === "payments_idempotency_key_unique") return true;
+
+  return isUniqueConstraintError(error, "idempotencyKey");
 }
 
 async function findPaymentByIdempotencyKey(idempotencyKey, transaction = null) {
@@ -294,23 +411,22 @@ async function buildOrderItemsForCheckout({
         userId,
         status: "active",
       },
-      include: [
-        {
-          model: CartItem,
-          as: "items",
-          required: false,
-        },
-      ],
       transaction,
       lock: transaction.LOCK.UPDATE,
-      order: [[{ model: CartItem, as: "items" }, "createdAt", "ASC"]],
     });
 
     if (!cart) {
       throw serviceError("Carrito no encontrado o no esta activo.", 404);
     }
 
-    const cartItems = cart.get?.("items") || cart.items || [];
+    const cartItems = await CartItem.findAll({
+      where: {
+        cartId: cart.id,
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+      order: [["createdAt", "ASC"]],
+    });
 
     if (cartItems.length === 0) {
       throw serviceError("El carrito esta vacio.");
@@ -390,14 +506,6 @@ async function createLocalCheckout({
       transaction,
     });
 
-    if (sourceCartId) {
-      await markCartConverted({
-        cartId: sourceCartId,
-        orderId: order.id,
-        transaction,
-      });
-    }
-
     const payment = await createPaymentAttempt({
       orderId: order.id,
       method: "online_checkout",
@@ -409,8 +517,14 @@ async function createLocalCheckout({
       metadata: {
         source: CHECKOUT_SOURCE,
         checkoutRequest,
+        sourceCartId,
       },
       createdBy: userId,
+      transaction,
+    });
+
+    await createInventoryReservationsForOrder({
+      orderId: order.id,
       transaction,
     });
 
@@ -474,68 +588,398 @@ function buildPreferenceBody({ order, payment }) {
   };
 }
 
-async function loadOrderForPreference(orderId) {
-  const order = await getOrderWithDetails({ orderId });
-
-  if (!order) {
-    throw serviceError("Orden no encontrada.", 404);
-  }
-
-  return order;
-}
-
 async function ensureMercadoPagoPreference({
   payment,
   mercadoPagoApi = createMercadoPagoSdk(),
 }) {
+  const claim = await claimPreferenceCreation(payment.id);
+
+  if (claim.status === "ready") {
+    return claim.result;
+  }
+
+  if (claim.status === "creating") {
+    return waitForPreferenceCreation({
+      paymentId: payment.id,
+      mercadoPagoApi,
+    });
+  }
+
+  try {
+    const paymentForPreference = await Payment.findByPk(claim.paymentId);
+
+    if (!paymentForPreference) {
+      throw serviceError("Pago no encontrado.", 404);
+    }
+
+    const order = await getOrderWithDetails({
+      orderId: paymentForPreference.orderId,
+    });
+
+    if (!order) {
+      throw serviceError("Orden no encontrada.", 404);
+    }
+
+    const preferenceBody = buildPreferenceBody({
+      order,
+      payment: paymentForPreference,
+    });
+    const preference = await mercadoPagoApi.createPreference({
+      body: preferenceBody,
+      idempotencyKey: paymentForPreference.idempotencyKey,
+    });
+    const urls = getPreferenceUrls(preference);
+    const selectedCheckoutUrl = selectCheckoutUrl(urls);
+
+    if (!selectedCheckoutUrl) {
+      throw serviceError("Mercado Pago no devolvio una URL de checkout.", 502);
+    }
+
+    return savePreferenceSuccess({
+      paymentId: paymentForPreference.id,
+      token: claim.token,
+      preference,
+      urls,
+    });
+  } catch (error) {
+    await savePreferenceFailure({
+      paymentId: claim.paymentId,
+      token: claim.token,
+      error,
+    });
+
+    throw buildPreferenceCreationError(error);
+  }
+}
+
+function buildExistingPreferenceResult(payment) {
   const storedUrls = payment.metadata?.checkoutUrls || null;
   const storedCheckoutUrl = storedUrls ? selectCheckoutUrl(storedUrls) : null;
 
-  if (payment.providerPreferenceId && storedCheckoutUrl) {
-    return {
-      orderId: payment.orderId,
-      preferenceId: payment.providerPreferenceId,
-      checkoutUrl: storedCheckoutUrl,
-      sandboxCheckoutUrl: storedUrls.sandboxCheckoutUrl || null,
-    };
+  if (!payment.providerPreferenceId || !storedCheckoutUrl) {
+    return null;
   }
-
-  const order = await loadOrderForPreference(payment.orderId);
-  const preferenceBody = buildPreferenceBody({ order, payment });
-  const preference = await mercadoPagoApi.createPreference({
-    body: preferenceBody,
-    idempotencyKey: payment.idempotencyKey,
-  });
-  const urls = getPreferenceUrls(preference);
-  const selectedCheckoutUrl = selectCheckoutUrl(urls);
-
-  if (!selectedCheckoutUrl) {
-    throw serviceError("Mercado Pago no devolvio una URL de checkout.", 502);
-  }
-
-  await payment.update({
-    providerPreferenceId: normalizeNullableString(preference?.id),
-    externalReference: String(order.id),
-    providerStatus: "preference_created",
-    metadata: {
-      ...(payment.metadata || {}),
-      checkoutRequest: payment.metadata?.checkoutRequest || order.metadata?.checkoutRequest,
-      checkoutUrls: urls,
-      preferenceAudit: {
-        id: normalizeNullableString(preference?.id),
-        createdAt: new Date().toISOString(),
-        externalReference: String(order.id),
-        sandbox: normalizeBooleanEnv(process.env.MERCADOPAGO_USE_SANDBOX, true),
-      },
-    },
-  });
 
   return {
-    orderId: order.id,
-    preferenceId: normalizeNullableString(preference?.id),
-    checkoutUrl: selectedCheckoutUrl,
-    sandboxCheckoutUrl: urls.sandboxCheckoutUrl,
+    orderId: payment.orderId,
+    preferenceId: payment.providerPreferenceId,
+    checkoutUrl: storedCheckoutUrl,
+    sandboxCheckoutUrl: storedUrls.sandboxCheckoutUrl || null,
   };
+}
+
+function preferenceCreationIsFresh(creation = {}) {
+  if (creation.status !== "creating") return false;
+
+  const startedAt = Date.parse(creation.startedAt || "");
+
+  return (
+    Number.isFinite(startedAt) &&
+    Date.now() - startedAt < PREFERENCE_CREATION_STALE_MS
+  );
+}
+
+async function claimPreferenceCreation(paymentId) {
+  return sequelize.transaction(async (transaction) => {
+    const lockedPayment = await Payment.findByPk(paymentId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!lockedPayment) {
+      throw serviceError("Pago no encontrado.", 404);
+    }
+
+    const existingResult = buildExistingPreferenceResult(lockedPayment);
+
+    if (existingResult) {
+      return {
+        status: "ready",
+        result: existingResult,
+      };
+    }
+
+    await createInventoryReservationsForOrder({
+      orderId: lockedPayment.orderId,
+      transaction,
+    });
+
+    const metadata = lockedPayment.metadata || {};
+    const preferenceCreation = metadata.preferenceCreation || {};
+
+    if (preferenceCreationIsFresh(preferenceCreation)) {
+      return {
+        status: "creating",
+        paymentId: lockedPayment.id,
+      };
+    }
+
+    const token = randomUUID();
+
+    await lockedPayment.update(
+      {
+        providerStatus: "preference_creating",
+        providerStatusDetail: null,
+        metadata: {
+          ...metadata,
+          preferenceCreation: {
+            status: "creating",
+            token,
+            startedAt: new Date().toISOString(),
+            retryCount: Number(preferenceCreation.retryCount || 0),
+          },
+        },
+      },
+      { transaction }
+    );
+
+    return {
+      status: "claimed",
+      paymentId: lockedPayment.id,
+      token,
+    };
+  });
+}
+
+async function waitForPreferenceCreation({
+  paymentId,
+  mercadoPagoApi,
+}) {
+  const deadline = Date.now() + PREFERENCE_WAIT_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    await delay(PREFERENCE_WAIT_INTERVAL_MS);
+
+    const payment = await Payment.findByPk(paymentId);
+
+    if (!payment) {
+      throw serviceError("Pago no encontrado.", 404);
+    }
+
+    const existingResult = buildExistingPreferenceResult(payment);
+
+    if (existingResult) {
+      return existingResult;
+    }
+
+    const preferenceCreation = payment.metadata?.preferenceCreation || {};
+
+    if (!preferenceCreationIsFresh(preferenceCreation)) {
+      return ensureMercadoPagoPreference({
+        payment,
+        mercadoPagoApi,
+      });
+    }
+  }
+
+  throw serviceError(
+    "La preferencia de Mercado Pago sigue en proceso. Intenta nuevamente.",
+    409
+  );
+}
+
+function buildPreferenceCreationError(error) {
+  if (error?.statusCode && error.statusCode >= 500) {
+    return serviceError("No se pudo crear la preferencia de Mercado Pago.", error.statusCode);
+  }
+
+  if (error?.statusCode === 503) {
+    return serviceError("No se pudo crear la preferencia de Mercado Pago.", 503);
+  }
+
+  return serviceError("No se pudo crear la preferencia de Mercado Pago.", 502);
+}
+
+async function savePreferenceFailure({
+  paymentId,
+  token,
+  error,
+}) {
+  await sequelize.transaction(async (transaction) => {
+    const payment = await Payment.findByPk(paymentId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!payment) return;
+
+    const metadata = payment.metadata || {};
+    const preferenceCreation = metadata.preferenceCreation || {};
+
+    if (preferenceCreation.token && preferenceCreation.token !== token) {
+      return;
+    }
+
+    await payment.update(
+      {
+        providerStatus: "preference_failed",
+        providerStatusDetail: safeWebhookErrorMessage(error),
+        metadata: {
+          ...metadata,
+          preferenceCreation: {
+            status: "failed",
+            token,
+            failedAt: new Date().toISOString(),
+            errorMessage: safeWebhookErrorMessage(error),
+            retryCount: Number(preferenceCreation.retryCount || 0) + 1,
+          },
+        },
+      },
+      { transaction }
+    );
+  });
+}
+
+function resolveSourceCartId({ payment, order }) {
+  return (
+    normalizeNullableString(payment.metadata?.sourceCartId) ||
+    normalizeNullableString(order.metadata?.sourceCartId)
+  );
+}
+
+async function markSourceCartConvertedAfterPreference({
+  payment,
+  order,
+  transaction,
+}) {
+  const sourceCartId = resolveSourceCartId({ payment, order });
+
+  if (!sourceCartId) return null;
+
+  const cart = await Cart.findByPk(sourceCartId, {
+    transaction,
+    lock: transaction.LOCK.UPDATE,
+  });
+
+  if (!cart) {
+    throw serviceError("Carrito no encontrado.", 404);
+  }
+
+  if (cart.status === "converted" && cart.convertedOrderId === order.id) {
+    return cart;
+  }
+
+  if (cart.status !== "active") {
+    throw serviceError("El carrito ya no esta activo.", 409);
+  }
+
+  return markCartConverted({
+    cartId: cart.id,
+    orderId: order.id,
+    transaction,
+  });
+}
+
+async function savePreferenceSuccess({
+  paymentId,
+  token,
+  preference,
+  urls,
+}) {
+  const selectedCheckoutUrl = selectCheckoutUrl(urls);
+
+  return sequelize.transaction(async (transaction) => {
+    const payment = await Payment.findByPk(paymentId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!payment) {
+      throw serviceError("Pago no encontrado.", 404);
+    }
+
+    const existingResult = buildExistingPreferenceResult(payment);
+    const order = await Order.findByPk(payment.orderId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!order) {
+      throw serviceError("Orden no encontrada.", 404);
+    }
+
+    if (existingResult) {
+      await markSourceCartConvertedAfterPreference({
+        payment,
+        order,
+        transaction,
+      });
+      return existingResult;
+    }
+
+    const metadata = payment.metadata || {};
+    const preferenceCreation = metadata.preferenceCreation || {};
+
+    if (preferenceCreation.token && preferenceCreation.token !== token) {
+      throw serviceError(
+        "La preferencia de Mercado Pago esta siendo creada por otra solicitud.",
+        409
+      );
+    }
+
+    const preferenceId = normalizeNullableString(preference?.id);
+
+    if (preferenceId) {
+      const duplicatePreferencePayment = await Payment.findOne({
+        where: {
+          provider: PROVIDER,
+          providerPreferenceId: preferenceId,
+          id: {
+            [Op.ne]: payment.id,
+          },
+        },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+
+      if (duplicatePreferencePayment) {
+        throw serviceError(
+          "providerPreferenceId ya existe para este provider.",
+          409
+        );
+      }
+    }
+
+    await payment.update(
+      {
+        providerPreferenceId: preferenceId,
+        externalReference: String(order.id),
+        providerStatus: "preference_created",
+        providerStatusDetail: null,
+        metadata: {
+          ...metadata,
+          checkoutRequest: metadata.checkoutRequest || order.metadata?.checkoutRequest,
+          checkoutUrls: urls,
+          preferenceCreation: {
+            status: "created",
+            token,
+            completedAt: new Date().toISOString(),
+            retryCount: Number(preferenceCreation.retryCount || 0),
+          },
+          preferenceAudit: {
+            id: preferenceId,
+            createdAt: new Date().toISOString(),
+            externalReference: String(order.id),
+            sandbox: normalizeBooleanEnv(process.env.MERCADOPAGO_USE_SANDBOX, true),
+          },
+        },
+      },
+      { transaction }
+    );
+
+    await markSourceCartConvertedAfterPreference({
+      payment,
+      order,
+      transaction,
+    });
+
+    return {
+      orderId: order.id,
+      preferenceId: normalizeNullableString(preference?.id),
+      checkoutUrl: selectedCheckoutUrl,
+      sandboxCheckoutUrl: urls.sandboxCheckoutUrl,
+    };
+  });
 }
 
 export async function createMercadoPagoCheckout({
@@ -551,14 +995,11 @@ export async function createMercadoPagoCheckout({
   const existingPayment = await findPaymentByIdempotencyKey(idempotencyKey);
 
   if (existingPayment) {
-    if (existingPayment.provider !== PROVIDER) {
-      throw serviceError(
-        "idempotencyKey ya existe para otro tipo de pago.",
-        409
-      );
-    }
-
-    assertSameCheckoutRequest(existingPayment, checkoutRequest);
+    assertSameCheckoutOperation({
+      existingPayment,
+      userId,
+      checkoutRequest,
+    });
 
     return ensureMercadoPagoPreference({
       payment: existingPayment,
@@ -578,7 +1019,7 @@ export async function createMercadoPagoCheckout({
       mercadoPagoApi,
     });
   } catch (error) {
-    if (!isUniqueConstraintError(error, "idempotencyKey")) {
+    if (!isIdempotencyKeyConflictError(error)) {
       throw error;
     }
 
@@ -586,7 +1027,11 @@ export async function createMercadoPagoCheckout({
 
     if (!payment) throw error;
 
-    assertSameCheckoutRequest(payment, checkoutRequest);
+    assertSameCheckoutOperation({
+      existingPayment: payment,
+      userId,
+      checkoutRequest,
+    });
 
     return ensureMercadoPagoPreference({
       payment,
@@ -696,7 +1141,11 @@ function mapMercadoPagoStatus(status) {
     case "refunded":
       return "refunded";
     case "charged_back":
-      return "failed";
+      return "charged_back";
+    case "in_mediation":
+    case "dispute":
+    case "disputed":
+      return "disputed";
     default:
       return "pending";
   }
@@ -791,7 +1240,10 @@ async function resolveLocalPayment(providerPayment, transaction) {
   }
 
   if (resolvedOrderId && order.id !== resolvedOrderId) {
-    throw serviceError("El pago de Mercado Pago no pertenece a la orden local.", 409);
+    throw nonRetryableWebhookError(
+      "El pago de Mercado Pago no pertenece a la orden local.",
+      400
+    );
   }
 
   return { payment, order };
@@ -799,18 +1251,27 @@ async function resolveLocalPayment(providerPayment, transaction) {
 
 function assertProviderPaymentMatchesOrder({ providerPayment, payment, order }) {
   if (payment.provider !== PROVIDER || payment.source !== "online_checkout") {
-    throw serviceError("El pago local no corresponde a Checkout Pro.", 409);
+    throw nonRetryableWebhookError(
+      "El pago local no corresponde a Checkout Pro.",
+      400
+    );
   }
 
   const amountCents = toCents(getProviderPaymentAmount(providerPayment), "amount");
   const orderTotalCents = toCents(order.total, "order.total");
 
   if (amountCents !== orderTotalCents) {
-    throw serviceError("El monto aprobado no coincide con la orden local.", 409);
+    throw nonRetryableWebhookError(
+      "El monto aprobado no coincide con la orden local.",
+      400
+    );
   }
 
   if (getProviderPaymentCurrency(providerPayment) !== CURRENCY) {
-    throw serviceError("La moneda del pago de Mercado Pago no es MXN.", 409);
+    throw nonRetryableWebhookError(
+      "La moneda del pago de Mercado Pago no es MXN.",
+      400
+    );
   }
 
   const providerPreferenceId = normalizeNullableString(providerPayment?.preference_id);
@@ -820,7 +1281,10 @@ function assertProviderPaymentMatchesOrder({ providerPayment, payment, order }) 
     payment.providerPreferenceId &&
     providerPreferenceId !== payment.providerPreferenceId
   ) {
-    throw serviceError("La preferencia de Mercado Pago no coincide.", 409);
+    throw nonRetryableWebhookError(
+      "La preferencia de Mercado Pago no coincide.",
+      400
+    );
   }
 }
 
@@ -832,17 +1296,36 @@ async function applyProviderPaymentStatus({
   const { payment, order } = await resolveLocalPayment(providerPayment, transaction);
   const mappedStatus = mapMercadoPagoStatus(providerPayment?.status);
   const providerPaymentId = normalizeNullableString(providerPayment?.id);
+  const providerStatus = normalizeNullableString(providerPayment?.status);
+  const requiresAdminReview = REVIEW_PAYMENT_STATUSES.has(mappedStatus);
   const metadata = {
     mercadopago: {
       providerPaymentId,
-      status: normalizeNullableString(providerPayment?.status),
+      status: providerStatus,
       statusDetail: normalizeNullableString(providerPayment?.status_detail),
       paymentMethodId: normalizeNullableString(providerPayment?.payment_method_id),
       paymentTypeId: normalizeNullableString(providerPayment?.payment_type_id),
       processedAt: new Date().toISOString(),
+      adminReviewRequired: requiresAdminReview,
+      reviewReason: requiresAdminReview ? mappedStatus : null,
       chargedBackRequiresManualReview:
-        normalizeNullableString(providerPayment?.status) === "charged_back",
+        providerStatus === "charged_back",
     },
+    ...(requiresAdminReview
+      ? {
+          paymentReview: {
+            required: true,
+            reason: mappedStatus,
+            provider: PROVIDER,
+            providerStatus,
+            providerPaymentId,
+            orderId: order.id,
+            receivedAt: new Date().toISOString(),
+            note:
+              "Revision administrativa requerida. No se modifican inventario, membresias ni recibos automaticamente.",
+          },
+        }
+      : {}),
   };
 
   await event.update(
@@ -868,13 +1351,44 @@ async function applyProviderPaymentStatus({
     { transaction }
   );
 
+  if (requiresAdminReview) {
+    assertProviderPaymentMatchesOrder({ providerPayment, payment, order });
+
+    const updatedPayment = await updatePaymentStatus({
+      paymentId: payment.id,
+      status: mappedStatus,
+      providerPaymentId,
+      providerStatus,
+      providerStatusDetail: normalizeNullableString(providerPayment?.status_detail),
+      providerPreferenceId: normalizeNullableString(providerPayment?.preference_id),
+      externalReference:
+        normalizeNullableString(providerPayment?.external_reference) || String(order.id),
+      metadata,
+      transaction,
+    });
+
+    return {
+      action: "marked_for_admin_review",
+      payment: updatedPayment,
+      order,
+    };
+  }
+
   if (mappedStatus === "paid") {
+    if (payment.status !== "pending" && payment.status !== "paid") {
+      return {
+        action: "ignored_final_status",
+        payment,
+        order,
+      };
+    }
+
     assertProviderPaymentMatchesOrder({ providerPayment, payment, order });
 
     const result = await confirmPaidPayment({
       paymentId: payment.id,
       providerPaymentId,
-      providerStatus: normalizeNullableString(providerPayment?.status),
+      providerStatus,
       providerStatusDetail: normalizeNullableString(
         providerPayment?.status_detail
       ),
@@ -909,7 +1423,7 @@ async function applyProviderPaymentStatus({
     paymentId: payment.id,
     status: mappedStatus,
     providerPaymentId,
-    providerStatus: normalizeNullableString(providerPayment?.status),
+    providerStatus,
     providerStatusDetail: normalizeNullableString(providerPayment?.status_detail),
     providerPreferenceId: normalizeNullableString(providerPayment?.preference_id),
     externalReference: normalizeNullableString(providerPayment?.external_reference) || String(order.id),
@@ -927,7 +1441,7 @@ async function applyProviderPaymentStatus({
 async function markWebhookFailed(event, error) {
   await event.update({
     processingStatus: "failed",
-    errorMessage: error.message,
+    errorMessage: safeWebhookErrorMessage(error),
     processedAt: new Date(),
     retryCount: Number(event.retryCount || 0) + 1,
   });
@@ -970,13 +1484,22 @@ export async function processMercadoPagoWebhook({
     };
   }
 
+  if (!dataId) {
+    const error = nonRetryableWebhookError(
+      "No se recibio identificador de pago.",
+      400
+    );
+    await markWebhookFailed(event, error);
+    throw error;
+  }
+
   try {
     const webhookSecret = normalizeNullableString(
       process.env.MERCADOPAGO_WEBHOOK_SECRET
     );
 
     if (!webhookSecret) {
-      throw serviceError("MERCADOPAGO_WEBHOOK_SECRET no esta configurada.", 503);
+      throw serviceError("Webhook de Mercado Pago no esta configurado.", 500);
     }
 
     mercadoPagoApi.validateSignature({
@@ -993,29 +1516,19 @@ export async function processMercadoPagoWebhook({
   } catch (error) {
     await event.update({
       signatureValid: false,
-      processingStatus: "failed",
-      errorMessage:
-        error instanceof InvalidWebhookSignatureError
-          ? error.reason
-          : error.message,
-      processedAt: new Date(),
     });
 
     if (error instanceof InvalidWebhookSignatureError) {
+      await event.update({
+        processingStatus: "failed",
+        errorMessage: error.reason,
+        processedAt: new Date(),
+      });
       throw serviceError("Firma de Mercado Pago invalida.", 401);
     }
 
-    throw error;
-  }
-
-  if (!dataId) {
-    const error = serviceError("No se recibio identificador de pago.", 400);
     await markWebhookFailed(event, error);
-    return {
-      ok: false,
-      event,
-      error,
-    };
+    throw error;
   }
 
   if (!eventType.includes("payment")) {
@@ -1061,11 +1574,11 @@ export async function processMercadoPagoWebhook({
   } catch (error) {
     await markWebhookFailed(event, error);
 
-    return {
-      ok: false,
-      event,
-      error,
-    };
+    if (!shouldRetryWebhookError(error)) {
+      throw error;
+    }
+
+    throw serviceError("Error interno procesando webhook de Mercado Pago.", 500);
   }
 }
 

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import axios from "axios";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import "../styles/payment.css";
-import Logo from "../assets/LogoP.png";
 import {
   getMembershipPlans,
   type MembershipPlan,
@@ -162,36 +161,6 @@ export default function PaymentPage() {
         <div className="bg-glow bg-glow-1" />
         <div className="bg-glow bg-glow-2" />
       </div>
-
-      <header className="header header-scrolled">
-        <div className="header-content">
-          <div className="logo-container">
-            <Link to="/">
-              <img src={Logo} alt="Titanium Sport Gym" className="logo-image" />
-            </Link>
-          </div>
-
-          <nav className="nav-desktop">
-            <div className="nav-main-links">
-              <Link to="/" className="nav-link">
-                INICIO
-                <span className="nav-underline" />
-              </Link>
-              <Link to="/suscripciones" className="nav-link">
-                SUSCRIPCIONES
-                <span className="nav-underline" />
-              </Link>
-            </div>
-
-            <div className="nav-action-links">
-              <div className="nav-divider" />
-              <Link to="/login" className="slider-btn-solid">
-                INICIA SESION
-              </Link>
-            </div>
-          </nav>
-        </div>
-      </header>
 
       <nav className="breadcrumbs">
         <ol className="breadcrumb-list">

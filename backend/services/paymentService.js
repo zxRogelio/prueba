@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Op } from "sequelize";
 import { sequelize } from "../config/sequelize.js";
 import {
@@ -13,6 +14,10 @@ import {
   recordProductSalesForOrder,
 } from "./inventoryService.js";
 import {
+  consumeInventoryReservationsForOrder,
+  releaseInventoryReservationsForOrder,
+} from "./inventoryReservationService.js";
+import {
   activateMembershipsFromOrder,
   cancelMembershipEntitlementsForRefund,
 } from "./membershipActivationService.js";
@@ -20,15 +25,20 @@ import {
   cancelReceiptsForFullRefund,
   createReceipt,
 } from "./receiptService.js";
+import {
+  createMercadoPagoRefundApi,
+  mapMercadoPagoRefundStatus,
+  normalizeMercadoPagoRefundResponse,
+} from "./mercadoPagoRefundService.js";
 import { recordSubscriptionRefundEventsForPayment } from "./subscriptionEventService.js";
+import {
+  assertOrderTransition,
+  assertPaymentRefundTransition,
+  assertPaymentTransition,
+  isKnownPaymentRefundStatus,
+  isKnownPaymentStatus,
+} from "./stateTransitionService.js";
 
-const PAYMENT_STATUSES = new Set([
-  "pending",
-  "paid",
-  "failed",
-  "cancelled",
-  "refunded",
-]);
 const PAYMENT_METHODS = new Set([
   "cash",
   "transfer",
@@ -43,6 +53,7 @@ const PAYMENT_PROVIDERS = new Set([
   "mercadopago_checkout",
 ]);
 const MANUAL_METHODS = new Set(["cash", "transfer", "card_terminal"]);
+const MERCADOPAGO_CHECKOUT_PROVIDER = "mercadopago_checkout";
 
 function serviceError(message, statusCode = 400) {
   const error = new Error(message);
@@ -129,16 +140,34 @@ function calculateOrderItemAmountCents(orderItem, quantity) {
   return Math.round((subtotalCents / itemQuantity) * quantity);
 }
 
-async function getApprovedRefundItemTotals(paymentId, transaction) {
-  const approvedRefunds = await PaymentRefund.findAll({
+async function getRefundItemTotals({
+  paymentId,
+  statuses = ["approved"],
+  transaction,
+  ignoreRefundId = null,
+}) {
+  const refundWhere = {
+    paymentId,
+    status: {
+      [Op.in]: statuses,
+    },
+  };
+
+  if (ignoreRefundId) {
+    refundWhere.id = {
+      [Op.ne]: ignoreRefundId,
+    };
+  }
+
+  const refunds = await PaymentRefund.findAll({
     where: {
-      paymentId,
-      status: "approved",
+      ...refundWhere,
     },
     attributes: ["id"],
     transaction,
+    lock: transaction.LOCK.UPDATE,
   });
-  const refundIds = approvedRefunds.map((refund) => refund.id);
+  const refundIds = refunds.map((refund) => refund.id);
 
   if (refundIds.length === 0) return new Map();
 
@@ -165,6 +194,14 @@ async function getApprovedRefundItemTotals(paymentId, transaction) {
   }
 
   return totals;
+}
+
+async function getApprovedRefundItemTotals(paymentId, transaction) {
+  return getRefundItemTotals({
+    paymentId,
+    statuses: ["approved"],
+    transaction,
+  });
 }
 
 async function getProductOrderItemsForPayment(payment, transaction) {
@@ -330,6 +367,68 @@ function sameRefundItemRows(left = [], right = []) {
   });
 }
 
+function isMercadoPagoCheckoutPayment(payment) {
+  return (
+    payment?.provider === MERCADOPAGO_CHECKOUT_PROVIDER &&
+    payment?.source === "online_checkout"
+  );
+}
+
+function normalizeRefundIdempotencyKey({ idempotencyKey, providerRefundId }) {
+  return (
+    normalizeNullableString(idempotencyKey) ||
+    normalizeNullableString(providerRefundId) ||
+    randomUUID()
+  );
+}
+
+function createEmptyRefundSideEffects() {
+  return {
+    receiptCancelledCount: 0,
+    cancelledSubscriptions: 0,
+    cancelledGroups: 0,
+    removedGroupMembers: 0,
+    inventoryReturnCount: 0,
+  };
+}
+
+function safeExternalErrorMessage(error) {
+  const fallback = "Error procesando reembolso de Mercado Pago.";
+  let message = normalizeNullableString(error?.message) || fallback;
+
+  for (const secret of [process.env.MERCADOPAGO_ACCESS_TOKEN]) {
+    const normalizedSecret = normalizeNullableString(secret);
+
+    if (normalizedSecret) {
+      message = message.split(normalizedSecret).join("[redacted]");
+    }
+  }
+
+  return message.slice(0, 1000);
+}
+
+async function findExistingRefundByIdempotencyKey(idempotencyKey, transaction) {
+  if (!idempotencyKey) return null;
+
+  const refund = await PaymentRefund.findOne({
+    where: { idempotencyKey },
+    transaction,
+    lock: transaction.LOCK.UPDATE,
+  });
+
+  if (!refund) return null;
+
+  const items = await PaymentRefundItem.findAll({
+    where: { refundId: refund.id },
+    transaction,
+    lock: transaction.LOCK.UPDATE,
+  });
+
+  refund.setDataValue("items", items);
+
+  return refund;
+}
+
 export function resolveManualPaymentProvider(method, provider) {
   const normalizedProvider = normalizeNullableString(provider);
 
@@ -359,7 +458,7 @@ function validatePaymentFields({ method, source, provider, status }) {
     throw serviceError("provider de pago invalido.");
   }
 
-  if (!PAYMENT_STATUSES.has(status)) {
+  if (!isKnownPaymentStatus(status)) {
     throw serviceError("status de pago invalido.");
   }
 }
@@ -378,7 +477,7 @@ async function findOrderForPayment(orderId, transaction) {
     throw serviceError("Orden no encontrada.", 404);
   }
 
-  if (["cancelled", "refunded"].includes(order.status)) {
+  if (["cancelled", "refunded", "disputed", "charged_back"].includes(order.status)) {
     throw serviceError("No se pueden crear pagos para una orden cerrada.");
   }
 
@@ -464,6 +563,7 @@ async function assertNoDuplicatePaymentIdentifiers(
     externalReference = null,
     idempotencyKey = null,
     provider = null,
+    providerPreferenceId = null,
     providerPaymentId = null,
     ignorePaymentId = null,
   },
@@ -489,6 +589,13 @@ async function assertNoDuplicatePaymentIdentifiers(
     checks.push({
       where: { provider, providerPaymentId },
       label: "providerPaymentId ya existe para este provider.",
+    });
+  }
+
+  if (provider && providerPreferenceId) {
+    checks.push({
+      where: { provider, providerPreferenceId },
+      label: "providerPreferenceId ya existe para este provider.",
     });
   }
 
@@ -523,6 +630,13 @@ async function updateOrderAfterPaymentStatus(payment, transaction) {
   if (!order) return null;
 
   if (payment.status === "paid") {
+    assertOrderTransition(order.status, "paid");
+
+    await consumeInventoryReservationsForOrder({
+      orderId: order.id,
+      transaction,
+    });
+
     await order.update(
       {
         status: "paid",
@@ -539,6 +653,14 @@ async function updateOrderAfterPaymentStatus(payment, transaction) {
     return order;
   }
 
+  if (["failed", "cancelled", "refunded"].includes(payment.status)) {
+    await releaseInventoryReservationsForOrder({
+      orderId: order.id,
+      status: "released",
+      transaction,
+    });
+  }
+
   if (payment.status === "refunded") {
     const orderPayments = await Payment.findAll({
       where: { orderId: order.id },
@@ -549,10 +671,36 @@ async function updateOrderAfterPaymentStatus(payment, transaction) {
         orderPayment.id !== payment.id && orderPayment.status === "paid"
     );
 
+    const nextOrderStatus = hasPaidPayment ? "partially_refunded" : "refunded";
+
+    assertOrderTransition(order.status, nextOrderStatus);
+
     await order.update(
       {
-        status: hasPaidPayment ? "partially_refunded" : "refunded",
+        status: nextOrderStatus,
         refundedAt: hasPaidPayment ? order.refundedAt : payment.refundedAt,
+      },
+      { transaction }
+    );
+  }
+
+  if (["disputed", "charged_back"].includes(payment.status)) {
+    assertOrderTransition(order.status, payment.status);
+
+    await order.update(
+      {
+        status: payment.status,
+        metadata: {
+          ...(order.metadata || {}),
+          paymentReview: {
+            required: true,
+            reason: payment.status,
+            paymentId: payment.id,
+            provider: payment.provider,
+            providerPaymentId: payment.providerPaymentId || null,
+            receivedAt: new Date().toISOString(),
+          },
+        },
       },
       { transaction }
     );
@@ -588,9 +736,12 @@ export async function createPaymentAttempt({
     });
 
     validatePaymentFields({ method, source, provider, status });
+    assertPaymentTransition(null, status);
 
     const normalizedExternalReference = normalizeNullableString(externalReference);
     const normalizedIdempotencyKey = normalizeNullableString(idempotencyKey);
+    const normalizedProviderPreferenceId =
+      normalizeNullableString(providerPreferenceId);
     const normalizedProviderPaymentId = normalizeNullableString(providerPaymentId);
 
     await assertNoDuplicatePaymentIdentifiers(
@@ -598,6 +749,7 @@ export async function createPaymentAttempt({
         externalReference: normalizedExternalReference,
         idempotencyKey: normalizedIdempotencyKey,
         provider,
+        providerPreferenceId: normalizedProviderPreferenceId,
         providerPaymentId: normalizedProviderPaymentId,
       },
       t
@@ -615,7 +767,7 @@ export async function createPaymentAttempt({
         method,
         source,
         provider,
-        providerPreferenceId: normalizeNullableString(providerPreferenceId),
+        providerPreferenceId: normalizedProviderPreferenceId,
         providerPaymentId: normalizedProviderPaymentId,
         externalReference: normalizedExternalReference,
         providerStatus: normalizeNullableString(providerStatus),
@@ -686,7 +838,7 @@ export async function updatePaymentStatus({
   transaction = null,
 }) {
   return withTransaction(transaction, async (t) => {
-    if (!PAYMENT_STATUSES.has(status)) {
+    if (!isKnownPaymentStatus(status)) {
       throw serviceError("status de pago invalido.");
     }
 
@@ -698,6 +850,8 @@ export async function updatePaymentStatus({
     if (!payment) {
       throw serviceError("Pago no encontrado.", 404);
     }
+
+    assertPaymentTransition(payment.status, status);
 
     if (status === "paid" && payment.orderId) {
       const order = await Order.findByPk(payment.orderId, {
@@ -751,6 +905,8 @@ export async function updatePaymentStatus({
         externalReference: nextValues.externalReference ?? payment.externalReference,
         idempotencyKey: nextValues.idempotencyKey ?? payment.idempotencyKey,
         provider: payment.provider,
+        providerPreferenceId:
+          nextValues.providerPreferenceId ?? payment.providerPreferenceId,
         providerPaymentId:
           nextValues.providerPaymentId ?? payment.providerPaymentId,
         ignorePaymentId: payment.id,
@@ -823,9 +979,9 @@ export async function confirmPaidPayment({
       throw serviceError("Orden no encontrada.", 404);
     }
 
-    if (["cancelled", "refunded"].includes(payment.status)) {
+    if (["cancelled", "refunded", "disputed", "charged_back"].includes(payment.status)) {
       throw serviceError(
-        "No se puede confirmar un pago cancelado o reembolsado.",
+        "No se puede confirmar un pago cancelado, reembolsado o en revision.",
         409
       );
     }
@@ -894,6 +1050,7 @@ function assertExistingRefundMatchesRequest({
   amount,
   status,
   items,
+  conflictLabel = "providerRefundId",
 }) {
   const mismatches = [];
 
@@ -944,10 +1101,134 @@ function assertExistingRefundMatchesRequest({
 
   if (mismatches.length > 0) {
     throw serviceError(
-      `providerRefundId ya existe para otro reembolso: ${[...new Set(mismatches)].join(", ")}.`,
+      `${conflictLabel} ya existe para otro reembolso: ${[...new Set(mismatches)].join(", ")}.`,
       409
     );
   }
+}
+
+function assertExistingRefundMatchesPrepared({
+  refund,
+  paymentId,
+  refundAmountCents,
+  productRefundRows,
+  conflictLabel = "idempotencyKey",
+}) {
+  const mismatches = [];
+
+  if (refund.paymentId !== paymentId) mismatches.push("paymentId");
+
+  if (toCents(refund.amount, "refund.amount") !== refundAmountCents) {
+    mismatches.push("amount");
+  }
+
+  const existingItems = refund.get?.("items") || refund.items || [];
+
+  if (!sameRefundItemRows(existingItems, productRefundRows || [])) {
+    mismatches.push("items");
+  }
+
+  if (mismatches.length > 0) {
+    throw serviceError(
+      `${conflictLabel} ya existe para otro reembolso: ${[...new Set(mismatches)].join(", ")}.`,
+      409
+    );
+  }
+}
+
+async function applyApprovedRefundSideEffects({
+  payment,
+  order,
+  refund,
+  productRefundRows,
+  fullyRefunded,
+  requestedBy,
+  reason,
+  approvedAt,
+  transaction,
+}) {
+  const sideEffects = createEmptyRefundSideEffects();
+
+  for (const item of productRefundRows) {
+    if (!item.restock) continue;
+
+    const result = await recordProductReturnFromOrderItem({
+      orderItemId: item.orderItemId,
+      quantity: item.quantity,
+      reference: `refund:${refund.id}:order-item:${item.orderItemId}`,
+      createdBy: requestedBy,
+      notes: reason,
+      transaction,
+    });
+
+    if (!result.skipped && result.movement) {
+      sideEffects.inventoryReturnCount += 1;
+    }
+  }
+
+  if (fullyRefunded) {
+    assertPaymentTransition(payment.status, "refunded");
+
+    await payment.update(
+      {
+        status: "refunded",
+        refundedAt: approvedAt,
+      },
+      { transaction }
+    );
+
+    assertOrderTransition(order.status, "refunded");
+
+    await order.update(
+      {
+        status: "refunded",
+        refundedAt: approvedAt,
+      },
+      { transaction }
+    );
+
+    sideEffects.receiptCancelledCount = await cancelReceiptsForFullRefund({
+      orderId: order.id,
+      paymentId: payment.id,
+      refundId: refund.id,
+      cancelledBy: requestedBy,
+      reason,
+      cancelledAt: approvedAt,
+      transaction,
+    });
+
+    const membershipEffects = await cancelMembershipEntitlementsForRefund({
+      paymentId: payment.id,
+      refundId: refund.id,
+      cancelledBy: requestedBy,
+      reason,
+      effectiveAt: approvedAt,
+      transaction,
+    });
+
+    sideEffects.cancelledSubscriptions =
+      membershipEffects.cancelledSubscriptions;
+    sideEffects.cancelledGroups = membershipEffects.cancelledGroups;
+    sideEffects.removedGroupMembers = membershipEffects.removedMembers;
+  } else {
+    assertOrderTransition(order.status, "partially_refunded");
+
+    await order.update(
+      {
+        status: "partially_refunded",
+      },
+      { transaction }
+    );
+  }
+
+  await recordSubscriptionRefundEventsForPayment({
+    payment,
+    refund,
+    fullyRefunded,
+    transaction,
+  });
+
+  return sideEffects;
 }
 
 async function processRefundInternal({
@@ -962,9 +1243,10 @@ async function processRefundInternal({
   transaction = null,
 }) {
   return withTransaction(transaction, async (t) => {
-    if (!["pending", "approved", "failed", "cancelled"].includes(status)) {
+    if (!isKnownPaymentRefundStatus(status)) {
       throw serviceError("status de reembolso invalido.");
     }
+    assertPaymentRefundTransition(null, status);
 
     const normalizedProviderRefundId = normalizeNullableString(providerRefundId);
     const existingByProviderRefundId =
@@ -1096,85 +1378,18 @@ async function processRefundInternal({
           { transaction: t, validate: true }
         )
       : [];
-    const sideEffects = {
-      receiptCancelledCount: 0,
-      cancelledSubscriptions: 0,
-      cancelledGroups: 0,
-      removedGroupMembers: 0,
-      inventoryReturnCount: 0,
-    };
+    let sideEffects = createEmptyRefundSideEffects();
 
     if (status === "approved") {
-      for (const item of productRefundRows) {
-        if (!item.restock) continue;
-
-        const result = await recordProductReturnFromOrderItem({
-          orderItemId: item.orderItemId,
-          quantity: item.quantity,
-          reference: `refund:${refund.id}:order-item:${item.orderItemId}`,
-          createdBy: requestedBy,
-          notes: reason,
-          transaction: t,
-        });
-
-        if (!result.skipped && result.movement) {
-          sideEffects.inventoryReturnCount += 1;
-        }
-      }
-
-      if (fullyRefunded) {
-        await payment.update(
-          {
-            status: "refunded",
-            refundedAt: approvedAt,
-          },
-          { transaction: t }
-        );
-
-        await order.update(
-          {
-            status: "refunded",
-            refundedAt: approvedAt,
-          },
-          { transaction: t }
-        );
-
-        sideEffects.receiptCancelledCount = await cancelReceiptsForFullRefund({
-          orderId: order.id,
-          paymentId: payment.id,
-          refundId: refund.id,
-          cancelledBy: requestedBy,
-          reason,
-          cancelledAt: approvedAt,
-          transaction: t,
-        });
-
-        const membershipEffects = await cancelMembershipEntitlementsForRefund({
-          paymentId: payment.id,
-          refundId: refund.id,
-          cancelledBy: requestedBy,
-          reason,
-          effectiveAt: approvedAt,
-          transaction: t,
-        });
-
-        sideEffects.cancelledSubscriptions =
-          membershipEffects.cancelledSubscriptions;
-        sideEffects.cancelledGroups = membershipEffects.cancelledGroups;
-        sideEffects.removedGroupMembers = membershipEffects.removedMembers;
-      } else {
-        await order.update(
-          {
-            status: "partially_refunded",
-          },
-          { transaction: t }
-        );
-      }
-
-      await recordSubscriptionRefundEventsForPayment({
+      sideEffects = await applyApprovedRefundSideEffects({
         payment,
         refund,
+        order,
+        productRefundRows,
         fullyRefunded,
+        requestedBy,
+        reason,
+        approvedAt,
         transaction: t,
       });
     }
@@ -1195,10 +1410,644 @@ async function processRefundInternal({
   });
 }
 
+async function getRefundedAmountCents({
+  paymentId,
+  statuses,
+  transaction,
+  ignoreRefundId = null,
+}) {
+  const refundWhere = {
+    paymentId,
+    status: {
+      [Op.in]: statuses,
+    },
+  };
+
+  if (ignoreRefundId) {
+    refundWhere.id = {
+      [Op.ne]: ignoreRefundId,
+    };
+  }
+
+  const refunds = await PaymentRefund.findAll({
+    where: refundWhere,
+    transaction,
+    lock: transaction.LOCK.UPDATE,
+  });
+
+  return refunds.reduce(
+    (sum, refund) => sum + toCents(refund.amount, "refund.amount"),
+    0
+  );
+}
+
+async function prepareRefundRequest({
+  payment,
+  amount = null,
+  items = null,
+  transaction,
+  includePendingRefunds = false,
+  ignoreRefundId = null,
+}) {
+  const statuses = includePendingRefunds
+    ? ["approved", "pending"]
+    : ["approved"];
+  const reservedRefundCents = await getRefundedAmountCents({
+    paymentId: payment.id,
+    statuses,
+    transaction,
+    ignoreRefundId,
+  });
+  const paymentAmountCents = toCents(payment.amount, "payment.amount");
+  const availableCents = paymentAmountCents - reservedRefundCents;
+  const previousItemTotals = await getRefundItemTotals({
+    paymentId: payment.id,
+    statuses,
+    transaction,
+    ignoreRefundId,
+  });
+  const requestedItemRows = await buildRequestedRefundItemRows({
+    payment,
+    rawItems: items,
+    previousItemTotals,
+    transaction,
+  });
+  const requestedItemsAmountCents = requestedItemRows
+    ? sumRefundItemAmountCents(requestedItemRows)
+    : null;
+  const refundAmountCents =
+    amount == null
+      ? requestedItemsAmountCents ?? availableCents
+      : toCents(amount, "amount");
+
+  if (refundAmountCents <= 0) {
+    throw serviceError("amount debe ser mayor que cero.");
+  }
+
+  if (
+    requestedItemsAmountCents != null &&
+    requestedItemsAmountCents > 0 &&
+    requestedItemsAmountCents !== refundAmountCents
+  ) {
+    throw serviceError("amount debe coincidir con la suma de items.");
+  }
+
+  if (refundAmountCents > availableCents) {
+    throw serviceError("El reembolso excede el monto pagado.", 409);
+  }
+
+  const fullyRefunded = refundAmountCents >= availableCents;
+  const productRefundRows =
+    requestedItemRows ??
+    (fullyRefunded
+      ? await buildFullProductRefundItemRows({
+          payment,
+          previousItemTotals,
+          transaction,
+        })
+      : []);
+
+  return {
+    refundAmountCents,
+    availableCents,
+    fullyRefunded,
+    productRefundRows,
+  };
+}
+
+function assertMercadoPagoRefundablePayment(payment) {
+  if (!payment) {
+    throw serviceError("Pago no encontrado.", 404);
+  }
+
+  if (!isMercadoPagoCheckoutPayment(payment)) {
+    throw serviceError("El pago no corresponde a Mercado Pago Checkout Pro.", 409);
+  }
+
+  if (payment.status !== "paid") {
+    throw serviceError("Solo se pueden reembolsar pagos con estado paid.", 409);
+  }
+
+  if (!payment.orderId) {
+    throw serviceError("El pago no esta asociado a una orden.");
+  }
+
+  if (!normalizeNullableString(payment.providerPaymentId)) {
+    throw serviceError(
+      "El pago de Mercado Pago no tiene providerPaymentId.",
+      409
+    );
+  }
+}
+
+function buildMercadoPagoPendingRefundMetadata({
+  metadata,
+  fullyRefunded,
+  productRefundRows,
+  idempotencyKey,
+  providerPaymentId,
+}) {
+  return {
+    ...(metadata || {}),
+    provider: MERCADOPAGO_CHECKOUT_PROVIDER,
+    refundType: fullyRefunded ? "full" : "partial",
+    itemized: productRefundRows.length > 0,
+    idempotencyKey,
+    mercadoPago: {
+      providerPaymentId,
+      status: "pending",
+      requestedAt: new Date().toISOString(),
+    },
+  };
+}
+
+async function createOrLoadMercadoPagoPendingRefund({
+  paymentId,
+  amount = null,
+  reason = null,
+  idempotencyKey,
+  requestedBy = null,
+  items = null,
+  metadata = null,
+}) {
+  return sequelize.transaction(async (transaction) => {
+    const existingByKey = await findExistingRefundByIdempotencyKey(
+      idempotencyKey,
+      transaction
+    );
+
+    if (existingByKey) {
+      assertExistingRefundMatchesRequest({
+        refund: existingByKey,
+        paymentId,
+        amount,
+        items,
+        conflictLabel: "idempotencyKey",
+      });
+
+      if (["approved", "failed", "cancelled"].includes(existingByKey.status)) {
+        return {
+          done: true,
+          refund: existingByKey,
+        };
+      }
+    }
+
+    const payment = await Payment.findByPk(paymentId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    assertMercadoPagoRefundablePayment(payment);
+
+    const order = await Order.findByPk(payment.orderId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!order) {
+      throw serviceError("Orden no encontrada.", 404);
+    }
+
+    const prepared = await prepareRefundRequest({
+      payment,
+      amount,
+      items,
+      transaction,
+      includePendingRefunds: true,
+      ignoreRefundId: existingByKey?.id || null,
+    });
+
+    if (existingByKey) {
+      assertExistingRefundMatchesPrepared({
+        refund: existingByKey,
+        paymentId,
+        refundAmountCents: prepared.refundAmountCents,
+        productRefundRows: prepared.productRefundRows,
+        conflictLabel: "idempotencyKey",
+      });
+
+      return {
+        done: false,
+        refund: existingByKey,
+        providerPaymentId: normalizeNullableString(payment.providerPaymentId),
+        amount: fromCents(prepared.refundAmountCents),
+        fullRefund: prepared.fullyRefunded,
+      };
+    }
+
+    assertPaymentRefundTransition(null, "pending");
+
+    const refund = await PaymentRefund.create(
+      {
+        paymentId: payment.id,
+        orderId: payment.orderId,
+        providerRefundId: null,
+        idempotencyKey,
+        amount: fromCents(prepared.refundAmountCents),
+        reason: normalizeNullableString(reason),
+        status: "pending",
+        requestedBy,
+        requestedAt: new Date(),
+        approvedAt: null,
+        metadata: buildMercadoPagoPendingRefundMetadata({
+          metadata,
+          fullyRefunded: prepared.fullyRefunded,
+          productRefundRows: prepared.productRefundRows,
+          idempotencyKey,
+          providerPaymentId: normalizeNullableString(payment.providerPaymentId),
+        }),
+      },
+      { transaction }
+    );
+
+    const refundItems = prepared.productRefundRows.length
+      ? await PaymentRefundItem.bulkCreate(
+          prepared.productRefundRows.map((item) => ({
+            refundId: refund.id,
+            orderItemId: item.orderItemId,
+            quantity: item.quantity,
+            amount: item.amount,
+            restock: item.restock,
+          })),
+          { transaction, validate: true }
+        )
+      : [];
+
+    refund.setDataValue("items", refundItems);
+
+    return {
+      done: false,
+      refund,
+      providerPaymentId: normalizeNullableString(payment.providerPaymentId),
+      amount: fromCents(prepared.refundAmountCents),
+      fullRefund: prepared.fullyRefunded,
+    };
+  });
+}
+
+function mergeMercadoPagoRefundMetadata({
+  refund,
+  providerResponse,
+  providerLocalStatus,
+  error = null,
+}) {
+  const normalizedResponse = providerResponse
+    ? normalizeMercadoPagoRefundResponse(providerResponse)
+    : null;
+  const previousMercadoPago = refund.metadata?.mercadoPago || {};
+  const mercadoPago = {
+    ...previousMercadoPago,
+    status: normalizedResponse?.providerStatus || providerLocalStatus,
+    providerRefundId:
+      normalizedResponse?.providerRefundId ||
+      previousMercadoPago.providerRefundId ||
+      null,
+    amount:
+      normalizedResponse?.providerAmount ??
+      previousMercadoPago.amount ??
+      null,
+    date:
+      normalizedResponse?.providerDate ||
+      previousMercadoPago.date ||
+      null,
+    response:
+      normalizedResponse?.safePayload ||
+      previousMercadoPago.response ||
+      null,
+  };
+
+  if (error) {
+    mercadoPago.lastError = safeExternalErrorMessage(error);
+    mercadoPago.lastErrorAt = new Date().toISOString();
+  }
+
+  return {
+    ...(refund.metadata || {}),
+    mercadoPago,
+  };
+}
+
+async function finalizeMercadoPagoRefundApproved({
+  refundId,
+  providerResponse,
+  requestedBy = null,
+}) {
+  const normalizedResponse = normalizeMercadoPagoRefundResponse(providerResponse);
+
+  return sequelize.transaction(async (transaction) => {
+    const refund = await PaymentRefund.findByPk(refundId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!refund) {
+      throw serviceError("Reembolso no encontrado.", 404);
+    }
+
+    const refundItems = await PaymentRefundItem.findAll({
+      where: { refundId: refund.id },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    refund.setDataValue("items", refundItems);
+
+    if (refund.status === "approved") {
+      return refund;
+    }
+
+    if (normalizedResponse.providerRefundId) {
+      const existingByProviderRefundId =
+        await findExistingRefundByProviderRefundId(
+          normalizedResponse.providerRefundId,
+          transaction
+        );
+
+      if (
+        existingByProviderRefundId &&
+        existingByProviderRefundId.id !== refund.id
+      ) {
+        assertExistingRefundMatchesRequest({
+          refund: existingByProviderRefundId,
+          paymentId: refund.paymentId,
+          amount: refund.amount,
+          status: "approved",
+          conflictLabel: "providerRefundId",
+        });
+
+        assertPaymentRefundTransition(refund.status, "cancelled");
+
+        await refund.update(
+          {
+            status: "cancelled",
+            metadata: {
+              ...(refund.metadata || {}),
+              duplicateOfRefundId: existingByProviderRefundId.id,
+              mercadoPago: {
+                ...(refund.metadata?.mercadoPago || {}),
+                duplicateProviderRefundId: normalizedResponse.providerRefundId,
+                response: normalizedResponse.safePayload,
+              },
+            },
+          },
+          { transaction }
+        );
+
+        return existingByProviderRefundId;
+      }
+    }
+
+    const payment = await Payment.findByPk(refund.paymentId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    const order = await Order.findByPk(refund.orderId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!payment) throw serviceError("Pago no encontrado.", 404);
+    if (!order) throw serviceError("Orden no encontrada.", 404);
+
+    if (payment.status !== "paid") {
+      throw serviceError("Solo se pueden reembolsar pagos con estado paid.", 409);
+    }
+
+    const approvedAt = new Date();
+    const fullyRefunded = refund.metadata?.refundType === "full";
+
+    assertPaymentRefundTransition(refund.status, "approved");
+
+    await refund.update(
+      {
+        providerRefundId:
+          normalizedResponse.providerRefundId || refund.providerRefundId,
+        status: "approved",
+        approvedAt,
+        metadata: mergeMercadoPagoRefundMetadata({
+          refund,
+          providerResponse,
+          providerLocalStatus: "approved",
+        }),
+      },
+      { transaction }
+    );
+
+    const productRefundRows = refundItems.map((item) => ({
+      orderItemId: item.orderItemId,
+      quantity: Number(item.quantity),
+      amount: item.amount,
+      restock: Boolean(item.restock),
+    }));
+    const sideEffects = await applyApprovedRefundSideEffects({
+      payment,
+      order,
+      refund,
+      productRefundRows,
+      fullyRefunded,
+      requestedBy: requestedBy || refund.requestedBy,
+      reason: refund.reason,
+      approvedAt,
+      transaction,
+    });
+
+    await refund.update(
+      {
+        metadata: {
+          ...(refund.metadata || {}),
+          sideEffects,
+        },
+      },
+      { transaction }
+    );
+    refund.setDataValue("items", refundItems);
+
+    return refund;
+  });
+}
+
+async function updateMercadoPagoRefundFromProviderResult({
+  refundId,
+  providerResponse,
+  localStatus,
+}) {
+  const normalizedResponse = normalizeMercadoPagoRefundResponse(providerResponse);
+
+  return sequelize.transaction(async (transaction) => {
+    const refund = await PaymentRefund.findByPk(refundId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!refund) {
+      throw serviceError("Reembolso no encontrado.", 404);
+    }
+
+    const refundItems = await PaymentRefundItem.findAll({
+      where: { refundId: refund.id },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    refund.setDataValue("items", refundItems);
+
+    if (refund.status === "approved") {
+      return refund;
+    }
+
+    if (normalizedResponse.providerRefundId) {
+      const existingByProviderRefundId =
+        await findExistingRefundByProviderRefundId(
+          normalizedResponse.providerRefundId,
+          transaction
+        );
+
+      if (
+        existingByProviderRefundId &&
+        existingByProviderRefundId.id !== refund.id
+      ) {
+        return existingByProviderRefundId;
+      }
+    }
+
+    assertPaymentRefundTransition(refund.status, localStatus);
+
+    await refund.update(
+      {
+        providerRefundId:
+          normalizedResponse.providerRefundId || refund.providerRefundId,
+        status: localStatus,
+        metadata: mergeMercadoPagoRefundMetadata({
+          refund,
+          providerResponse,
+          providerLocalStatus: localStatus,
+        }),
+      },
+      { transaction }
+    );
+
+    return refund;
+  });
+}
+
+async function markMercadoPagoRefundAttemptError({ refundId, error }) {
+  return sequelize.transaction(async (transaction) => {
+    const refund = await PaymentRefund.findByPk(refundId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!refund || refund.status === "approved") return refund;
+
+    await refund.update(
+      {
+        metadata: mergeMercadoPagoRefundMetadata({
+          refund,
+          providerResponse: null,
+          providerLocalStatus: "pending",
+          error,
+        }),
+      },
+      { transaction }
+    );
+
+    return refund;
+  });
+}
+
+async function processMercadoPagoRefund(args) {
+  if (args.transaction) {
+    throw serviceError(
+      "No se puede llamar a Mercado Pago dentro de una transaccion externa.",
+      500
+    );
+  }
+
+  const idempotencyKey = normalizeRefundIdempotencyKey({
+    idempotencyKey: args.idempotencyKey,
+    providerRefundId: args.providerRefundId,
+  });
+  let claim;
+
+  try {
+    claim = await createOrLoadMercadoPagoPendingRefund({
+      ...args,
+      idempotencyKey,
+    });
+  } catch (error) {
+    if (
+      !isUniqueConstraintError(
+        error,
+        "payment_refunds_idempotency_key_unique",
+        "idempotencyKey"
+      )
+    ) {
+      throw error;
+    }
+
+    claim = await createOrLoadMercadoPagoPendingRefund({
+      ...args,
+      idempotencyKey,
+    });
+  }
+
+  if (claim.done) {
+    return claim.refund;
+  }
+
+  const mercadoPagoRefundApi =
+    args.mercadoPagoRefundApi || createMercadoPagoRefundApi();
+  let providerResponse;
+
+  try {
+    providerResponse = await mercadoPagoRefundApi.refundPayment({
+      providerPaymentId: claim.providerPaymentId,
+      amount: claim.fullRefund ? null : claim.amount,
+      fullRefund: claim.fullRefund,
+      idempotencyKey,
+    });
+  } catch (error) {
+    await markMercadoPagoRefundAttemptError({
+      refundId: claim.refund.id,
+      error,
+    });
+
+    throw serviceError(
+      "No se pudo procesar el reembolso en Mercado Pago.",
+      error?.statusCode || 502
+    );
+  }
+
+  const providerLocalStatus = mapMercadoPagoRefundStatus(
+    providerResponse?.status
+  );
+
+  if (providerLocalStatus === "approved") {
+    return finalizeMercadoPagoRefundApproved({
+      refundId: claim.refund.id,
+      providerResponse,
+      requestedBy: args.requestedBy,
+    });
+  }
+
+  return updateMercadoPagoRefundFromProviderResult({
+    refundId: claim.refund.id,
+    providerResponse,
+    localStatus: providerLocalStatus,
+  });
+}
+
 export async function processRefund(args) {
+  const payment = await Payment.findByPk(args.paymentId, {
+    transaction: args.transaction || null,
+  });
+
+  if (isMercadoPagoCheckoutPayment(payment)) {
+    return processMercadoPagoRefund(args);
+  }
+
   const normalizedProviderRefundId = normalizeNullableString(
     args.providerRefundId
-  );
+  ) || normalizeNullableString(args.idempotencyKey);
 
   try {
     return await processRefundInternal({

@@ -44,13 +44,24 @@ export async function receiveMercadoPagoWebhook(req, res) {
       body: req.body || {},
     });
 
+    if (!result.ok) {
+      return res.status(result.error?.statusCode || 500).json({
+        ok: false,
+        processed: false,
+        duplicate: false,
+        ignored: false,
+        processingStatus: result.event?.processingStatus || null,
+        error: result.error?.message || "Error procesando webhook de Mercado Pago",
+      });
+    }
+
     return res.status(200).json({
       ok: true,
       processed: Boolean(result.ok),
       duplicate: Boolean(result.duplicate),
       ignored: Boolean(result.ignored),
       processingStatus: result.event?.processingStatus || null,
-      error: result.error?.message || null,
+      error: null,
     });
   } catch (error) {
     return handleControllerError(

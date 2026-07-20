@@ -12,6 +12,10 @@ import {
 } from "../models/index.js";
 import { createOrder as createOrderService } from "../services/orderService.js";
 import { getOrderPaymentStatus as getOrderPaymentStatusService } from "../services/mercadoPagoCheckoutService.js";
+import {
+  assertOrderTransition,
+  assertPaymentTransition,
+} from "../services/stateTransitionService.js";
 
 const ORDER_STATUSES = new Set([
   "draft",
@@ -19,6 +23,8 @@ const ORDER_STATUSES = new Set([
   "paid",
   "cancelled",
   "partially_refunded",
+  "disputed",
+  "charged_back",
   "refunded",
 ]);
 const ORDER_CHANNELS = new Set(["online", "reception", "mobile"]);
@@ -555,13 +561,15 @@ export async function cancelOrder(req, res) {
 
     if (!CANCELLABLE_ORDER_STATUSES.has(order.status)) {
       await transaction.rollback();
-      return res.status(400).json({
+      return res.status(409).json({
         ok: false,
         error: "Solo se pueden cancelar ordenes draft o pending_payment",
       });
     }
 
     const cancelledAt = new Date();
+
+    assertOrderTransition(order.status, "cancelled");
 
     await order.update(
       {
@@ -570,6 +578,8 @@ export async function cancelOrder(req, res) {
       },
       { transaction }
     );
+
+    assertPaymentTransition("pending", "cancelled");
 
     await Payment.update(
       {

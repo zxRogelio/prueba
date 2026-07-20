@@ -7,6 +7,8 @@ export const ORDER_STATUSES = Object.freeze([
   "paid",
   "cancelled",
   "partially_refunded",
+  "disputed",
+  "charged_back",
   "refunded",
 ]);
 

@@ -12,6 +12,11 @@
     "migrate:down": "node scripts/migrate.js down",
     "migrate:status": "node scripts/migrate.js status",
     "verify:mercadopago-checkout": "node scripts/verifyMercadoPagoCheckoutPro.js",
+    "verify:mercadopago-refunds": "node scripts/verifyMercadoPagoRefunds.js",
+    "verify:state-transitions": "node scripts/verifyStateTransitions.js",
+    "verify:receipt-uniqueness": "node scripts/verifyReceiptUniqueness.js",
+    "verify:admin-payments": "node scripts/verifyAdminPaymentReporting.js",
+    "verify:inventory-reservations": "node scripts/verifyInventoryReservations.js",
     "backfill:legacy-membership-orders": "node scripts/backfillLegacyMembershipOrders.js",
     "backfill:legacy-membership-orders:rollback-test": "node scripts/backfillLegacyMembershipOrders.js --rollback-test",
     "backfill:legacy-membership-orders:apply": "node scripts/backfillLegacyMembershipOrders.js --apply"

@@ -25,6 +25,8 @@ export const PAYMENT_STATUSES = Object.freeze([
   "paid",
   "failed",
   "cancelled",
+  "disputed",
+  "charged_back",
   "refunded",
 ]);
 
@@ -164,7 +166,7 @@ export const Payment = sequelize.define(
       type: DataTypes.STRING(30),
       allowNull: false,
       defaultValue: "pending",
-      comment: "pending, paid, failed, cancelled, refunded",
+      comment: "pending, paid, failed, cancelled, disputed, charged_back, refunded",
       validate: {
         isIn: [PAYMENT_STATUSES],
       },
@@ -281,6 +283,16 @@ export const Payment = sequelize.define(
         unique: true,
         where: {
           idempotencyKey: {
+            [Op.ne]: null,
+          },
+        },
+      },
+      {
+        name: "payments_provider_preference_id_unique",
+        fields: ["provider", "providerPreferenceId"],
+        unique: true,
+        where: {
+          providerPreferenceId: {
             [Op.ne]: null,
           },
         },

@@ -13,7 +13,14 @@ const migrationSequelize = sequelizeAdminDirect || sequelize;
 const validCommands = new Set(["up", "down", "status"]);
 
 async function ensureMetaTable() {
-  await migrationSequelize.query('CREATE SCHEMA IF NOT EXISTS "core";');
+  const [schemas] = await migrationSequelize.query(
+    "SELECT 1 FROM information_schema.schemata WHERE schema_name = 'core' LIMIT 1;"
+  );
+
+  if (schemas.length === 0) {
+    await migrationSequelize.query('CREATE SCHEMA "core";');
+  }
+
   await migrationSequelize.query(`
     CREATE TABLE IF NOT EXISTS "core"."SequelizeMeta" (
       "name" VARCHAR(255) PRIMARY KEY,

@@ -88,6 +88,10 @@ function getStatusLabel(status?: string) {
       return "Cancelado";
     case "refunded":
       return "Reembolsado";
+    case "disputed":
+      return "En disputa";
+    case "charged_back":
+      return "Contracargo";
     default:
       return status ?? "Sin estado";
   }

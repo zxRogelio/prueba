@@ -6,6 +6,14 @@ import {
   Payment,
   User,
 } from "../models/index.js";
+import {
+  exportAdminPaymentsCsv,
+  getAdminPaymentDetail,
+  getAdminPaymentsChart,
+  getAdminPaymentsSummary,
+  listAdminPaymentsReport,
+  listAdminRefunds,
+} from "../services/adminPaymentReportingService.js";
 import { processRefund } from "../services/paymentService.js";
 
 const PAYMENT_STATUSES = new Set([
@@ -13,8 +21,11 @@ const PAYMENT_STATUSES = new Set([
   "paid",
   "failed",
   "cancelled",
+  "disputed",
+  "charged_back",
   "refunded",
 ]);
+const PAYMENT_REVIEW_STATUSES = new Set(["disputed", "charged_back"]);
 const PAYMENT_METHODS = new Set([
   "cash",
   "transfer",
@@ -107,6 +118,18 @@ function buildEnumFilter(queryValue, allowedValues, label) {
 
 function sanitizePayment(payment, { admin = false } = {}) {
   const plain = payment.get ? payment.get({ plain: true }) : payment;
+  const orderItems = Array.isArray(plain.order?.items)
+    ? plain.order.items.map((item) => ({
+        id: item.id,
+        itemType: item.itemType,
+        productId: item.productId,
+        membershipPlanId: item.membershipPlanId,
+        quantity: item.quantity,
+        itemNameSnapshot: item.itemNameSnapshot,
+        itemDescriptionSnapshot: item.itemDescriptionSnapshot,
+        subtotal: item.subtotal,
+      }))
+    : [];
   const base = {
     id: plain.id,
     orderId: plain.orderId,
@@ -126,6 +149,7 @@ function sanitizePayment(payment, { admin = false } = {}) {
           status: plain.order.status,
           channel: plain.order.channel,
           total: plain.order.total,
+          items: admin ? orderItems : undefined,
         }
       : null,
     createdAt: plain.createdAt,
@@ -150,6 +174,21 @@ function sanitizePayment(payment, { admin = false } = {}) {
     idempotencyKey: plain.idempotencyKey,
     reference: plain.reference,
     notes: plain.notes,
+    metadata: plain.metadata,
+    review:
+      PAYMENT_REVIEW_STATUSES.has(plain.status) || plain.metadata?.paymentReview
+        ? {
+            required: true,
+            reason:
+              plain.metadata?.paymentReview?.reason ||
+              plain.metadata?.mercadopago?.reviewReason ||
+              plain.status,
+            receivedAt:
+              plain.metadata?.paymentReview?.receivedAt ||
+              plain.metadata?.mercadopago?.processedAt ||
+              plain.updatedAt,
+          }
+        : null,
     createdBy: plain.createdBy,
     user: plain.user
       ? {
@@ -332,13 +371,99 @@ export async function getPaymentStatus(req, res) {
 
 export async function listAdminPayments(req, res) {
   try {
+    const result = await listAdminPaymentsReport(req.query);
+
+    return res.json({
+      ok: true,
+      ...result,
+    });
+  } catch (error) {
+    return handleControllerError(res, error, "Error listando pagos admin");
+  }
+}
+
+export async function getAdminPaymentsSummaryController(req, res) {
+  try {
+    const summary = await getAdminPaymentsSummary(req.query);
+
+    return res.json({
+      ok: true,
+      summary,
+    });
+  } catch (error) {
+    return handleControllerError(res, error, "Error calculando resumen de pagos");
+  }
+}
+
+export async function getAdminPaymentsChartController(req, res) {
+  try {
+    const chart = await getAdminPaymentsChart(req.query);
+
+    return res.json({
+      ok: true,
+      chart,
+    });
+  } catch (error) {
+    return handleControllerError(res, error, "Error calculando grafica de pagos");
+  }
+}
+
+export async function exportAdminPaymentsCsvController(req, res) {
+  try {
+    const csv = await exportAdminPaymentsCsv(req.query);
+    const generatedAt = new Date().toISOString().slice(0, 10);
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="pagos-titanium-${generatedAt}.csv"`
+    );
+
+    return res.status(200).send(csv);
+  } catch (error) {
+    return handleControllerError(res, error, "Error exportando pagos admin");
+  }
+}
+
+export async function getAdminPaymentDetailController(req, res) {
+  try {
+    const payment = await getAdminPaymentDetail(req.params.paymentId);
+
+    return res.json({
+      ok: true,
+      payment,
+    });
+  } catch (error) {
+    return handleControllerError(res, error, "Error consultando detalle de pago");
+  }
+}
+
+export async function listAdminRefundsController(req, res) {
+  try {
+    const result = await listAdminRefunds(req.query);
+
+    return res.json({
+      ok: true,
+      ...result,
+    });
+  } catch (error) {
+    return handleControllerError(res, error, "Error listando reembolsos admin");
+  }
+}
+
+export async function listAdminChargebacks(req, res) {
+  try {
     const { page, limit, offset } = parsePagination(req.query);
-    const where = await buildPaymentWhere(req.query);
+    const filters = { ...req.query };
+    delete filters.status;
+    const where = await buildPaymentWhere(filters);
+
+    where.status = { [Op.in]: [...PAYMENT_REVIEW_STATUSES] };
 
     const { rows, count } = await Payment.findAndCountAll({
       where,
-      include: buildPaymentIncludes(req.query, { admin: true }),
-      order: [["createdAt", "DESC"]],
+      include: buildPaymentIncludes(filters, { admin: true }),
+      order: [["updatedAt", "DESC"]],
       limit,
       offset,
       distinct: true,
@@ -347,6 +472,11 @@ export async function listAdminPayments(req, res) {
     return res.json({
       ok: true,
       payments: rows.map((payment) => sanitizePayment(payment, { admin: true })),
+      summary: {
+        total: count,
+        disputed: rows.filter((payment) => payment.status === "disputed").length,
+        chargedBack: rows.filter((payment) => payment.status === "charged_back").length,
+      },
       pagination: {
         page,
         limit,
@@ -355,7 +485,11 @@ export async function listAdminPayments(req, res) {
       },
     });
   } catch (error) {
-    return handleControllerError(res, error, "Error listando pagos admin");
+    return handleControllerError(
+      res,
+      error,
+      "Error listando contracargos admin"
+    );
   }
 }
 
@@ -387,7 +521,8 @@ export async function refundPayment(req, res) {
       paymentId,
       amount,
       reason: req.body?.reason ?? null,
-      providerRefundId: req.body?.providerRefundId ?? req.body?.idempotencyKey ?? null,
+      providerRefundId: req.body?.providerRefundId ?? null,
+      idempotencyKey: req.body?.idempotencyKey ?? req.body?.providerRefundId ?? null,
       requestedBy: req.user.id,
       status: "approved",
       items: refundItems,
@@ -404,6 +539,8 @@ export async function refundPayment(req, res) {
         id: refund.id,
         paymentId: refund.paymentId,
         orderId: refund.orderId,
+        providerRefundId: refund.providerRefundId,
+        idempotencyKey: refund.idempotencyKey,
         amount: refund.amount,
         reason: refund.reason,
         status: refund.status,

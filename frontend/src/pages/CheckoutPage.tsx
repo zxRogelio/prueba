@@ -2,8 +2,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 import "../styles/checkout.css";
-import Logo from "../assets/LogoP.png";
-import { useCart } from "../context/CartContext";
+import { useCart } from "../context/useCart";
 import { createMercadoPagoCheckout } from "../services/checkoutService";
 
 const ATTEMPT_STORAGE_KEY = "titanium_mp_checkout_attempt";
@@ -113,39 +112,6 @@ export default function CheckoutPage() {
         <div className="bg-glow bg-glow-1" />
         <div className="bg-glow bg-glow-2" />
       </div>
-
-      <header className="header header-scrolled">
-        <div className="header-content">
-          <div className="logo-container">
-            <Link to="/">
-              <img src={Logo} alt="Titanium Sport Gym" className="logo-image" />
-            </Link>
-          </div>
-
-          <nav className="nav-desktop">
-            <div className="nav-main-links">
-              <Link to="/" className="nav-link">
-                INICIO
-                <span className="nav-underline" />
-              </Link>
-              <Link to="/catalogue" className="nav-link">
-                PRODUCTOS
-                <span className="nav-underline" />
-              </Link>
-            </div>
-
-            <div className="nav-action-links">
-              <div className="nav-divider" />
-              <Link to="/suscripciones" className="slider-btn-outline">
-                SUSCRIBETE
-              </Link>
-              <Link to="/login" className="slider-btn-solid">
-                INICIA SESION
-              </Link>
-            </div>
-          </nav>
-        </div>
-      </header>
 
       <nav className="breadcrumbs">
         <ol className="breadcrumb-list">

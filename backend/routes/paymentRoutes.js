@@ -1,7 +1,13 @@
 import { Router } from "express";
 import {
+  exportAdminPaymentsCsvController,
+  getAdminPaymentDetailController,
+  getAdminPaymentsChartController,
+  getAdminPaymentsSummaryController,
   getPaymentStatus,
+  listAdminChargebacks,
   listAdminPayments,
+  listAdminRefundsController,
   listMyPayments,
   refundPayment,
 } from "../controllers/paymentController.js";
@@ -11,11 +17,43 @@ import { checkBlacklist } from "../middleware/checkBlacklist.js";
 const router = Router();
 
 router.get(
+  "/admin/payments/summary",
+  verifyToken,
+  checkBlacklist,
+  authorizeRole("administrador"),
+  getAdminPaymentsSummaryController
+);
+
+router.get(
+  "/admin/payments/chart",
+  verifyToken,
+  checkBlacklist,
+  authorizeRole("administrador"),
+  getAdminPaymentsChartController
+);
+
+router.get(
+  "/admin/payments/export",
+  verifyToken,
+  checkBlacklist,
+  authorizeRole("administrador"),
+  exportAdminPaymentsCsvController
+);
+
+router.get(
   "/admin/payments",
   verifyToken,
   checkBlacklist,
   authorizeRole("administrador"),
   listAdminPayments
+);
+
+router.get(
+  "/admin/payments/chargebacks",
+  verifyToken,
+  checkBlacklist,
+  authorizeRole("administrador"),
+  listAdminChargebacks
 );
 
 router.post(
@@ -24,6 +62,22 @@ router.post(
   checkBlacklist,
   authorizeRole("administrador"),
   refundPayment
+);
+
+router.get(
+  "/admin/payments/:paymentId",
+  verifyToken,
+  checkBlacklist,
+  authorizeRole("administrador"),
+  getAdminPaymentDetailController
+);
+
+router.get(
+  "/admin/refunds",
+  verifyToken,
+  checkBlacklist,
+  authorizeRole("administrador"),
+  listAdminRefundsController
 );
 
 router.get(

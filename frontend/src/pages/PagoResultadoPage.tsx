@@ -1,13 +1,35 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { Link, useSearchParams } from "react-router-dom";
 import "../styles/payment.css";
-import Logo from "../assets/LogoP.png";
 import {
   getOrderPaymentStatus,
+  type OrderStatus,
   type OrderPaymentStatus,
+  type PaymentStatus,
 } from "../services/checkoutService";
-import { useCart } from "../context/CartContext";
+import { useCart } from "../context/useCart";
+
+const POLLING_INTERVAL_MS = 3_000;
+const POLLING_TIMEOUT_MS = 60_000;
+
+const FINAL_PAYMENT_STATUSES = new Set<PaymentStatus>([
+  "paid",
+  "failed",
+  "cancelled",
+  "refunded",
+  "disputed",
+  "charged_back",
+]);
+
+const FINAL_ORDER_STATUSES = new Set<OrderStatus>([
+  "paid",
+  "cancelled",
+  "partially_refunded",
+  "refunded",
+  "disputed",
+  "charged_back",
+]);
 
 function getErrorMessage(error: unknown) {
   if (axios.isAxiosError(error)) {
@@ -18,6 +40,27 @@ function getErrorMessage(error: unknown) {
   }
 
   return "No se pudo consultar el estado del pago.";
+}
+
+function isFinalPaymentStatus(status?: PaymentStatus | null) {
+  return Boolean(status && FINAL_PAYMENT_STATUSES.has(status));
+}
+
+function isFinalOrderStatus(status?: OrderStatus | null) {
+  return Boolean(status && FINAL_ORDER_STATUSES.has(status));
+}
+
+function shouldPollStatus(status: OrderPaymentStatus | null) {
+  if (!status) return false;
+
+  const paymentStatus = status.payment?.status ?? null;
+  const orderStatus = status.order.status;
+
+  if (isFinalPaymentStatus(paymentStatus) || isFinalOrderStatus(orderStatus)) {
+    return false;
+  }
+
+  return paymentStatus === "pending" || orderStatus === "pending_payment";
 }
 
 function resolveViewState(status: OrderPaymentStatus | null) {
@@ -56,6 +99,20 @@ function resolveViewState(status: OrderPaymentStatus | null) {
     };
   }
 
+  if (
+    paymentStatus === "disputed" ||
+    paymentStatus === "charged_back" ||
+    orderStatus === "disputed" ||
+    orderStatus === "charged_back"
+  ) {
+    return {
+      title: "Pago en revision",
+      message:
+        "La operacion requiere revision administrativa. El equipo validara el caso con Mercado Pago.",
+      tone: "review",
+    };
+  }
+
   if (paymentStatus === "pending" || orderStatus === "pending_payment") {
     return {
       title: "Pago pendiente",
@@ -78,13 +135,17 @@ export default function PagoResultadoPage() {
   const [status, setStatus] = useState<OrderPaymentStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pollingTimedOut, setPollingTimedOut] = useState(false);
+  const requestInFlightRef = useRef(false);
   const { clearCart } = useCart();
   const token = localStorage.getItem("token");
   const viewState = useMemo(() => resolveViewState(status), [status]);
+  const shouldPoll = useMemo(() => shouldPollStatus(status), [status]);
 
   const refreshStatus = useCallback(async () => {
-    if (!orderId || !token) return;
+    if (!orderId || !token || requestInFlightRef.current) return;
 
+    requestInFlightRef.current = true;
     setIsLoading(true);
     setErrorMessage(null);
 
@@ -94,6 +155,7 @@ export default function PagoResultadoPage() {
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
+      requestInFlightRef.current = false;
       setIsLoading(false);
     }
   }, [orderId, token]);
@@ -101,6 +163,28 @@ export default function PagoResultadoPage() {
   useEffect(() => {
     refreshStatus();
   }, [refreshStatus]);
+
+  useEffect(() => {
+    if (!shouldPoll) {
+      setPollingTimedOut(false);
+      return undefined;
+    }
+
+    setPollingTimedOut(false);
+
+    const intervalId = window.setInterval(() => {
+      void refreshStatus();
+    }, POLLING_INTERVAL_MS);
+    const timeoutId = window.setTimeout(() => {
+      window.clearInterval(intervalId);
+      setPollingTimedOut(true);
+    }, POLLING_TIMEOUT_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.clearTimeout(timeoutId);
+    };
+  }, [refreshStatus, shouldPoll]);
 
   useEffect(() => {
     const isPaid = status?.payment?.status === "paid" || status?.order.status === "paid";
@@ -122,29 +206,6 @@ export default function PagoResultadoPage() {
         <div className="bg-glow bg-glow-1" />
         <div className="bg-glow bg-glow-2" />
       </div>
-
-      <header className="header header-scrolled">
-        <div className="header-content">
-          <div className="logo-container">
-            <Link to="/">
-              <img src={Logo} alt="Titanium Sport Gym" className="logo-image" />
-            </Link>
-          </div>
-
-          <nav className="nav-desktop">
-            <div className="nav-main-links">
-              <Link to="/" className="nav-link">
-                INICIO
-                <span className="nav-underline" />
-              </Link>
-              <Link to="/catalogue" className="nav-link">
-                CATALOGO
-                <span className="nav-underline" />
-              </Link>
-            </div>
-          </nav>
-        </div>
-      </header>
 
       <section className="payment-hero">
         <div className="payment-hero-content">
@@ -204,6 +265,12 @@ export default function PagoResultadoPage() {
 
               {errorMessage ? (
                 <div className="security-notice">{errorMessage}</div>
+              ) : null}
+
+              {pollingTimedOut && !errorMessage ? (
+                <div className="security-notice">
+                  La confirmacion sigue pendiente. Puedes actualizar manualmente.
+                </div>
               ) : null}
             </div>
 

@@ -15,19 +15,17 @@ import {
 } from "../models/index.js";
 import { generateOrderNumber } from "../utils/orderNumber.js";
 import { recordProductSalesForOrder } from "./inventoryService.js";
+import { releaseInventoryReservationsForOrder } from "./inventoryReservationService.js";
 import {
   calculateProductPromotionDiscount,
   createOrderDiscountSnapshots,
 } from "./promotionService.js";
+import {
+  assertOrderTransition,
+  assertPaymentTransition,
+  isKnownOrderStatus,
+} from "./stateTransitionService.js";
 
-const ORDER_STATUSES = new Set([
-  "draft",
-  "pending_payment",
-  "paid",
-  "cancelled",
-  "partially_refunded",
-  "refunded",
-]);
 const ORDER_CHANNELS = new Set(["online", "reception", "mobile"]);
 const CREATABLE_ORDER_STATUSES = new Set(["draft", "pending_payment"]);
 const CANCELLABLE_ORDER_STATUSES = new Set(["draft", "pending_payment"]);
@@ -116,7 +114,7 @@ function buildDateFilter({ from, to } = {}) {
 }
 
 function validateOrderState({ status, channel }) {
-  if (!ORDER_STATUSES.has(status)) {
+  if (!isKnownOrderStatus(status)) {
     throw serviceError("status de orden invalido.");
   }
 
@@ -322,6 +320,7 @@ export async function createOrder({
     if (!CREATABLE_ORDER_STATUSES.has(status)) {
       throw serviceError("Solo se pueden crear ordenes draft o pending_payment.");
     }
+    assertOrderTransition(null, status);
 
     await findCustomer(userId, t);
 
@@ -579,6 +578,8 @@ export async function markOrderPaid({
       throw serviceError("No se puede marcar como pagada una orden cerrada.");
     }
 
+    assertOrderTransition(order.status, "paid");
+
     await order.update(
       {
         status: "paid",
@@ -618,10 +619,12 @@ export async function cancelPendingOrder({
     }
 
     if (!CANCELLABLE_ORDER_STATUSES.has(order.status)) {
-      throw serviceError("Solo se pueden cancelar ordenes draft o pending_payment.");
+      throw serviceError("Solo se pueden cancelar ordenes draft o pending_payment.", 409);
     }
 
     const cancelledAt = new Date();
+
+    assertOrderTransition(order.status, "cancelled");
 
     await order.update(
       {
@@ -634,6 +637,8 @@ export async function cancelPendingOrder({
       },
       { transaction: t }
     );
+
+    assertPaymentTransition("pending", "cancelled");
 
     await Payment.update(
       {
@@ -648,6 +653,12 @@ export async function cancelPendingOrder({
         transaction: t,
       }
     );
+
+    await releaseInventoryReservationsForOrder({
+      orderId: order.id,
+      status: "released",
+      transaction: t,
+    });
 
     return order;
   });

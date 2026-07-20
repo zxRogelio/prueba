@@ -134,6 +134,25 @@ Despues de una compra aprobada revisa:
 No confirmes una orden desde la URL de retorno. La confirmacion real sucede en
 el webhook despues de consultar el pago directamente con la API de Mercado Pago.
 
+### 7. Reembolsos reales en Sandbox
+
+1. Usa `MERCADOPAGO_USE_SANDBOX=true` y el Access Token de prueba del vendedor.
+2. Genera una compra aprobada con un comprador de prueba.
+3. Verifica que `Payments.provider = mercadopago_checkout` y que
+   `Payments.providerPaymentId` tenga el ID real devuelto por Mercado Pago.
+4. Desde el endpoint admin de reembolsos envia una `idempotencyKey` estable por
+   intento. El backend la guarda en `PaymentRefunds.idempotencyKey` y la envia a
+   Mercado Pago.
+5. Para reembolso total no envies monto, o envia el saldo total disponible. Para
+   reembolso parcial envia `amount` y, si aplica a productos, `items`.
+6. Revisa `PaymentRefunds.providerRefundId`, `status`, `metadata.mercadoPago`,
+   orden, recibo, membresia e inventario despues de la respuesta.
+
+Los pagos manuales (`cash`, `bank_transfer`, `mercadopago_terminal`) mantienen
+reembolso local. Solo `mercadopago_checkout` llama a la API oficial de
+reembolsos. Si Mercado Pago rechaza la devolucion, el refund queda `failed` y no
+se cancelan membresias ni se devuelve inventario.
+
 ## Backfill de pagos legacy
 
 La conversion de pagos legacy de membresia a `Order`/`OrderItem` se ejecuta

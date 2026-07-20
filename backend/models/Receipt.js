@@ -1,4 +1,4 @@
-import { DataTypes } from "sequelize";
+import { DataTypes, Op } from "sequelize";
 import { sequelize } from "../config/sequelize.js";
 
 export const Receipt = sequelize.define(
@@ -60,6 +60,16 @@ export const Receipt = sequelize.define(
     schema: "core",
     timestamps: true,
     indexes: [
+      {
+        name: "receipts_payment_id_unique",
+        fields: ["paymentId"],
+        unique: true,
+        where: {
+          paymentId: {
+            [Op.ne]: null,
+          },
+        },
+      },
       {
         fields: ["paymentId"],
       },

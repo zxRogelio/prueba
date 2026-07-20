@@ -61,10 +61,6 @@ async function findPaymentForReceipt(paymentId, transaction) {
     throw serviceError("Pago no encontrado.", 404);
   }
 
-  if (payment.status !== "paid") {
-    throw serviceError("Solo se pueden emitir recibos para pagos pagados.");
-  }
-
   return payment;
 }
 
@@ -91,7 +87,6 @@ export async function createReceipt({
     const existingReceipt = await Receipt.findOne({
       where: {
         paymentId: payment.id,
-        status: "issued",
       },
       transaction: t,
       lock: t.LOCK.UPDATE,
@@ -99,6 +94,10 @@ export async function createReceipt({
 
     if (existingReceipt) {
       return existingReceipt;
+    }
+
+    if (payment.status !== "paid") {
+      throw serviceError("Solo se pueden emitir recibos para pagos pagados.");
     }
 
     const order = resolvedOrderId

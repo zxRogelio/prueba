@@ -5,7 +5,7 @@ import helmet from "helmet";
 import { secureHeaders } from "./middleware/secureHeaders.js";
 import { forceHTTPS } from "./middleware/forceHTTPS.js";
 import authRoutes from "./routes/authRoutes.js";
-import { sequelize, sequelizeAdminDirect } from "./config/sequelize.js";
+import { sequelize } from "./config/sequelize.js";
 import userRoutes from "./routes/userRoutes.js";
 import devRoutes from "./routes/devroutes.js";
 import publicProductRoutes from "./routes/public/productRoutes.js";
@@ -16,6 +16,7 @@ import monitoringRoutes from "./routes/admin/monitoringRoutes.js";
 import backupRoutes from "./routes/admin/backupRoutes.js";
 import backupScheduleRoutes from "./routes/admin/backupScheduleRoutes.js";
 import { initializeBackupScheduler } from "./services/backupScheduler.js";
+import { initializeInventoryReservationScheduler } from "./services/inventoryReservationScheduler.js";
 import publicCatalogRoutes from "./routes/public/catalog.routes.js";
 import adminAboutRoutes from "./routes/admin/about.routes.js";
 import publicAboutRoutes from "./routes/public/about.routes.js";
@@ -72,10 +73,22 @@ app.use("/api/admin/routines", adminRoutineRoutes);
 const PORT = process.env.PORT || 5000;
 
 async function ensureDatabaseSchema() {
-  await sequelizeAdminDirect.query(`
-    ALTER TABLE core."Users"
-    ADD COLUMN IF NOT EXISTS "mustChangePassword" BOOLEAN NOT NULL DEFAULT false;
+  const [columns] = await sequelize.query(`
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'core'
+      AND table_name = 'Users'
+      AND column_name = 'mustChangePassword'
+    LIMIT 1;
   `);
+
+  if (columns.length === 0) {
+    await sequelize.query(`
+      ALTER TABLE core."Users"
+      ADD COLUMN "mustChangePassword" BOOLEAN NOT NULL DEFAULT false;
+    `);
+  }
+
   console.log('✅ Columna "mustChangePassword" verificada');
 }
 
@@ -93,6 +106,7 @@ async function bootstrap() {
 
     await ensureDatabaseSchema();
     await initializeBackupScheduler();
+    initializeInventoryReservationScheduler();
     console.log("✅ Scheduler de backups inicializado");
 
     app.listen(PORT, () => console.log(`🚀 Servidor en puerto ${PORT}`));

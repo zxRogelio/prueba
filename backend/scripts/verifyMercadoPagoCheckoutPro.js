@@ -4,6 +4,8 @@ import { WebhookSignatureValidator } from "mercadopago";
 import { sequelize } from "../config/sequelize.js";
 import {
   Brand,
+  Cart,
+  CartItem,
   Category,
   InventoryMovement,
   MembershipPlan,
@@ -19,6 +21,7 @@ import {
   User,
   UserSubscription,
 } from "../models/index.js";
+import { addProductToCart } from "../services/cartService.js";
 import {
   createMercadoPagoCheckout,
   getOrderPaymentStatus,
@@ -62,11 +65,27 @@ function signWebhook({ dataId, requestId, secret = process.env.MERCADOPAGO_WEBHO
 function createMockMercadoPagoApi() {
   const providerPayments = new Map();
   const preferenceCalls = [];
+  const preferenceDelays = new Map();
+  const preferenceFailures = new Map();
 
   return {
     providerPayments,
     preferenceCalls,
+    preferenceDelays,
+    preferenceFailures,
     async createPreference({ body, idempotencyKey }) {
+      const delayMs = Number(preferenceDelays.get(idempotencyKey) || 0);
+
+      if (delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+
+      const failure = preferenceFailures.get(idempotencyKey);
+
+      if (failure) {
+        throw typeof failure === "function" ? failure() : failure;
+      }
+
       preferenceCalls.push({ body, idempotencyKey });
 
       return {
@@ -128,7 +147,7 @@ async function createProductFixture(suffix) {
     brandId: brand.id_marca,
     categoryId: category.id_categoria,
     price: "200.00",
-    stock: 5,
+    stock: 50,
     status: "Activo",
     productType: "Ropa",
     description: "Temporary checkout verification product.",
@@ -259,6 +278,18 @@ async function cleanup({
       })
     : [];
   const groupIds = groups.map((group) => group.id);
+  const users = await User.findAll({
+    where: { email: { [Op.in]: emails } },
+    attributes: ["id"],
+  });
+  const userIds = users.map((user) => user.id);
+  const carts = userIds.length
+    ? await Cart.findAll({
+        where: { userId: { [Op.in]: userIds } },
+        attributes: ["id"],
+      })
+    : [];
+  const cartIds = carts.map((cart) => cart.id);
 
   await sequelize.transaction(async (transaction) => {
     if (subscriptionIds.length > 0) {
@@ -297,6 +328,17 @@ async function cleanup({
     if (orderItemIds.length > 0) {
       await InventoryMovement.destroy({
         where: { orderItemId: { [Op.in]: orderItemIds } },
+        transaction,
+      });
+    }
+
+    if (cartIds.length > 0) {
+      await CartItem.destroy({
+        where: { cartId: { [Op.in]: cartIds } },
+        transaction,
+      });
+      await Cart.destroy({
+        where: { id: { [Op.in]: cartIds } },
         transaction,
       });
     }
@@ -427,6 +469,181 @@ async function main() {
     await expectServiceError(
       () =>
         createMercadoPagoCheckout({
+          userId: otherClient.id,
+          payload: {
+            idempotencyKey: productKey,
+            items: [{ productId: productFixture.product.id_producto, quantity: 2 }],
+          },
+          mercadoPagoApi: mockApi,
+        }),
+      409,
+      "Idempotency key de otro usuario"
+    );
+
+    assert(
+      await Payment.count({ where: { idempotencyKey: productKey } }) === 1,
+      "La idempotencyKey reutilizada por otro usuario creo otro pago."
+    );
+
+    const concurrentKey = `mp-concurrent-${suffix}`;
+    idempotencyKeys.push(concurrentKey);
+    mockApi.preferenceDelays.set(concurrentKey, 150);
+    const preferenceCallsBeforeConcurrent = mockApi.preferenceCalls.length;
+    const concurrentPayload = {
+      idempotencyKey: concurrentKey,
+      items: [{ productId: productFixture.product.id_producto, quantity: 1 }],
+    };
+    const [concurrentCheckoutA, concurrentCheckoutB] = await Promise.all([
+      createMercadoPagoCheckout({
+        userId: client.id,
+        payload: concurrentPayload,
+        mercadoPagoApi: mockApi,
+      }),
+      createMercadoPagoCheckout({
+        userId: client.id,
+        payload: concurrentPayload,
+        mercadoPagoApi: mockApi,
+      }),
+    ]);
+    const concurrentPreferenceCalls = mockApi.preferenceCalls.length -
+      preferenceCallsBeforeConcurrent;
+
+    assert(
+      concurrentCheckoutA.orderId === concurrentCheckoutB.orderId,
+      "Las solicitudes simultaneas crearon ordenes diferentes."
+    );
+    assert(
+      concurrentCheckoutA.preferenceId === concurrentCheckoutB.preferenceId,
+      "Las solicitudes simultaneas crearon preferencias diferentes."
+    );
+    assert(
+      await Payment.count({ where: { idempotencyKey: concurrentKey } }) === 1,
+      "Las solicitudes simultaneas crearon mas de un pago."
+    );
+    assert(
+      concurrentPreferenceCalls === 1,
+      `Las solicitudes simultaneas crearon ${concurrentPreferenceCalls} preferencias.`
+    );
+
+    const invalidCredentialsCart = await addProductToCart({
+      userId: client.id,
+      productId: productFixture.product.id_producto,
+      quantity: 1,
+    });
+    const invalidCredentialsKey = `mp-invalid-credentials-${suffix}`;
+    idempotencyKeys.push(invalidCredentialsKey);
+    mockApi.preferenceFailures.set(invalidCredentialsKey, () => {
+      const error = new Error("Invalid Mercado Pago access token");
+      error.statusCode = 401;
+      return error;
+    });
+
+    await expectServiceError(
+      () =>
+        createMercadoPagoCheckout({
+          userId: client.id,
+          payload: {
+            idempotencyKey: invalidCredentialsKey,
+            cartId: invalidCredentialsCart.id,
+          },
+          mercadoPagoApi: mockApi,
+        }),
+      502,
+      "Credenciales invalidas de Mercado Pago"
+    );
+
+    const invalidCartAfterFailure = await Cart.findByPk(invalidCredentialsCart.id);
+    const invalidPaymentAfterFailure =
+      await getPaymentByIdempotencyKey(invalidCredentialsKey);
+    const invalidOrderId = invalidPaymentAfterFailure.orderId;
+
+    assert(
+      invalidCartAfterFailure.status === "active",
+      "El carrito se convirtio aunque Mercado Pago fallo por credenciales."
+    );
+    assert(
+      invalidPaymentAfterFailure.status === "pending" &&
+        invalidPaymentAfterFailure.providerStatus === "preference_failed",
+      "El fallo de preferencia no dejo el pago pendiente con providerStatus failed."
+    );
+    assert(
+      invalidPaymentAfterFailure.metadata?.preferenceCreation?.status === "failed",
+      "El fallo de preferencia no guardo metadata de error."
+    );
+
+    mockApi.preferenceFailures.delete(invalidCredentialsKey);
+    const retryAfterInvalidCredentials = await createMercadoPagoCheckout({
+      userId: client.id,
+      payload: {
+        idempotencyKey: invalidCredentialsKey,
+        cartId: invalidCredentialsCart.id,
+      },
+      mercadoPagoApi: mockApi,
+    });
+    const invalidCartAfterRetry = await Cart.findByPk(invalidCredentialsCart.id);
+
+    assert(
+      retryAfterInvalidCredentials.orderId === invalidOrderId,
+      "El reintento con la misma clave creo otra orden."
+    );
+    assert(
+      await Payment.count({ where: { idempotencyKey: invalidCredentialsKey } }) === 1,
+      "El reintento con la misma clave creo otro pago."
+    );
+    assert(
+      invalidCartAfterRetry.status === "converted" &&
+        invalidCartAfterRetry.convertedOrderId === invalidOrderId,
+      "El carrito no se convirtio despues de crear correctamente la preferencia."
+    );
+
+    const timeoutCart = await addProductToCart({
+      userId: otherClient.id,
+      productId: productFixture.product.id_producto,
+      quantity: 1,
+    });
+    const timeoutKey = `mp-timeout-${suffix}`;
+    idempotencyKeys.push(timeoutKey);
+    mockApi.preferenceFailures.set(timeoutKey, () => {
+      const error = new Error("Mercado Pago request timeout");
+      error.code = "ETIMEDOUT";
+      return error;
+    });
+
+    await expectServiceError(
+      () =>
+        createMercadoPagoCheckout({
+          userId: otherClient.id,
+          payload: {
+            idempotencyKey: timeoutKey,
+            cartId: timeoutCart.id,
+          },
+          mercadoPagoApi: mockApi,
+        }),
+      502,
+      "Timeout de Mercado Pago"
+    );
+
+    const timeoutCartAfterFailure = await Cart.findByPk(timeoutCart.id);
+    const timeoutPaymentAfterFailure =
+      await getPaymentByIdempotencyKey(timeoutKey);
+
+    assert(
+      timeoutCartAfterFailure.status === "active",
+      "El carrito se convirtio aunque Mercado Pago fallo por timeout."
+    );
+    assert(
+      timeoutPaymentAfterFailure.status === "pending" &&
+        timeoutPaymentAfterFailure.providerStatus === "preference_failed",
+      "El timeout no dejo el pago pendiente con metadata de error."
+    );
+    assert(
+      timeoutPaymentAfterFailure.metadata?.preferenceCreation?.status === "failed",
+      "El timeout no guardo metadata de preferencia fallida."
+    );
+
+    await expectServiceError(
+      () =>
+        createMercadoPagoCheckout({
           userId: client.id,
           payload: {
             idempotencyKey: `mp-empty-${suffix}`,
@@ -461,6 +678,21 @@ async function main() {
         }),
       401,
       "Firma invalida"
+    );
+
+    await expectServiceError(
+      () =>
+        processMercadoPagoWebhook({
+          headers: {
+            "x-signature": "ts=1,v1=bad",
+            "x-request-id": `${webhookPrefix}-invalid-body`,
+          },
+          query: { type: "payment" },
+          body: { type: "payment" },
+          mercadoPagoApi: mockApi,
+        }),
+      400,
+      "Cuerpo invalido"
     );
 
     const approvedProviderPaymentId = `${webhookPrefix}-approved`;
@@ -516,6 +748,57 @@ async function main() {
     assert(
       await Receipt.count({ where: { paymentId: productPayment.id } }) === 1,
       "El webhook duplicado genero otro recibo."
+    );
+
+    mockApi.providerPayments.set(
+      approvedProviderPaymentId,
+      buildProviderPayment({
+        id: approvedProviderPaymentId,
+        status: "charged_back",
+        amount: "400.00",
+        orderId: productOrder.id,
+        paymentId: productPayment.id,
+        preferenceId: productCheckout.preferenceId,
+      })
+    );
+    const chargedBackWebhook = await deliverWebhook({
+      mockApi,
+      providerPaymentId: approvedProviderPaymentId,
+      requestId: `${webhookPrefix}-charged-back-request`,
+    });
+
+    await productPayment.reload();
+    await productOrder.reload();
+    assert(chargedBackWebhook.ok, "El webhook de contracargo fallo.");
+    assert(
+      productPayment.status === "charged_back",
+      "El contracargo no marco el pago para revision."
+    );
+    assert(
+      productOrder.status === "charged_back",
+      "El contracargo no marco la orden para revision."
+    );
+    assert(
+      productPayment.metadata?.paymentReview?.required === true,
+      "El contracargo no guardo metadata de revision administrativa."
+    );
+    assert(
+      await Receipt.count({ where: { paymentId: productPayment.id } }) === 1,
+      "El contracargo cancelo o duplico recibos automaticamente."
+    );
+    assert(
+      await InventoryMovement.count({
+        where: { movementType: "return" },
+        include: [
+          {
+            model: OrderItem,
+            as: "orderItem",
+            where: { orderId: productOrder.id },
+            required: true,
+          },
+        ],
+      }) === 0,
+      "El contracargo devolvio inventario automaticamente."
     );
 
     const pendingKey = `mp-pending-${suffix}`;
@@ -608,16 +891,171 @@ async function main() {
           preferenceId: checkout.preferenceId,
         })
       );
-      const result = await deliverWebhook({
-        mockApi,
-        providerPaymentId,
-        requestId: `${webhookPrefix}-${label}-request`,
-      });
+      await expectServiceError(
+        () =>
+          deliverWebhook({
+            mockApi,
+            providerPaymentId,
+            requestId: `${webhookPrefix}-${label}-request`,
+          }),
+        400,
+        label
+      );
 
       await payment.reload();
-      assert(!result.ok, `${label}: el webhook debia fallar.`);
       assert(payment.status === "pending", `${label}: el pago no debia confirmarse.`);
     }
+
+    const retryKey = `mp-retry-${suffix}`;
+    idempotencyKeys.push(retryKey);
+    const retryCheckout = await createMercadoPagoCheckout({
+      userId: client.id,
+      payload: {
+        idempotencyKey: retryKey,
+        membershipPlanId: individualPlan.id,
+      },
+      mercadoPagoApi: mockApi,
+    });
+    const retryPayment = await getPaymentByIdempotencyKey(retryKey);
+    const retryProviderPaymentId = `${webhookPrefix}-retry`;
+    const retryRequestId = `${webhookPrefix}-retry-request`;
+    mockApi.providerPayments.set(
+      retryProviderPaymentId,
+      buildProviderPayment({
+        id: retryProviderPaymentId,
+        status: "approved",
+        amount: "100.00",
+        orderId: retryCheckout.orderId,
+        paymentId: retryPayment.id,
+        preferenceId: retryCheckout.preferenceId,
+      })
+    );
+
+    const originalPaymentFindOne = Payment.findOne;
+    let shouldFailPaymentLookup = true;
+    Payment.findOne = async function findOneWithTemporaryFailure(...args) {
+      if (shouldFailPaymentLookup) {
+        shouldFailPaymentLookup = false;
+        throw new Error("Temporary database failure while reading payment");
+      }
+
+      return originalPaymentFindOne.apply(this, args);
+    };
+
+    try {
+      await expectServiceError(
+        () =>
+          deliverWebhook({
+            mockApi,
+            providerPaymentId: retryProviderPaymentId,
+            requestId: retryRequestId,
+          }),
+        500,
+        "Fallo temporal de base de datos"
+      );
+    } finally {
+      Payment.findOne = originalPaymentFindOne;
+    }
+
+    const retryFailedEvent = await PaymentWebhookEvent.findOne({
+      where: { providerEventId: retryRequestId },
+    });
+    await retryPayment.reload();
+    assert(retryFailedEvent?.processingStatus === "failed", "El fallo temporal no dejo el evento en failed.");
+    assert(Number(retryFailedEvent.retryCount) === 1, "El fallo temporal no incremento retryCount.");
+    assert(retryPayment.status === "pending", "El fallo temporal confirmo el pago.");
+    assert(
+      await Receipt.count({ where: { paymentId: retryPayment.id } }) === 0,
+      "El fallo temporal genero recibo."
+    );
+
+    const retryWebhook = await deliverWebhook({
+      mockApi,
+      providerPaymentId: retryProviderPaymentId,
+      requestId: retryRequestId,
+    });
+    await retryPayment.reload();
+    await retryFailedEvent.reload();
+    assert(retryWebhook.ok, "El reintento posterior no proceso el webhook.");
+    assert(retryPayment.status === "paid", "El reintento posterior no confirmo el pago.");
+    assert(retryFailedEvent.processingStatus === "processed", "El reintento posterior no dejo el evento processed.");
+    assert(Number(retryFailedEvent.retryCount) === 1, "El reintento posterior reinicio retryCount.");
+    assert(
+      await Receipt.count({ where: { paymentId: retryPayment.id } }) === 1,
+      "El reintento posterior no genero recibo unico."
+    );
+
+    const inventoryFailureKey = `mp-inventory-failure-${suffix}`;
+    idempotencyKeys.push(inventoryFailureKey);
+    const inventoryFailureCheckout = await createMercadoPagoCheckout({
+      userId: client.id,
+      payload: {
+        idempotencyKey: inventoryFailureKey,
+        items: [{ productId: productFixture.product.id_producto, quantity: 1 }],
+      },
+      mercadoPagoApi: mockApi,
+    });
+    const inventoryFailurePayment = await getPaymentByIdempotencyKey(inventoryFailureKey);
+    const inventoryFailureOrder = await Order.findByPk(inventoryFailurePayment.orderId);
+    const inventoryFailureInitialOrderStatus = inventoryFailureOrder.status;
+    const inventoryFailureProviderPaymentId = `${webhookPrefix}-inventory-failure`;
+    const inventoryFailureRequestId = `${webhookPrefix}-inventory-failure-request`;
+
+    await productFixture.product.update({ stock: 0 });
+    mockApi.providerPayments.set(
+      inventoryFailureProviderPaymentId,
+      buildProviderPayment({
+        id: inventoryFailureProviderPaymentId,
+        status: "approved",
+        amount: "200.00",
+        orderId: inventoryFailureCheckout.orderId,
+        paymentId: inventoryFailurePayment.id,
+        preferenceId: inventoryFailureCheckout.preferenceId,
+      })
+    );
+
+    await expectServiceError(
+      () =>
+        deliverWebhook({
+          mockApi,
+          providerPaymentId: inventoryFailureProviderPaymentId,
+          requestId: inventoryFailureRequestId,
+        }),
+      500,
+      "Fallo de inventario"
+    );
+
+    const inventoryFailureEvent = await PaymentWebhookEvent.findOne({
+      where: { providerEventId: inventoryFailureRequestId },
+    });
+    await inventoryFailurePayment.reload();
+    await inventoryFailureOrder.reload();
+    assert(inventoryFailureEvent?.processingStatus === "failed", "El fallo de inventario no dejo el evento en failed.");
+    assert(Number(inventoryFailureEvent.retryCount) === 1, "El fallo de inventario no incremento retryCount.");
+    assert(inventoryFailurePayment.status === "pending", "El fallo de inventario confirmo el pago.");
+    assert(
+      inventoryFailureOrder.status === inventoryFailureInitialOrderStatus &&
+        inventoryFailureOrder.status !== "paid",
+      "El fallo de inventario confirmo la orden."
+    );
+    assert(
+      await Receipt.count({ where: { paymentId: inventoryFailurePayment.id } }) === 0,
+      "El fallo de inventario genero recibo."
+    );
+    assert(
+      await InventoryMovement.count({
+        where: { movementType: "sale" },
+        include: [
+          {
+            model: OrderItem,
+            as: "orderItem",
+            where: { orderId: inventoryFailureOrder.id },
+            required: true,
+          },
+        ],
+      }) === 0,
+      "El fallo de inventario registro venta."
+    );
 
     const membershipKey = `mp-membership-${suffix}`;
     idempotencyKeys.push(membershipKey);
@@ -707,11 +1145,26 @@ async function main() {
       emptyCartStatusCode: 400,
       manipulatedPriceIgnored: true,
       repeatedIdempotencyReturnedSameOrder: true,
+      foreignUserIdempotencyConflictStatusCode: 409,
+      concurrentIdempotencyCreatedOnePreference: true,
+      invalidCredentialsPreferenceStatusCode: 502,
+      timeoutPreferenceStatusCode: 502,
+      cartRemainedActiveAfterPreferenceFailure: true,
+      retryAfterPreferenceFailureReusedOrder: true,
+      cartConvertedAfterPreferenceSuccess: true,
       invalidWebhookSignatureStatusCode: 401,
+      invalidWebhookBodyStatusCode: 400,
       approvedPaymentStatus: "paid",
       pendingPaymentStatus: "pending",
       rejectedPaymentStatus: "failed",
+      chargedBackPaymentStatus: "charged_back",
+      chargedBackOrderStatus: "charged_back",
+      chargedBackDidNotReturnInventory: true,
       duplicateWebhookIgnored: true,
+      temporaryDatabaseErrorStatusCode: 500,
+      retryAfterTemporaryErrorProcessed: true,
+      inventoryFailureStatusCode: 500,
+      failedWebhookRetryCountIncremented: true,
       amountMismatchRejected: true,
       currencyMismatchRejected: true,
       individualMembershipActivated: true,

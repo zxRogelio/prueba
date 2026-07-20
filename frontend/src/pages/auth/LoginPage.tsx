@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
   FaClock,
@@ -22,6 +22,14 @@ interface LoginLock {
   lockedUntil: number;
 }
 
+interface LoginLocationState {
+  from?: {
+    pathname?: string;
+    search?: string;
+    hash?: string;
+  };
+}
+
 const LOGIN_LOCK_KEY = "loginLock";
 
 function getLoginErrorMessage(error: unknown) {
@@ -38,6 +46,17 @@ function getLoginErrorMessage(error: unknown) {
   return "Error al iniciar sesion.";
 }
 
+function getRedirectAfterLogin(state: unknown, fallbackPath: string) {
+  const from = (state as LoginLocationState | null)?.from;
+  const pathname = from?.pathname;
+
+  if (!pathname || !pathname.startsWith("/") || pathname.startsWith("//")) {
+    return fallbackPath;
+  }
+
+  return `${pathname}${from.search ?? ""}${from.hash ?? ""}`;
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -48,6 +67,7 @@ export default function LoginPage() {
   const [lockedEmail, setLockedEmail] = useState<string | null>(null);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const { setUser } = useAuth();
   const isLocked =
     lockSeconds !== null && lockSeconds > 0 && lockedEmail === email;
@@ -160,9 +180,16 @@ export default function LoginPage() {
         return;
       }
 
-      navigate(getDefaultAuthenticatedRoute(userData.rol), {
-        state: { showLoginSuccess: true },
-      });
+      navigate(
+        getRedirectAfterLogin(
+          location.state,
+          getDefaultAuthenticatedRoute(userData.rol)
+        ),
+        {
+          state: { showLoginSuccess: true },
+          replace: true,
+        }
+      );
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 429) {
         const seconds = error.response?.data?.retryAfterSeconds ?? 60;

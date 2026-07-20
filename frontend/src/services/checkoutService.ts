@@ -28,12 +28,31 @@ export type MercadoPagoCheckoutResponse = {
   sandboxCheckoutUrl?: string | null;
 };
 
+export type OrderStatus =
+  | "draft"
+  | "pending_payment"
+  | "paid"
+  | "cancelled"
+  | "partially_refunded"
+  | "disputed"
+  | "charged_back"
+  | "refunded";
+
+export type PaymentStatus =
+  | "pending"
+  | "paid"
+  | "failed"
+  | "cancelled"
+  | "disputed"
+  | "charged_back"
+  | "refunded";
+
 export type OrderPaymentStatus = {
   ok: boolean;
   order: {
     id: string;
     orderNumber: string;
-    status: string;
+    status: OrderStatus;
     total: string | number;
     currency: string;
     paidAt?: string | null;
@@ -49,7 +68,7 @@ export type OrderPaymentStatus = {
   };
   payment: {
     id: string;
-    status: string;
+    status: PaymentStatus;
     provider: string;
     providerStatus?: string | null;
     providerStatusDetail?: string | null;

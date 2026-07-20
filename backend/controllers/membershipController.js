@@ -201,6 +201,7 @@ function buildManualPaymentIdempotencyOperation({
   userId,
   planId,
   amount,
+  currency = "MXN",
   method,
   provider,
   startsAt = null,
@@ -211,6 +212,7 @@ function buildManualPaymentIdempotencyOperation({
     userId,
     planId,
     amount: toCents(amount),
+    currency: String(currency || "MXN").trim().toUpperCase(),
     method,
     provider,
     startsAt: normalizeNullableString(startsAt),
@@ -225,6 +227,12 @@ function sameArrayValues(left = [], right = []) {
 }
 
 function manualPaymentIdempotencyConflict(mismatches) {
+  if (mismatches.includes("userId")) {
+    const error = new Error("idempotencyKey ya existe para otra operacion manual.");
+    error.statusCode = 409;
+    return error;
+  }
+
   const error = new Error(
     `idempotencyKey ya existe para otra operacion manual: ${mismatches.join(", ")}.`
   );
@@ -281,6 +289,9 @@ async function assertExistingManualPaymentMatchesOperation({
 
   if (!payment.orderId) mismatches.push("orderId");
   if (toCents(payment.amount) !== operation.amount) mismatches.push("amount");
+  if (String(payment.currency || "").trim().toUpperCase() !== operation.currency) {
+    mismatches.push("currency");
+  }
   if (payment.provider !== operation.provider) mismatches.push("provider");
   if (payment.method !== operation.method) mismatches.push("method");
   if (payment.userId !== operation.userId) mismatches.push("userId");

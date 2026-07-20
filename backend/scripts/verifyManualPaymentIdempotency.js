@@ -56,10 +56,11 @@ async function countOrdersByIdempotencyKey(idempotencyKey) {
   return Number(row?.count || 0);
 }
 
-async function cleanup({ idempotencyKey, emails, planSlug }) {
-  const payments = idempotencyKey
+async function cleanup({ idempotencyKeys, emails, planSlug }) {
+  const keys = idempotencyKeys.filter(Boolean);
+  const payments = keys.length
     ? await Payment.findAll({
-        where: { idempotencyKey },
+        where: { idempotencyKey: { [Op.in]: keys } },
         attributes: ["id", "orderId"],
       })
     : [];
@@ -127,13 +128,18 @@ async function cleanup({ idempotencyKey, emails, planSlug }) {
 async function main() {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const idempotencyKey = randomUUID();
+  const concurrentIdempotencyKey = randomUUID();
   const adminEmail = `verify-manual-idempotency-admin-${suffix}@example.com`;
   const clientEmail = `verify-manual-idempotency-client-${suffix}@example.com`;
+  const otherClientEmail = `verify-manual-idempotency-other-${suffix}@example.com`;
+  const concurrentClientEmail = `verify-manual-idempotency-concurrent-${suffix}@example.com`;
   const planSlug = `verify-manual-idempotency-${suffix}`;
 
   try {
     const admin = await createUser(adminEmail, "administrador");
     const client = await createUser(clientEmail, "cliente");
+    const otherClient = await createUser(otherClientEmail, "cliente");
+    const concurrentClient = await createUser(concurrentClientEmail, "cliente");
     const plan = await MembershipPlan.create({
       name: `Verify Manual Idempotency ${suffix}`,
       slug: planSlug,
@@ -190,6 +196,7 @@ async function main() {
       ? await Receipt.count({ where: { paymentId: payment.id } })
       : 0;
     const conflictResponse = createMockResponse();
+    const foreignUserResponse = createMockResponse();
 
     await createManualMembershipPayment(
       {
@@ -202,6 +209,61 @@ async function main() {
       },
       conflictResponse
     );
+    await createManualMembershipPayment(
+      {
+        user: { id: admin.id, role: "administrador" },
+        body: {
+          ...requestBody,
+          userId: otherClient.id,
+        },
+      },
+      foreignUserResponse
+    );
+
+    const concurrentRequestBody = {
+      ...requestBody,
+      userId: concurrentClient.id,
+      reference: "manual-idempotency-concurrent-test",
+      notes: "concurrent identical payload should be idempotent",
+      idempotencyKey: concurrentIdempotencyKey,
+    };
+    const concurrentResponseA = createMockResponse();
+    const concurrentResponseB = createMockResponse();
+
+    await Promise.all([
+      createManualMembershipPayment(
+        {
+          user: { id: admin.id, role: "administrador" },
+          body: concurrentRequestBody,
+        },
+        concurrentResponseA
+      ),
+      createManualMembershipPayment(
+        {
+          user: { id: admin.id, role: "administrador" },
+          body: concurrentRequestBody,
+        },
+        concurrentResponseB
+      ),
+    ]);
+
+    const concurrentPaymentCount = await Payment.count({
+      where: { idempotencyKey: concurrentIdempotencyKey },
+    });
+    const concurrentPayment = await Payment.findOne({
+      where: { idempotencyKey: concurrentIdempotencyKey },
+    });
+    const concurrentOrderCount = await countOrdersByIdempotencyKey(
+      concurrentIdempotencyKey
+    );
+    const concurrentSubscriptionCount = concurrentPayment
+      ? await UserSubscription.count({
+          where: { paymentId: concurrentPayment.id },
+        })
+      : 0;
+    const concurrentReceiptCount = concurrentPayment
+      ? await Receipt.count({ where: { paymentId: concurrentPayment.id } })
+      : 0;
 
     const paymentCountAfterConflict = await Payment.count({
       where: { idempotencyKey },
@@ -245,24 +307,67 @@ async function main() {
       );
     }
 
+    if (foreignUserResponse.statusCode !== 409) {
+      throw new Error(
+        `La reutilizacion por otro usuario debia responder 409; respondio ${foreignUserResponse.statusCode}.`
+      );
+    }
+
+    if (
+      /userId|cliente|usuario/i.test(foreignUserResponse.body?.error || "")
+    ) {
+      throw new Error(
+        `La respuesta para otro usuario revela detalles: ${foreignUserResponse.body?.error}.`
+      );
+    }
+
     if (paymentCountAfterConflict !== 1 || orderCountAfterConflict !== 1) {
       throw new Error(
         `La repeticion conflictiva creo registros adicionales; payments=${paymentCountAfterConflict}, orders=${orderCountAfterConflict}.`
       );
     }
 
+    const concurrentStatusCodes = [
+      concurrentResponseA.statusCode,
+      concurrentResponseB.statusCode,
+    ].sort();
+
+    if (concurrentStatusCodes[0] !== 200 || concurrentStatusCodes[1] !== 201) {
+      throw new Error(
+        `Las solicitudes simultaneas debian responder 200 y 201; respondieron ${concurrentStatusCodes.join(", ")}.`
+      );
+    }
+
+    if (
+      concurrentPaymentCount !== 1 ||
+      concurrentOrderCount !== 1 ||
+      concurrentSubscriptionCount !== 1 ||
+      concurrentReceiptCount !== 1
+    ) {
+      throw new Error(
+        `La concurrencia creo duplicados; payments=${concurrentPaymentCount}, orders=${concurrentOrderCount}, subscriptions=${concurrentSubscriptionCount}, receipts=${concurrentReceiptCount}.`
+      );
+    }
+
     console.log("Verificacion OK: pago manual idempotente.");
     console.log({
       idempotencyKey,
+      concurrentIdempotencyKey,
       firstAttemptStatusCode: firstResponse.statusCode,
       secondAttemptStatusCode: secondResponse.statusCode,
       conflictAttemptStatusCode: conflictResponse.statusCode,
       conflictAttemptMessage: conflictResponse.body?.error,
+      foreignUserAttemptStatusCode: foreignUserResponse.statusCode,
+      concurrentAttemptStatusCodes: concurrentStatusCodes,
       payments: paymentCountAfterConflict,
       orders: orderCountAfterConflict,
       subscriptions: subscriptionCount,
       groups: groupCount,
       receipts: receiptCount,
+      concurrentPayments: concurrentPaymentCount,
+      concurrentOrders: concurrentOrderCount,
+      concurrentSubscriptions: concurrentSubscriptionCount,
+      concurrentReceipts: concurrentReceiptCount,
       cleanedUp: true,
     });
   } catch (error) {
@@ -270,8 +375,13 @@ async function main() {
     process.exitCode = 1;
   } finally {
     await cleanup({
-      idempotencyKey,
-      emails: [adminEmail, clientEmail],
+      idempotencyKeys: [idempotencyKey, concurrentIdempotencyKey],
+      emails: [
+        adminEmail,
+        clientEmail,
+        otherClientEmail,
+        concurrentClientEmail,
+      ],
       planSlug,
     });
     await sequelize.close();

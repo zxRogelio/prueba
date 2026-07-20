@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { FaShoppingCart, FaTimes } from "react-icons/fa";
-import { useCart } from "../../context/CartContext";
+import { useCart } from "../../context/useCart";
 import "./CartDrawer.css";
 
 function formatMoney(value: number) {

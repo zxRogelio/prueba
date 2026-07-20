@@ -30,6 +30,7 @@ import { SubscriptionGroup } from "./SubscriptionGroup.js";
 import { SubscriptionGroupMember } from "./SubscriptionGroupMember.js";
 import { BehaviorEvent } from "./BehaviorEvent.js";
 import { InventoryMovement } from "./InventoryMovement.js";
+import { InventoryReservation } from "./InventoryReservation.js";
 import { ProductPriceHistory } from "./ProductPriceHistory.js";
 import { Promotion } from "./Promotion.js";
 import { PromotionProduct } from "./PromotionProduct.js";
@@ -710,6 +711,31 @@ InventoryMovement.belongsTo(User, {
   as: "createdByUser",
 });
 
+// PRODUCT / ORDER -> INVENTORY RESERVATIONS
+Product.hasMany(InventoryReservation, {
+  foreignKey: "productId",
+  sourceKey: "id_producto",
+  as: "inventoryReservations",
+});
+
+InventoryReservation.belongsTo(Product, {
+  foreignKey: "productId",
+  targetKey: "id_producto",
+  as: "product",
+});
+
+Order.hasMany(InventoryReservation, {
+  foreignKey: "orderId",
+  sourceKey: "id",
+  as: "inventoryReservations",
+});
+
+InventoryReservation.belongsTo(Order, {
+  foreignKey: "orderId",
+  targetKey: "id",
+  as: "order",
+});
+
 // PRODUCT -> PRICE HISTORY
 Product.hasMany(ProductPriceHistory, {
   foreignKey: "productId",
@@ -882,6 +908,7 @@ export {
   SubscriptionGroupMember,
   BehaviorEvent,
   InventoryMovement,
+  InventoryReservation,
   ProductPriceHistory,
   Promotion,
   PromotionProduct,

@@ -1,6 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
 import "./../styles/payment.css";
-import Logo from "../assets/LogoP.png";
 
 type ConfirmationLocationState = {
   orderId?: string;
@@ -21,16 +20,6 @@ export default function ConfirmationPage() {
         <div className="bg-glow bg-glow-1" />
         <div className="bg-glow bg-glow-2" />
       </div>
-
-      <header className="header header-scrolled">
-        <div className="header-content">
-          <div className="logo-container">
-            <Link to="/">
-              <img src={Logo} alt="Titanium Sport Gym" className="logo-image" />
-            </Link>
-          </div>
-        </div>
-      </header>
 
       <section className="payment-hero">
         <div className="payment-hero-content">
