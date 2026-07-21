@@ -36,6 +36,8 @@ const FINAL_PAYMENT_STATUSES = new Set([
   "refunded",
   ...REVIEW_PAYMENT_STATUSES,
 ]);
+const WEBHOOK_SIGNATURE_TOLERANCE_SECONDS = 300;
+const UNIX_MILLISECONDS_THRESHOLD = 1_000_000_000_000;
 const PREFERENCE_CREATION_STALE_MS = 2 * 60 * 1000;
 const PREFERENCE_WAIT_TIMEOUT_MS = 10 * 1000;
 const PREFERENCE_WAIT_INTERVAL_MS = 100;
@@ -189,7 +191,6 @@ function createMercadoPagoSdk() {
         xRequestId,
         dataId,
         secret,
-        toleranceSeconds: 300,
       });
     },
   };
@@ -1044,6 +1045,130 @@ function extractHeader(headers = {}, name) {
   return headers[name] ?? headers[name.toLowerCase()] ?? headers[name.toUpperCase()];
 }
 
+function extractTimestampFromSignatureHeader(xSignature) {
+  const signature = normalizeNullableString(xSignature);
+  if (!signature) return null;
+
+  const timestampPart = signature
+    .split(",")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith("ts="));
+
+  if (!timestampPart) return null;
+
+  return timestampPart.slice(3).trim() || null;
+}
+
+function buildWebhookSignatureDiagnostics({
+  xSignature,
+  xRequestId,
+  dataId,
+  now = Date.now(),
+  reason = null,
+  differenceSeconds = null,
+}) {
+  const timestamp = extractTimestampFromSignatureHeader(xSignature);
+  const timestampDigits = timestamp && /^\d+$/.test(timestamp) ? timestamp.length : null;
+  let safeDifferenceSeconds = differenceSeconds;
+
+  if (safeDifferenceSeconds == null && timestampDigits != null) {
+    const timestampNumber = Number(timestamp);
+
+    if (Number.isFinite(timestampNumber)) {
+      const timestampMs =
+        timestampNumber < UNIX_MILLISECONDS_THRESHOLD
+          ? timestampNumber * 1000
+          : timestampNumber;
+      safeDifferenceSeconds = Math.abs(now - timestampMs) / 1000;
+    }
+  }
+
+  return {
+    reason: normalizeNullableString(reason),
+    xRequestId: normalizeNullableString(xRequestId),
+    timestampDigits,
+    differenceSeconds:
+      safeDifferenceSeconds == null
+        ? null
+        : Number(Number(safeDifferenceSeconds).toFixed(3)),
+    dataIdPresent: Boolean(normalizeNullableString(dataId)),
+  };
+}
+
+function createWebhookSignatureError(reason, xRequestId, diagnostics = {}) {
+  const error = new InvalidWebhookSignatureError(reason, xRequestId);
+  error.webhookSignatureDiagnostics = {
+    ...diagnostics,
+    reason,
+  };
+  return error;
+}
+
+function validateWebhookSignatureTimestamp({
+  xSignature,
+  xRequestId,
+  dataId,
+  toleranceSeconds = WEBHOOK_SIGNATURE_TOLERANCE_SECONDS,
+  now = Date.now(),
+}) {
+  const timestamp = extractTimestampFromSignatureHeader(xSignature);
+  const baseDiagnostics = buildWebhookSignatureDiagnostics({
+    xSignature,
+    xRequestId,
+    dataId,
+    now,
+  });
+
+  if (!timestamp) {
+    throw createWebhookSignatureError(
+      "MissingTimestamp",
+      xRequestId,
+      baseDiagnostics
+    );
+  }
+
+  if (!/^\d+$/.test(timestamp)) {
+    throw createWebhookSignatureError(
+      "MalformedSignatureHeader",
+      xRequestId,
+      baseDiagnostics
+    );
+  }
+
+  const timestampNumber = Number(timestamp);
+
+  if (!Number.isFinite(timestampNumber)) {
+    throw createWebhookSignatureError(
+      "MalformedSignatureHeader",
+      xRequestId,
+      baseDiagnostics
+    );
+  }
+
+  const timestampMs =
+    timestampNumber < UNIX_MILLISECONDS_THRESHOLD
+      ? timestampNumber * 1000
+      : timestampNumber;
+  const differenceSeconds = Math.abs(now - timestampMs) / 1000;
+  const diagnostics = buildWebhookSignatureDiagnostics({
+    xSignature,
+    xRequestId,
+    dataId,
+    now,
+    differenceSeconds,
+  });
+
+  if (differenceSeconds > toleranceSeconds) {
+    throw createWebhookSignatureError(
+      "TimestampOutOfTolerance",
+      xRequestId,
+      diagnostics
+    );
+  }
+
+  return diagnostics;
+}
+
 function extractDataId({ query = {}, body = {} }) {
   const direct =
     query["data.id"] ||
@@ -1079,15 +1204,31 @@ function buildWebhookProviderEventId({ requestId, eventType, dataId, body }) {
 }
 
 function buildWebhookPayload({ query, body, xRequestId, xSignature }) {
+  const signatureDiagnostics = buildWebhookSignatureDiagnostics({
+    xSignature,
+    xRequestId,
+    dataId: extractDataId({ query, body }),
+  });
+
   return {
     query,
     body,
     headers: {
       xRequestId: normalizeNullableString(xRequestId),
-      xSignature: normalizeNullableString(xSignature),
       xSignaturePresent: Boolean(normalizeNullableString(xSignature)),
     },
+    signatureDiagnostics,
     receivedAt: new Date().toISOString(),
+  };
+}
+
+function mergeWebhookSignatureDiagnostics(payload, diagnostics) {
+  return {
+    ...(payload || {}),
+    signatureDiagnostics: {
+      ...(payload?.signatureDiagnostics || {}),
+      ...diagnostics,
+    },
   };
 }
 
@@ -1502,6 +1643,12 @@ export async function processMercadoPagoWebhook({
       throw serviceError("Webhook de Mercado Pago no esta configurado.", 500);
     }
 
+    const signatureDiagnostics = validateWebhookSignatureTimestamp({
+      xSignature,
+      xRequestId,
+      dataId,
+    });
+
     mercadoPagoApi.validateSignature({
       xSignature,
       xRequestId,
@@ -1512,6 +1659,10 @@ export async function processMercadoPagoWebhook({
     await event.update({
       signatureValid: true,
       providerPaymentId: dataId,
+      payload: mergeWebhookSignatureDiagnostics(event.payload, {
+        ...signatureDiagnostics,
+        reason: null,
+      }),
     });
   } catch (error) {
     await event.update({
@@ -1519,9 +1670,20 @@ export async function processMercadoPagoWebhook({
     });
 
     if (error instanceof InvalidWebhookSignatureError) {
+      const diagnostics = {
+        ...buildWebhookSignatureDiagnostics({
+          xSignature,
+          xRequestId,
+          dataId,
+        }),
+        ...(error.webhookSignatureDiagnostics || {}),
+        reason: normalizeNullableString(error.reason) || "SignatureValidationFailed",
+      };
+
       await event.update({
         processingStatus: "failed",
-        errorMessage: error.reason,
+        errorMessage: diagnostics.reason,
+        payload: mergeWebhookSignatureDiagnostics(event.payload, diagnostics),
         processedAt: new Date(),
       });
       throw serviceError("Firma de Mercado Pago invalida.", 401);

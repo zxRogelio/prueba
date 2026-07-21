@@ -54,10 +54,17 @@ async function expectServiceError(callback, expectedStatusCode, label) {
   throw new Error(`${label}: se esperaba error ${expectedStatusCode}.`);
 }
 
-function signWebhook({ dataId, requestId, secret = process.env.MERCADOPAGO_WEBHOOK_SECRET }) {
-  const ts = String(Date.now());
+function signWebhook({
+  dataId,
+  requestId,
+  secret = process.env.MERCADOPAGO_WEBHOOK_SECRET,
+  timestamp = Date.now(),
+  hashOverride = null,
+}) {
+  const ts = String(timestamp);
   const manifest = `id:${dataId};request-id:${requestId};ts:${ts};`;
-  const hash = createHmac("sha256", secret).update(manifest).digest("hex");
+  const hash =
+    hashOverride || createHmac("sha256", secret).update(manifest).digest("hex");
 
   return `ts=${ts},v1=${hash}`;
 }
@@ -111,7 +118,6 @@ function createMockMercadoPagoApi() {
         xRequestId,
         dataId,
         secret,
-        toleranceSeconds: 300,
       });
     },
   };
@@ -211,10 +217,16 @@ function buildProviderPayment({
   };
 }
 
-async function deliverWebhook({ mockApi, providerPaymentId, requestId }) {
+async function deliverWebhook({
+  mockApi,
+  providerPaymentId,
+  requestId,
+  timestamp = Date.now(),
+}) {
   const signature = signWebhook({
     dataId: providerPaymentId,
     requestId,
+    timestamp,
   });
 
   return processMercadoPagoWebhook({
@@ -669,7 +681,11 @@ async function main() {
       () =>
         processMercadoPagoWebhook({
           headers: {
-            "x-signature": "ts=1,v1=bad",
+            "x-signature": signWebhook({
+              dataId: `${webhookPrefix}-invalid`,
+              requestId: `${webhookPrefix}-invalid-signature`,
+              hashOverride: "bad",
+            }),
             "x-request-id": `${webhookPrefix}-invalid-signature`,
           },
           query: { "data.id": `${webhookPrefix}-invalid` },
@@ -678,6 +694,68 @@ async function main() {
         }),
       401,
       "Firma invalida"
+    );
+
+    await expectServiceError(
+      () =>
+        processMercadoPagoWebhook({
+          headers: {
+            "x-signature": signWebhook({
+              dataId: `${webhookPrefix}-old-timestamp`,
+              requestId: `${webhookPrefix}-old-timestamp-request`,
+              timestamp: Date.now() - 10 * 60 * 1000,
+            }),
+            "x-request-id": `${webhookPrefix}-old-timestamp-request`,
+          },
+          query: { "data.id": `${webhookPrefix}-old-timestamp` },
+          body: {
+            type: "payment",
+            data: { id: `${webhookPrefix}-old-timestamp` },
+          },
+          mercadoPagoApi: mockApi,
+        }),
+      401,
+      "Timestamp antiguo fuera de tolerancia"
+    );
+
+    await expectServiceError(
+      () =>
+        processMercadoPagoWebhook({
+          headers: {
+            "x-signature": signWebhook({
+              dataId: `${webhookPrefix}-future-timestamp`,
+              requestId: `${webhookPrefix}-future-timestamp-request`,
+              timestamp: Date.now() + 10 * 60 * 1000,
+            }),
+            "x-request-id": `${webhookPrefix}-future-timestamp-request`,
+          },
+          query: { "data.id": `${webhookPrefix}-future-timestamp` },
+          body: {
+            type: "payment",
+            data: { id: `${webhookPrefix}-future-timestamp` },
+          },
+          mercadoPagoApi: mockApi,
+        }),
+      401,
+      "Timestamp futuro fuera de tolerancia"
+    );
+
+    await expectServiceError(
+      () =>
+        processMercadoPagoWebhook({
+          headers: {
+            "x-signature": "v1=bad",
+            "x-request-id": `${webhookPrefix}-missing-timestamp-request`,
+          },
+          query: { "data.id": `${webhookPrefix}-missing-timestamp` },
+          body: {
+            type: "payment",
+            data: { id: `${webhookPrefix}-missing-timestamp` },
+          },
+          mercadoPagoApi: mockApi,
+        }),
+      401,
+      "Timestamp ausente"
     );
 
     await expectServiceError(
@@ -693,6 +771,53 @@ async function main() {
         }),
       400,
       "Cuerpo invalido"
+    );
+
+    const secondsTimestampKey = `mp-seconds-timestamp-${suffix}`;
+    idempotencyKeys.push(secondsTimestampKey);
+    const secondsTimestampCheckout = await createMercadoPagoCheckout({
+      userId: client.id,
+      payload: {
+        idempotencyKey: secondsTimestampKey,
+        items: [{ productId: productFixture.product.id_producto, quantity: 1 }],
+      },
+      mercadoPagoApi: mockApi,
+    });
+    const secondsTimestampPayment =
+      await getPaymentByIdempotencyKey(secondsTimestampKey);
+    const secondsTimestampProviderPaymentId = `${webhookPrefix}-seconds-timestamp`;
+    mockApi.providerPayments.set(
+      secondsTimestampProviderPaymentId,
+      buildProviderPayment({
+        id: secondsTimestampProviderPaymentId,
+        status: "pending",
+        amount: "200.00",
+        orderId: secondsTimestampCheckout.orderId,
+        paymentId: secondsTimestampPayment.id,
+        preferenceId: secondsTimestampCheckout.preferenceId,
+      })
+    );
+    const secondsTimestampWebhook = await deliverWebhook({
+      mockApi,
+      providerPaymentId: secondsTimestampProviderPaymentId,
+      requestId: `${webhookPrefix}-seconds-timestamp-request`,
+      timestamp: Math.floor(Date.now() / 1000),
+    });
+    await secondsTimestampPayment.reload();
+    assert(
+      secondsTimestampWebhook.ok && secondsTimestampPayment.status === "pending",
+      "La firma valida con timestamp en segundos no fue aceptada."
+    );
+    const secondsTimestampEvent = await PaymentWebhookEvent.findOne({
+      where: { providerEventId: `${webhookPrefix}-seconds-timestamp-request` },
+    });
+    assert(
+      secondsTimestampEvent?.payload?.signatureDiagnostics?.timestampDigits === 10,
+      "No se guardo diagnostico seguro del timestamp en segundos."
+    );
+    assert(
+      !secondsTimestampEvent?.payload?.headers?.xSignature,
+      "El evento guardo x-signature completo."
     );
 
     const approvedProviderPaymentId = `${webhookPrefix}-approved`;
@@ -712,6 +837,7 @@ async function main() {
       mockApi,
       providerPaymentId: approvedProviderPaymentId,
       requestId: `${webhookPrefix}-approved-request`,
+      timestamp: Date.now(),
     });
 
     assert(approvedWebhook.ok, "El webhook aprobado fallo.");
@@ -736,6 +862,13 @@ async function main() {
         ],
       }) === 1,
       "No se desconto inventario."
+    );
+    const approvedEvent = await PaymentWebhookEvent.findOne({
+      where: { providerEventId: `${webhookPrefix}-approved-request` },
+    });
+    assert(
+      approvedEvent?.payload?.signatureDiagnostics?.timestampDigits >= 13,
+      "No se guardo diagnostico seguro del timestamp en milisegundos."
     );
 
     const duplicateWebhook = await deliverWebhook({
@@ -1153,6 +1286,13 @@ async function main() {
       retryAfterPreferenceFailureReusedOrder: true,
       cartConvertedAfterPreferenceSuccess: true,
       invalidWebhookSignatureStatusCode: 401,
+      invalidWebhookHmacStatusCode: 401,
+      oldWebhookTimestampStatusCode: 401,
+      futureWebhookTimestampStatusCode: 401,
+      missingWebhookTimestampStatusCode: 401,
+      validSecondsTimestampAccepted: true,
+      validMillisecondsTimestampAccepted: true,
+      fullSignatureNotPersisted: true,
       invalidWebhookBodyStatusCode: 400,
       approvedPaymentStatus: "paid",
       pendingPaymentStatus: "pending",

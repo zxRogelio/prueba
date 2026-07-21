@@ -97,7 +97,6 @@ function createMockMercadoPagoApi() {
         xRequestId,
         dataId,
         secret,
-        toleranceSeconds: 300,
       });
     },
   };
