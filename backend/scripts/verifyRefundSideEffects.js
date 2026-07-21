@@ -15,6 +15,7 @@ import {
   SubscriptionEvent,
   SubscriptionGroup,
   SubscriptionGroupMember,
+  SubscriptionHistory,
   User,
   UserSubscription,
 } from "../models/index.js";
@@ -301,6 +302,20 @@ async function cleanup({
       if (groupIds.length > 0) {
         await SubscriptionGroupMember.destroy({
           where: { groupId: { [Op.in]: groupIds } },
+          transaction,
+        });
+      }
+
+      const subscriptions = await UserSubscription.findAll({
+        where: { paymentId: { [Op.in]: paymentIds } },
+        attributes: ["id"],
+        transaction,
+      });
+      const subscriptionIds = subscriptions.map((subscription) => subscription.id);
+
+      if (subscriptionIds.length > 0) {
+        await SubscriptionHistory.destroy({
+          where: { subscriptionId: { [Op.in]: subscriptionIds } },
           transaction,
         });
       }
