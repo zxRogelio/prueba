@@ -28,3 +28,8 @@ coverage/
 *.local
 *.swp
 *.swo
+*.sql
+*.sql.meta.json
+# Backups locales de PostgreSQL
+storage/backups/*
+!storage/backups/.gitkeep

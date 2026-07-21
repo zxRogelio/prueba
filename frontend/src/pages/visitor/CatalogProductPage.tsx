@@ -3,7 +3,7 @@ import axios from "axios";
 import { Link, useParams } from "react-router-dom";
 import { FaChevronRight, FaHome } from "react-icons/fa";
 import CatalogProductDetail from "../../components/catalog/CatalogProductDetail";
-import { useCart } from "../../context/CartContext";
+import { useCart } from "../../context/useCart";
 import {
   fetchCatalogProductById,
   getCatalogProductPath,

@@ -6,6 +6,7 @@ import RegisterPage from "./pages/auth/RegisterPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import PaymentPage from "./pages/PaymentPage";
 import ConfirmationPage from "./pages/ConfirmationPage";
+import PagoResultadoPage from "./pages/PagoResultadoPage";
 import HomePage from "./pages/visitor/HomePage";
 import CatalogePage from "./pages/visitor/CatalogePage";
 import CatalogProductPage from "./pages/visitor/CatalogProductPage";
@@ -41,9 +42,12 @@ import AdminSummaryPage from "./pages/admin/AdminSummaryPage";
 import AdminAboutPage from "./pages/admin/AdminAboutPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
 import AdminRoutinesPage from "./pages/admin/AdminRoutinesPage";
+import AdminChargebacksPage from "./pages/admin/AdminChargebacksPage";
+import AdminPaymentsPage from "./pages/admin/AdminPaymentsPage";
 // Client Portal
 import ClientInvitationsPage from "./pages/client/ClientInvitationsPage";
 import ClientPortalLayout from "./components/layout/client/ClientPortalLayout/ClientPortalLayout";
+import ClientPurchaseLayout from "./components/layout/client/ClientPurchaseLayout/ClientPurchaseLayout";
 import ClientDashboardPage from "./pages/client/ClientDashboardPage";
 import ClientProfilePage from "./pages/client/ClientProfilePage";
 import ClientSubscriptionPage from "./pages/client/ClientSubscriptionPage";
@@ -71,10 +75,6 @@ export default function App() {
         <Route path="/about" element={<AboutePage />} />
         <Route path="/AboutPage" element={<AboutePage />} />
         <Route path="/AboutePage" element={<AboutePage />} />
-
-        <Route path="/checkout" element={<CheckoutPage />} />
-        <Route path="/payment" element={<PaymentPage />} />
-        <Route path="/confirmation" element={<ConfirmationPage />} />
 
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
@@ -109,6 +109,8 @@ export default function App() {
           <Route path="monitoring" element={<AdminDashboardPage />} />
           <Route path="products" element={<AdminProductsPage />} />
           <Route path="suscripciones" element={<AdminSuscripcionesPage />} />
+          <Route path="pagos" element={<AdminPaymentsPage />} />
+          <Route path="chargebacks" element={<AdminChargebacksPage />} />
           <Route path="settings" element={<AdminSiteSettingsPage />} />
           <Route path="backups" element={<AdminBackupsPage />} />
           <Route path="brands" element={<AdminBrandsPage />} />
@@ -142,6 +144,13 @@ export default function App() {
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={["cliente"]} />}>
+        <Route element={<ClientPurchaseLayout />}>
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/payment" element={<PaymentPage />} />
+          <Route path="/pago/resultado" element={<PagoResultadoPage />} />
+          <Route path="/confirmation" element={<ConfirmationPage />} />
+        </Route>
+
         <Route path="/cliente" element={<ClientPortalLayout />}>
           <Route index element={<ClientDashboardPage />} />
           <Route path="perfil" element={<ClientProfilePage />} />

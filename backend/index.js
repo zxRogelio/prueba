@@ -5,7 +5,7 @@ import helmet from "helmet";
 import { secureHeaders } from "./middleware/secureHeaders.js";
 import { forceHTTPS } from "./middleware/forceHTTPS.js";
 import authRoutes from "./routes/authRoutes.js";
-import { sequelize, sequelizeAdminDirect } from "./config/sequelize.js";
+import { sequelize } from "./config/sequelize.js";
 import userRoutes from "./routes/userRoutes.js";
 import devRoutes from "./routes/devroutes.js";
 import publicProductRoutes from "./routes/public/productRoutes.js";
@@ -16,6 +16,7 @@ import monitoringRoutes from "./routes/admin/monitoringRoutes.js";
 import backupRoutes from "./routes/admin/backupRoutes.js";
 import backupScheduleRoutes from "./routes/admin/backupScheduleRoutes.js";
 import { initializeBackupScheduler } from "./services/backupScheduler.js";
+import { initializeInventoryReservationScheduler } from "./services/inventoryReservationScheduler.js";
 import publicCatalogRoutes from "./routes/public/catalog.routes.js";
 import adminAboutRoutes from "./routes/admin/about.routes.js";
 import publicAboutRoutes from "./routes/public/about.routes.js";
@@ -26,6 +27,9 @@ import trainerClientRoutes from "./routes/trainer/clientRoutes.js";
 import trainerAgendaRoutes from "./routes/trainer/agendaRoutes.js";
 import trainerProfileRoutes from "./routes/trainer/profileRoutes.js";
 import membershipRoutes from "./routes/membershipRoutes.js";
+import checkoutRoutes from "./routes/checkoutRoutes.js";
+import orderRoutes from "./routes/orderRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
 import clientRoutineRoutes from "./routes/client/routineRoutes.js";
 import adminRoutineRoutes from "./routes/admin/routineRoutes.js";
 dotenv.config();
@@ -67,6 +71,9 @@ app.use("/api/trainer/clients", trainerClientRoutes);
 app.use("/api/trainer/agenda", trainerAgendaRoutes);
 app.use("/api/trainer/profile", trainerProfileRoutes);
 app.use("/api/memberships", membershipRoutes);
+app.use("/api", checkoutRoutes);
+app.use("/api", orderRoutes);
+app.use("/api", paymentRoutes);
 app.use("/api/client/routines", clientRoutineRoutes);
 app.use("/api/admin/routines", adminRoutineRoutes);
 
@@ -75,10 +82,22 @@ app.use("/api/admin/routines", adminRoutineRoutes);
 const PORT = process.env.PORT || 5000;
 
 async function ensureDatabaseSchema() {
-  await sequelizeAdminDirect.query(`
-    ALTER TABLE core."Users"
-    ADD COLUMN IF NOT EXISTS "mustChangePassword" BOOLEAN NOT NULL DEFAULT false;
+  const [columns] = await sequelize.query(`
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'core'
+      AND table_name = 'Users'
+      AND column_name = 'mustChangePassword'
+    LIMIT 1;
   `);
+
+  if (columns.length === 0) {
+    await sequelize.query(`
+      ALTER TABLE core."Users"
+      ADD COLUMN "mustChangePassword" BOOLEAN NOT NULL DEFAULT false;
+    `);
+  }
+
   console.log('✅ Columna "mustChangePassword" verificada');
 }
 
@@ -87,11 +106,16 @@ async function bootstrap() {
     await sequelize.authenticate();
     console.log("✅ Conectado a PostgreSQL");
 
-    await sequelize.sync();
-    console.log("✅ Tablas sincronizadas");
+    if (String(process.env.SEQUELIZE_SYNC_ON_START || "").toLowerCase() === "true") {
+      await sequelize.sync();
+      console.log("✅ Tablas sincronizadas");
+    } else {
+      console.log("✅ Tablas gestionadas por migraciones");
+    }
 
     await ensureDatabaseSchema();
     await initializeBackupScheduler();
+    initializeInventoryReservationScheduler();
     console.log("✅ Scheduler de backups inicializado");
 
     app.listen(PORT, () => console.log(`🚀 Servidor en puerto ${PORT}`));

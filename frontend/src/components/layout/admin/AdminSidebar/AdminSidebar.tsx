@@ -13,6 +13,8 @@ import {
   FaHdd,
   FaIdCard,
   FaInfoCircle,
+  FaMoneyBillWave,
+  FaShieldAlt,
   FaServer,
   FaTags,
   FaThLarge,
@@ -33,6 +35,8 @@ const catalogItems = [
 
 const bottomItems = [
   { to: "/admin/suscripciones", label: "Suscripciones", icon: <FaIdCard /> },
+  { to: "/admin/pagos", label: "Pagos", icon: <FaMoneyBillWave /> },
+  { to: "/admin/chargebacks", label: "Contracargos", icon: <FaShieldAlt /> },
   { to: "/admin/routines", label: "Rutinas", icon: <FaDumbbell /> },
   { to: "/admin/reports", label: "Reportes", icon: <FaFileAlt /> },
   { to: "/admin/settings", label: "Gestion del sitio", icon: <FaCog /> },

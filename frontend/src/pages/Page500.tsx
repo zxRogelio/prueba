@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import "../styles/notFound.css";
 
 export default function Error500Page() {
+  const showFooter = false;
+
   const handleRetry = () => {
     window.location.reload();
   };
@@ -197,7 +199,7 @@ export default function Error500Page() {
       </main>
 
       {/* Footer - usando las mismas clases del 404 */}
-      {false && <footer className="not-found-footer">
+      {showFooter && <footer className="not-found-footer">
         <div className="not-found-footer-content">
           <div className="not-found-footer-info">
             <div className="not-found-footer-brand">Titanium Sport Gym</div>

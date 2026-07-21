@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import styles from "./AboutePage.module.css";
 
 import type {
@@ -547,11 +547,11 @@ export default function AboutUs() {
     setActiveGalleryItemId(filteredGalleryItems[0]?.id ?? null);
   }, [activeGalleryIndex, activeGalleryItemId, filteredGalleryItems]);
 
-  const closeGalleryLightbox = () => {
+  const closeGalleryLightbox = useCallback(() => {
     setActiveGalleryItemId(null);
-  };
+  }, []);
 
-  const goToPreviousGalleryItem = () => {
+  const goToPreviousGalleryItem = useCallback(() => {
     if (filteredGalleryItems.length <= 1 || activeGalleryIndex < 0) {
       return;
     }
@@ -561,9 +561,9 @@ export default function AboutUs() {
       filteredGalleryItems.length;
 
     setActiveGalleryItemId(filteredGalleryItems[previousIndex]?.id ?? null);
-  };
+  }, [activeGalleryIndex, filteredGalleryItems]);
 
-  const goToNextGalleryItem = () => {
+  const goToNextGalleryItem = useCallback(() => {
     if (filteredGalleryItems.length <= 1 || activeGalleryIndex < 0) {
       return;
     }
@@ -571,7 +571,7 @@ export default function AboutUs() {
     const nextIndex = (activeGalleryIndex + 1) % filteredGalleryItems.length;
 
     setActiveGalleryItemId(filteredGalleryItems[nextIndex]?.id ?? null);
-  };
+  }, [activeGalleryIndex, filteredGalleryItems]);
 
   useEffect(() => {
     if (!activeGalleryItem) {
@@ -601,7 +601,12 @@ export default function AboutUs() {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [activeGalleryItem, activeGalleryIndex, filteredGalleryItems]);
+  }, [
+    activeGalleryItem,
+    closeGalleryLightbox,
+    goToNextGalleryItem,
+    goToPreviousGalleryItem,
+  ]);
 
   return (
     <section className={cx("about-us-section")}>

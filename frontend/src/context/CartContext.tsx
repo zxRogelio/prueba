@@ -1,40 +1,19 @@
 import {
-  createContext,
-  useContext,
   useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
+import {
+  CartContext,
+  type CartContextType,
+  type CartItem,
+  type CartProduct,
+} from "./cartContextCore";
+
+export type { CartItem, CartProduct } from "./cartContextCore";
 
 const CART_STORAGE_KEY = "titanium_cart_items";
-
-export interface CartProduct {
-  id: number | string;
-  name: string;
-  price: number;
-  image: string;
-  category?: string;
-}
-
-export interface CartItem extends CartProduct {
-  quantity: number;
-}
-
-interface CartContextType {
-  items: CartItem[];
-  itemCount: number;
-  subtotal: number;
-  isCartOpen: boolean;
-  addItem: (product: CartProduct) => void;
-  updateQuantity: (productId: CartItem["id"], quantity: number) => void;
-  removeItem: (productId: CartItem["id"]) => void;
-  clearCart: () => void;
-  openCart: () => void;
-  closeCart: () => void;
-}
-
-const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
@@ -117,14 +96,4 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
-}
-
-export function useCart() {
-  const context = useContext(CartContext);
-
-  if (!context) {
-    throw new Error("useCart debe usarse dentro de un CartProvider");
-  }
-
-  return context;
 }

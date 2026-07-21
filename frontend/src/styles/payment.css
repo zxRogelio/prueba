@@ -294,6 +294,11 @@
   color: #bbbbbb;
 }
 
+textarea.auth-input {
+  min-height: 120px;
+  resize: vertical;
+}
+
 /* BOTONES PRIMARIOS Y SECUNDARIOS - ESTILOS COHERENTES */
 .form-actions {
   display: flex;
@@ -344,6 +349,14 @@
   border-color: #dc2626;
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4);
+}
+
+.btn-secondary:disabled,
+.btn-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+  box-shadow: none;
 }
 
 .btn-secondary svg,

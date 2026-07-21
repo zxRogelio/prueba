@@ -11,7 +11,7 @@ import {
   FaTimes,
 } from "react-icons/fa";
 import styles from "./CatalogePage.module.css";
-import { useCart } from "../../context/CartContext";
+import { useCart } from "../../context/useCart";
 import {
   buildCatalogCategories,
   type CatalogProductView,
