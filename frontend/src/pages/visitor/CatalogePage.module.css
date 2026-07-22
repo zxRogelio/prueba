@@ -654,6 +654,7 @@
   display: flex;
   align-items: center;
   gap: 0.55rem;
+  max-width: min(100%, 27rem);
 }
 
 .catalogPaginationNumberActive {
@@ -661,6 +662,18 @@
   background: #ef4444;
   color: #ffffff;
   box-shadow: 0 14px 24px rgba(239, 68, 68, 0.22);
+}
+
+.catalogPaginationDots {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 3rem;
+  color: #777777;
+  font-family: var(--font-ui, "Manrope", sans-serif);
+  font-size: 0.95rem;
+  font-weight: 800;
 }
 
 .catalogEmptyState {
@@ -819,7 +832,10 @@
   }
 
   .catalogPaginationNumbers {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: center;
+    max-width: 100%;
+    overflow-x: auto;
+    padding-bottom: 0.2rem;
   }
 }

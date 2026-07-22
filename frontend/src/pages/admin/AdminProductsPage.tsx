@@ -629,29 +629,36 @@ export default function AdminProductsPage() {
                         <div className={styles.actions}>
                           <button
                             type="button"
-                            className={styles.ghostBtn}
+                            className={styles.iconActionBtn}
                             onClick={() => openEdit(product)}
+                            aria-label={`Editar ${product.name}`}
+                            title="Editar"
                           >
                             <FaPen />
-                            Editar
                           </button>
 
                           <button
                             type="button"
-                            className={styles.ghostBtn}
+                            className={`${styles.iconActionBtn} ${styles.statusActionBtn}`}
                             onClick={() => onToggleStatus(product)}
+                            aria-label={
+                              product.status === "Activo"
+                                ? `Desactivar ${product.name}`
+                                : `Activar ${product.name}`
+                            }
+                            title={product.status === "Activo" ? "Desactivar" : "Activar"}
                           >
                             <FaPowerOff />
-                            {product.status === "Activo" ? "Desactivar" : "Activar"}
                           </button>
 
                           <button
                             type="button"
-                            className={styles.dangerBtn}
+                            className={`${styles.iconActionBtn} ${styles.dangerActionBtn}`}
                             onClick={() => onDelete(product.id)}
+                            aria-label={`Eliminar ${product.name}`}
+                            title="Eliminar"
                           >
                             <FaTrash />
-                            Eliminar
                           </button>
                         </div>
                       </td>

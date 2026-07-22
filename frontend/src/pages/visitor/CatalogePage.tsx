@@ -27,6 +27,33 @@ const cx = (...names: Array<string | null | undefined | false>) =>
     .filter(Boolean)
     .join(" ");
 
+const PAGINATION_DOTS = "dots";
+
+function getVisibleCatalogPages(currentPage: number, totalPages: number) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const pages: Array<number | typeof PAGINATION_DOTS> = [1];
+  const start = Math.max(2, currentPage - 1);
+  const end = Math.min(totalPages - 1, currentPage + 1);
+
+  if (start > 2) {
+    pages.push(PAGINATION_DOTS);
+  }
+
+  for (let page = start; page <= end; page += 1) {
+    pages.push(page);
+  }
+
+  if (end < totalPages - 1) {
+    pages.push(PAGINATION_DOTS);
+  }
+
+  pages.push(totalPages);
+  return pages;
+}
+
 export default function CatalogoPage() {
   const { addItem, openCart } = useCart();
   const [products, setProducts] = useState<CatalogProductView[]>([]);
@@ -146,6 +173,7 @@ export default function CatalogoPage() {
     indexOfLastProduct,
   );
   const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
+  const visiblePages = getVisibleCatalogPages(currentPageNumber, totalPages);
 
   const selectedContext =
     selectedCategory !== "TODOS"
@@ -468,23 +496,35 @@ export default function CatalogoPage() {
                     </button>
 
                     <div className={cx("catalogPaginationNumbers")}>
-                      {Array.from(
-                        { length: totalPages },
-                        (_, index) => index + 1,
-                      ).map((pageNumber) => (
-                        <button
-                          key={pageNumber}
-                          type="button"
-                          className={cx(
-                            "catalogPaginationNumber",
-                            currentPageNumber === pageNumber &&
-                              "catalogPaginationNumberActive",
-                          )}
-                          onClick={() => setCurrentPageNumber(pageNumber)}
-                        >
-                          {pageNumber}
-                        </button>
-                      ))}
+                      {visiblePages.map((pageNumber, index) =>
+                        pageNumber === PAGINATION_DOTS ? (
+                          <span
+                            key={`pagination-dots-${index}`}
+                            className={cx("catalogPaginationDots")}
+                          >
+                            ...
+                          </span>
+                        ) : (
+                          <button
+                            key={pageNumber}
+                            type="button"
+                            className={cx(
+                              "catalogPaginationNumber",
+                              currentPageNumber === pageNumber &&
+                                "catalogPaginationNumberActive",
+                            )}
+                            onClick={() => setCurrentPageNumber(pageNumber)}
+                            aria-current={
+                              currentPageNumber === pageNumber
+                                ? "page"
+                                : undefined
+                            }
+                            aria-label={`Ir a pagina ${pageNumber}`}
+                          >
+                            {pageNumber}
+                          </button>
+                        ),
+                      )}
                     </div>
 
                     <button

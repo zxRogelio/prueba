@@ -1,0 +1,152 @@
+name,brandId,categoryId,price,stock,status,productType,description,features,imageUrl,supplementFlavor,supplementPresentation,supplementServings,apparelSize,apparelColor,apparelMaterial
+Gymshark Apex Training Tee Negro,1,1,549,30,Activo,Ropa,Playera deportiva ligera para entrenamiento de fuerza,[],,,,,M,Negro,Poliester
+Gymshark Apex Training Tee Blanco,1,1,549,28,Activo,Ropa,Playera deportiva ligera para sesiones intensas,[],,,,,G,Blanco,Poliester
+Gymshark Crest Hoodie Gris,1,1,1199,14,Activo,Ropa,Sudadera deportiva para calentamiento y uso casual,[],,,,,M,Gris,Algodon
+Gymshark Legacy Tank Azul,1,1,499,22,Activo,Ropa,Tank top de corte atletico para gimnasio,[],,,,,M,Azul,Algodon
+Gymshark Arrival Shorts Negro,1,1,699,26,Activo,Ropa,Short ligero con secado rapido para entrenamiento,[],,,,,M,Negro,Poliester
+Gymshark Sport Jogger Gris Oxford,1,1,1099,16,Activo,Ropa,Jogger deportivo comodo para entrenamiento diario,[],,,,,G,Gris,Algodon
+Gymshark Vital Seamless Top Verde,1,1,799,18,Activo,Ropa,Top deportivo ajustado para movilidad completa,[],,,,,CH,Verde,Nylon
+Gymshark Adapt Leggings Negro,1,1,999,20,Activo,Ropa,Leggings de soporte para entrenamiento funcional,[],,,,,M,Negro,Nylon
+Gymshark Power Sports Bra Rosa,1,1,649,24,Activo,Ropa,Sujetador deportivo de soporte medio,[],,,,,M,Rosa,Nylon
+Gymshark Training Zip Jacket Azul Marino,1,1,1299,10,Activo,Ropa,Chamarra ligera para entrada y salida del gimnasio,[],,,,,G,Azul Marino,Poliester
+Gymshark Lift Club Tee Verde Olivo,1,1,579,25,Activo,Ropa,Playera casual deportiva con corte regular,[],,,,,M,Verde Olivo,Algodon
+Gymshark Rest Day Oversized Tee Beige,1,1,599,19,Activo,Ropa,Playera amplia para descanso y uso diario,[],,,,,G,Beige,Algodon
+Gymshark Critical Drop Arm Tank Negro,1,1,529,21,Activo,Ropa,Tank sin mangas para hombro libre,[],,,,,M,Negro,Algodon
+Gymshark Lightweight Training Pants Gris,1,1,1149,13,Activo,Ropa,Pantalon ligero para entrenamientos mixtos,[],,,,,G,Gris,Poliester
+Gymshark Everyday Baselayer Blanco,1,1,689,17,Activo,Ropa,Capa base deportiva transpirable,[],,,,,M,Blanco,Poliester
+Gymshark Performance Long Sleeve Negro,1,1,749,18,Activo,Ropa,Manga larga deportiva para clima fresco,[],,,,,G,Negro,Poliester
+Gymshark Mesh Training Tank Rojo,1,1,459,23,Activo,Ropa,Tank con paneles de ventilacion para cardio,[],,,,,M,Rojo,Poliester
+YoungLA Block Party Tee Negro,2,1,599,24,Activo,Ropa,Playera deportiva de corte urbano para gimnasio,[],,,,,M,Negro,Algodon
+YoungLA Pump Cover Tee Blanco,2,1,629,20,Activo,Ropa,Playera amplia para entrenamiento pesado,[],,,,,G,Blanco,Algodon
+YoungLA Immortal Joggers Gris,2,1,1199,12,Activo,Ropa,Joggers resistentes para entrenamiento y calle,[],,,,,M,Gris,Algodon
+YoungLA Perfect Shorts Azul,2,1,749,18,Activo,Ropa,Short deportivo versatil para pesas y cardio,[],,,,,M,Azul,Poliester
+YoungLA Compression Tee Rojo,2,1,699,16,Activo,Ropa,Playera de compresion para soporte muscular,[],,,,,M,Rojo,Nylon
+YoungLA Varsity Hoodie Verde,2,1,1299,11,Activo,Ropa,Sudadera con capucha de estilo deportivo,[],,,,,G,Verde,Algodon
+YoungLA Training Stringer Negro,2,1,499,26,Activo,Ropa,Stringer para entrenamiento de espalda y pecho,[],,,,,M,Negro,Algodon
+YoungLA Core Tank Blanco,2,1,479,22,Activo,Ropa,Tank top ligero para uso diario en gimnasio,[],,,,,M,Blanco,Algodon
+YoungLA Ribbed Leggings Negro,2,1,899,15,Activo,Ropa,Leggings acanalados para entrenamiento de pierna,[],,,,,M,Negro,Nylon
+YoungLA Minimal Sports Bra Lila,2,1,649,18,Activo,Ropa,Sujetador deportivo minimalista de soporte medio,[],,,,,CH,Lila,Nylon
+YoungLA Lift Shorts Gris,2,1,779,16,Activo,Ropa,Short con pretina comoda para levantamiento,[],,,,,M,Gris,Poliester
+YoungLA Motion Jacket Negro,2,1,1399,8,Activo,Ropa,Chamarra deportiva ligera con cierre frontal,[],,,,,G,Negro,Poliester
+YoungLA Thermal Long Sleeve Azul Marino,2,1,799,14,Activo,Ropa,Manga larga termica para entrenamiento exterior,[],,,,,G,Azul Marino,Poliester
+YoungLA Classic Cutoff Verde Olivo,2,1,529,19,Activo,Ropa,Camiseta sin mangas de corte clasico,[],,,,,M,Verde Olivo,Algodon
+YoungLA Performance Polo Negro,2,1,849,13,Activo,Ropa,Polo deportivo transpirable para uso casual activo,[],,,,,G,Negro,Poliester
+YoungLA Essential Sweatpants Gris,2,1,1099,12,Activo,Ropa,Pants deportivo suave para descanso y movilidad,[],,,,,M,Gris,Algodon
+Adidas Designed 4 Training Tee Negro,3,1,599,25,Activo,Ropa,Playera deportiva transpirable para gimnasio,[],,,,,M,Negro,Poliester
+Adidas Techfit Compression Shirt Blanco,3,1,799,18,Activo,Ropa,Camiseta de compresion para entrenamiento intenso,[],,,,,M,Blanco,Poliester
+Adidas Train Essentials Shorts Azul,3,1,699,22,Activo,Ropa,Short deportivo de secado rapido,[],,,,,G,Azul,Poliester
+Adidas Own The Run Tee Verde,3,1,649,20,Activo,Ropa,Playera ligera para correr y entrenar,[],,,,,M,Verde,Poliester
+Adidas Aeroready Tank Negro,3,1,549,24,Activo,Ropa,Tank deportivo con tecnologia transpirable,[],,,,,M,Negro,Poliester
+Adidas Essentials Hoodie Gris,3,1,1199,14,Activo,Ropa,Sudadera basica para entrenamiento y descanso,[],,,,,G,Gris,Algodon
+Adidas Tiro Training Pants Negro,3,1,999,15,Activo,Ropa,Pantalon deportivo con ajuste moderno,[],,,,,M,Negro,Poliester
+Adidas Powerreact Sports Bra Rosa,3,1,749,16,Activo,Ropa,Sujetador deportivo de soporte para impacto medio,[],,,,,M,Rosa,Nylon
+Adidas Optime Training Leggings Morado,3,1,999,18,Activo,Ropa,Leggings de alto soporte para entrenamiento,[],,,,,M,Morado,Nylon
+Adidas Entrada Jacket Azul Marino,3,1,1099,11,Activo,Ropa,Chamarra deportiva ligera con cierre completo,[],,,,,G,Azul Marino,Poliester
+Adidas Strength Graphic Tee Rojo,3,1,579,21,Activo,Ropa,Playera grafica para entrenamiento de fuerza,[],,,,,M,Rojo,Algodon
+Adidas Yoga Studio Tee Blanco,3,1,629,18,Activo,Ropa,Playera suave para movilidad y yoga,[],,,,,CH,Blanco,Algodon
+Adidas HIIT Training Shorts Negro,3,1,749,17,Activo,Ropa,Short para sesiones de alta intensidad,[],,,,,M,Negro,Poliester
+Adidas ZNE Sweatshirt Gris,3,1,1299,9,Activo,Ropa,Sudadera premium para recuperacion y viaje,[],,,,,G,Gris,Algodon
+Adidas Training Long Sleeve Verde Olivo,3,1,759,14,Activo,Ropa,Manga larga deportiva para clima fresco,[],,,,,M,Verde Olivo,Poliester
+Adidas Primeblue Track Pants Azul,3,1,1049,12,Activo,Ropa,Pants deportivo con tejido reciclado,[],,,,,G,Azul,Poliester
+Adidas Core Cotton Tank Negro,3,1,499,23,Activo,Ropa,Tank basico de algodon para gimnasio,[],,,,,M,Negro,Algodon
+Optimum Nutrition Whey Gold Double Chocolate 2 lb,4,2,899,20,Activo,Suplementación,Proteina de suero para recuperacion muscular,[],,Chocolate,2 lb,29 servicios,,,
+Optimum Nutrition Whey Gold Vanilla Ice Cream 2 lb,4,2,899,19,Activo,Suplementación,Proteina de suero sabor vainilla para uso diario,[],,Vainilla,2 lb,29 servicios,,,
+Optimum Nutrition Whey Gold Cookies Cream 5 lb,4,2,1699,12,Activo,Suplementación,Proteina whey en presentacion familiar,[],,Cookies Cream,5 lb,74 servicios,,,
+Optimum Nutrition Serious Mass Chocolate 6 lb,4,2,1199,10,Activo,Suplementación,Ganador de masa para aumento calorico,[],,Chocolate,6 lb,16 servicios,,,
+Optimum Nutrition Micronized Creatine 300 g,4,2,549,28,Activo,Suplementación,Creatina monohidratada micronizada,[],,Sin sabor,300 g,60 servicios,,,
+Optimum Nutrition Amino Energy Watermelon 270 g,4,2,649,17,Activo,Suplementación,Aminoacidos con cafeina para energia,[],,Sandia,270 g,30 servicios,,,
+Optimum Nutrition Amino Energy Blue Raspberry 270 g,4,2,649,16,Activo,Suplementación,Aminoacidos esenciales para entrenamiento,[],,Frambuesa Azul,270 g,30 servicios,,,
+Optimum Nutrition Gold Standard Pre Workout Fruit Punch,4,2,699,14,Activo,Suplementación,Pre entreno para enfoque y energia,[],,Fruit Punch,330 g,30 servicios,,,
+Optimum Nutrition Casein Chocolate Supreme 2 lb,4,2,999,11,Activo,Suplementación,Proteina de lenta absorcion para noche,[],,Chocolate,2 lb,24 servicios,,,
+Optimum Nutrition Glutamine Powder 300 g,4,2,599,18,Activo,Suplementación,Glutamina en polvo para recuperacion,[],,Sin sabor,300 g,60 servicios,,,
+Optimum Nutrition BCAA 1000 Caps 200 caps,4,2,549,13,Activo,Suplementación,Aminoacidos BCAA en capsulas,[],,Sin sabor,200 capsulas,100 servicios,,,
+Optimum Nutrition Fish Oil 100 caps,4,2,329,22,Activo,Suplementación,Omega 3 en capsulas para bienestar general,[],,Sin sabor,100 capsulas,100 servicios,,,
+Optimum Nutrition Opti Men 90 tabs,4,2,479,20,Activo,Suplementación,Multivitaminico para hombres activos,[],,Sin sabor,90 tabletas,30 servicios,,,
+Optimum Nutrition Opti Women 60 caps,4,2,429,18,Activo,Suplementación,Multivitaminico para mujeres activas,[],,Sin sabor,60 capsulas,30 servicios,,,
+Optimum Nutrition Hydrowhey Turbo Chocolate 1.6 lb,4,2,1299,8,Activo,Suplementación,Proteina hidrolizada de rapida absorcion,[],,Chocolate,1.6 lb,20 servicios,,,
+Optimum Nutrition Plant Protein Vanilla 1.5 lb,4,2,849,10,Activo,Suplementación,Proteina vegetal para dieta activa,[],,Vainilla,1.5 lb,20 servicios,,,
+Optimum Nutrition Electrolyte Mix Lemon Lime,4,2,399,24,Activo,Suplementación,Mezcla de electrolitos para hidratacion,[],,Limon,240 g,30 servicios,,,
+MuscleTech NitroTech Chocolate 4 lb,5,2,1499,13,Activo,Suplementación,Proteina whey con creatina para fuerza,[],,Chocolate,4 lb,40 servicios,,,
+MuscleTech NitroTech Vanilla 4 lb,5,2,1499,12,Activo,Suplementación,Proteina whey con aminoacidos y creatina,[],,Vainilla,4 lb,40 servicios,,,
+MuscleTech Platinum Creatine 400 g,5,2,499,30,Activo,Suplementación,Creatina monohidratada pura,[],,Sin sabor,400 g,80 servicios,,,
+MuscleTech Mass Tech Extreme Chocolate 7 lb,5,2,1399,9,Activo,Suplementación,Ganador de masa con proteina y carbohidratos,[],,Chocolate,7 lb,14 servicios,,,
+MuscleTech Vapor X5 Fruit Punch,5,2,699,15,Activo,Suplementación,Pre entreno con beta alanina y cafeina,[],,Fruit Punch,285 g,30 servicios,,,
+MuscleTech Amino Build Orange Mango,5,2,649,17,Activo,Suplementación,Aminoacidos para recuperacion intra entrenamiento,[],,Naranja Mango,280 g,30 servicios,,,
+MuscleTech Clear Muscle 84 caps,5,2,899,10,Activo,Suplementación,Formula de rendimiento en capsulas,[],,Sin sabor,84 capsulas,28 servicios,,,
+MuscleTech Hydroxycut Hardcore 100 caps,5,2,699,14,Activo,Suplementación,Termogenico en capsulas para etapa de definicion,[],,Sin sabor,100 capsulas,50 servicios,,,
+MuscleTech Platinum Multivitamin 90 tabs,5,2,399,21,Activo,Suplementación,Multivitaminico para deportistas,[],,Sin sabor,90 tabletas,30 servicios,,,
+MuscleTech Glutamine Plus 300 g,5,2,529,18,Activo,Suplementación,Glutamina en polvo para recuperacion diaria,[],,Sin sabor,300 g,60 servicios,,,
+MuscleTech EAA Hydration Blue Raspberry,5,2,599,16,Activo,Suplementación,Aminoacidos esenciales con electrolitos,[],,Frambuesa Azul,300 g,30 servicios,,,
+MuscleTech Protein Cookie Chocolate Chip,5,2,69,40,Activo,Suplementación,Galleta proteica para snack alto en proteina,[],,Chocolate Chip,92 g,1 servicio,,,
+MuscleTech Grass Fed Whey Vanilla 2 lb,5,2,899,11,Activo,Suplementación,Proteina whey de origen grass fed,[],,Vainilla,2 lb,26 servicios,,,
+MuscleTech Collagen Peptides Unflavored 300 g,5,2,649,12,Activo,Suplementación,Peptidos de colageno para soporte articular,[],,Sin sabor,300 g,30 servicios,,,
+MuscleTech Test HD 90 caps,5,2,799,8,Activo,Suplementación,Formula de soporte hormonal para adultos,[],,Sin sabor,90 capsulas,30 servicios,,,
+MuscleTech 100 Percent Whey Chocolate 5 lb,5,2,1599,10,Activo,Suplementación,Proteina whey concentrada para uso diario,[],,Chocolate,5 lb,67 servicios,,,
+Cellucor C4 Original Icy Blue Razz,6,2,699,18,Activo,Suplementación,Pre entreno clasico para energia y enfoque,[],,Icy Blue Razz,195 g,30 servicios,,,
+Cellucor C4 Original Fruit Punch,6,2,699,17,Activo,Suplementación,Pre entreno con cafeina para rendimiento,[],,Fruit Punch,195 g,30 servicios,,,
+Cellucor C4 Ultimate Cherry Limeade,6,2,999,11,Activo,Suplementación,Pre entreno avanzado para entrenamientos pesados,[],,Cherry Limeade,420 g,20 servicios,,,
+Cellucor C4 Ripped Arctic Snow Cone,6,2,799,13,Activo,Suplementación,Pre entreno para energia en etapa de corte,[],,Arctic Snow Cone,180 g,30 servicios,,,
+Cellucor Cor Performance Whey Chocolate,6,2,999,14,Activo,Suplementación,Proteina whey para recuperacion post entrenamiento,[],,Chocolate,2 lb,28 servicios,,,
+Cellucor Cor Performance Whey Vanilla,6,2,999,12,Activo,Suplementación,Proteina whey sabor vainilla para batidos,[],,Vainilla,2 lb,28 servicios,,,
+Cellucor Alpha Amino Lemon Lime,6,2,599,16,Activo,Suplementación,Aminoacidos e hidratacion para entrenamiento,[],,Limon,270 g,30 servicios,,,
+Cellucor Creatine Monohydrate 300 g,6,2,479,25,Activo,Suplementación,Creatina monohidratada para fuerza,[],,Sin sabor,300 g,60 servicios,,,
+Cellucor Super HD 60 caps,6,2,649,10,Activo,Suplementación,Termogenico para apoyo en control de peso,[],,Sin sabor,60 capsulas,30 servicios,,,
+Cellucor BCAA Sport Watermelon 270 g,6,2,549,15,Activo,Suplementación,BCAA para soporte de recuperacion muscular,[],,Sandia,270 g,30 servicios,,,
+Cellucor Whey Cinnamon Swirl 2 lb,6,2,1049,9,Activo,Suplementación,Proteina whey sabor canela para batidos,[],,Canela,2 lb,28 servicios,,,
+Cellucor C4 Energy Drink Pack 12 piezas,6,2,599,18,Activo,Suplementación,Bebida energetica lista para tomar,[],,Surtido,12 piezas,12 servicios,,,
+Cellucor C4 Smart Energy Peach Mango,6,2,649,14,Activo,Suplementación,Energia y enfoque para dia activo,[],,Durazno Mango,240 g,30 servicios,,,
+Cellucor Isolate Protein Chocolate 2 lb,6,2,1199,8,Activo,Suplementación,Proteina aislada baja en carbohidratos,[],,Chocolate,2 lb,25 servicios,,,
+Cellucor Hydration Stick Lemon 20 sobres,6,2,399,22,Activo,Suplementación,Electrolitos en sobres individuales,[],,Limon,20 sobres,20 servicios,,,
+Cellucor Post Workout Recovery Berry,6,2,699,10,Activo,Suplementación,Formula post entrenamiento para recuperacion,[],,Berry,300 g,30 servicios,,,
+Cellucor CLA 90 Softgels,6,2,449,12,Activo,Suplementación,CLA en softgels para apoyo de composicion corporal,[],,Sin sabor,90 softgels,45 servicios,,,
+Harbinger Pro Wristwrap Gloves Negro,7,3,549,22,Activo,Ropa,Guantes con soporte de muneca para levantamiento,[],,,,,M,Negro,Cuero sintetico
+Harbinger Training Grip Gloves Gris,7,3,449,25,Activo,Ropa,Guantes para mejorar agarre en pesas,[],,,,,M,Gris,Cuero sintetico
+Harbinger Power Lifting Belt Negro,7,3,899,14,Activo,Ropa,Cinturon para soporte lumbar en levantamientos,[],,,,,M,Negro,Cuero
+Harbinger Padded Cotton Lifting Straps Negro,7,3,299,30,Activo,Ropa,Correas acolchadas para agarre en peso muerto,[],,,,,Unica,Negro,Algodon
+Harbinger Figure 8 Lifting Straps Negro,7,3,399,24,Activo,Ropa,Correas tipo ocho para levantamientos pesados,[],,,,,Unica,Negro,Poliester
+Harbinger Red Line Knee Wraps Rojo,7,3,499,18,Activo,Ropa,Vendas de rodilla para soporte en sentadilla,[],,,,,Unica,Rojo,Elastico
+Harbinger Elastic Wrist Wraps Negro,7,3,349,26,Activo,Ropa,Vendas de muneca con ajuste firme,[],,,,,Unica,Negro,Elastico
+Harbinger Foam Core Belt Gris,7,3,599,17,Activo,Ropa,Cinturon ligero con nucleo de espuma,[],,,,,G,Gris,Nylon
+Harbinger Durafoam Mat Negro,7,3,699,12,Activo,Ropa,Tapete para ejercicio de piso y movilidad,[],,,,,Unica,Negro,Foam
+Harbinger Ab Straps Negro,7,3,499,16,Activo,Ropa,Correas para abdominales colgado en barra,[],,,,,Unica,Negro,Nylon
+Harbinger Push Up Pro Handles Negro,7,3,399,20,Activo,Ropa,Manerales para flexiones con agarre estable,[],,,,,Unica,Negro,Plastico
+Harbinger Core Stability Ball Gris,7,3,549,15,Activo,Ropa,Pelota de estabilidad para core y movilidad,[],,,,,Unica,Gris,PVC
+Harbinger Resistance Band Light Amarillo,7,3,199,35,Activo,Ropa,Banda de resistencia ligera para activacion,[],,,,,Unica,Amarillo,Latex
+Harbinger Resistance Band Medium Rojo,7,3,249,32,Activo,Ropa,Banda de resistencia media para entrenamiento funcional,[],,,,,Unica,Rojo,Latex
+Harbinger Resistance Band Heavy Negro,7,3,299,28,Activo,Ropa,Banda de resistencia alta para fuerza,[],,,,,Unica,Negro,Latex
+Harbinger Hip Band Verde,7,3,349,22,Activo,Ropa,Banda para gluteo y activacion de cadera,[],,,,,Unica,Verde,Textil elastico
+Harbinger Ankle Cuff Pair Negro,7,3,299,24,Activo,Ropa,Tobilleras para polea en ejercicios de pierna,[],,,,,Unica,Negro,Nylon
+Harbinger Bar Pad Negro,7,3,249,30,Activo,Ropa,Protector para barra en sentadilla e hip thrust,[],,,,,Unica,Negro,Foam
+Harbinger Chalk Ball Blanco,7,3,149,40,Activo,Ropa,Bola de magnesio para mejorar agarre,[],,,,,Unica,Blanco,Magnesio
+Harbinger Liquid Chalk 250 ml Blanco,7,3,229,34,Activo,Ropa,Magnesio liquido para entrenamiento de agarre,[],,,,,Unica,Blanco,Magnesio liquido
+Harbinger Shaker Bottle 700 ml Negro,7,3,199,36,Activo,Ropa,Shaker para proteina y bebidas deportivas,[],,,,,Unica,Negro,Plastico
+Harbinger Stainless Shaker 750 ml Plateado,7,3,349,22,Activo,Ropa,Shaker metalico para bebidas frias,[],,,,,Unica,Plateado,Acero inoxidable
+Harbinger Gym Towel Negro,7,3,179,45,Activo,Ropa,Toalla compacta para gimnasio,[],,,,,Unica,Negro,Microfibra
+Harbinger Training Towel Gris,7,3,189,42,Activo,Ropa,Toalla absorbente para entrenamiento diario,[],,,,,Unica,Gris,Microfibra
+Harbinger Duffel Bag Negro,7,3,799,14,Activo,Ropa,Maleta deportiva con compartimentos amplios,[],,,,,Unica,Negro,Poliester
+Harbinger Drawstring Bag Rojo,7,3,249,28,Activo,Ropa,Mochila ligera de cordon para gimnasio,[],,,,,Unica,Rojo,Poliester
+Harbinger Speed Rope Negro,7,3,299,26,Activo,Ropa,Cuerda de velocidad para cardio y calentamiento,[],,,,,Unica,Negro,Acero recubierto
+Harbinger Weighted Jump Rope Gris,7,3,449,18,Activo,Ropa,Cuerda con peso para acondicionamiento,[],,,,,Unica,Gris,Acero recubierto
+Harbinger Massage Roller Negro,7,3,399,20,Activo,Ropa,Rodillo de masaje para recuperacion muscular,[],,,,,Unica,Negro,EVA
+Harbinger Lacrosse Massage Ball Negro,7,3,149,38,Activo,Ropa,Pelota de masaje para puntos de tension,[],,,,,Unica,Negro,Caucho
+Harbinger Mini Band Set Multicolor,7,3,349,24,Activo,Ropa,Set de bandas mini para activacion,[],,,,,Unica,Multicolor,Latex
+Harbinger Door Anchor Negro,7,3,199,30,Activo,Ropa,Ancla para puerta compatible con bandas,[],,,,,Unica,Negro,Nylon
+Harbinger Cable Attachment Rope Negro,7,3,399,19,Activo,Ropa,Cuerda para polea de triceps y jalones,[],,,,,Unica,Negro,Nylon
+Harbinger D Handle Grip Negro,7,3,349,21,Activo,Ropa,Agarre individual para polea,[],,,,,Unica,Negro,Acero
+Harbinger Triceps V Bar Cromado,7,3,449,16,Activo,Ropa,Barra V para triceps en polea,[],,,,,Unica,Cromado,Acero
+Harbinger Lat Pulldown Bar Cromado,7,3,799,10,Activo,Ropa,Barra larga para jalon al pecho,[],,,,,Unica,Cromado,Acero
+Harbinger Carabiner Clips Set Plateado,7,3,149,50,Activo,Ropa,Set de mosquetones para accesorios de polea,[],,,,,Unica,Plateado,Acero
+Harbinger Weightlifting Hooks Negro,7,3,599,15,Activo,Ropa,Ganchos para agarre en levantamientos pesados,[],,,,,Unica,Negro,Acero y neopreno
+Harbinger Knee Sleeves 5mm Negro,7,3,699,18,Activo,Ropa,Rodilleras de neopreno para soporte articular,[],,,,,M,Negro,Neopreno
+Harbinger Elbow Sleeves Negro,7,3,549,16,Activo,Ropa,Coderas de neopreno para entrenamiento de fuerza,[],,,,,M,Negro,Neopreno
+Harbinger Hand Grip Trainer Negro,7,3,249,32,Activo,Ropa,Fortalecedor de mano con resistencia ajustable,[],,,,,Unica,Negro,Acero y plastico
+Harbinger Forearm Roller Negro,7,3,399,15,Activo,Ropa,Rodillo para entrenamiento de antebrazo,[],,,,,Unica,Negro,Acero
+Harbinger Yoga Block Gris,7,3,199,34,Activo,Ropa,Bloque de yoga para movilidad y soporte,[],,,,,Unica,Gris,EVA
+Harbinger Stretch Strap Azul,7,3,229,29,Activo,Ropa,Correa de estiramiento para flexibilidad,[],,,,,Unica,Azul,Nylon
+Harbinger Core Sliders Negro,7,3,249,31,Activo,Ropa,Discos deslizantes para entrenamiento de core,[],,,,,Unica,Negro,Plastico
+Harbinger Balance Pad Azul,7,3,449,17,Activo,Ropa,Pad de equilibrio para rehabilitacion y estabilidad,[],,,,,Unica,Azul,Foam
+Harbinger Wrist Roller Kit Negro,7,3,499,13,Activo,Ropa,Kit para fortalecer munecas y antebrazos,[],,,,,Unica,Negro,Acero
+Harbinger Lifting Chain Collars Negro,7,3,599,12,Activo,Ropa,Collares de seguridad para barra olimpica,[],,,,,Unica,Negro,Acero
+Harbinger Speed Agility Cones Naranja,7,3,299,25,Activo,Ropa,Conos para velocidad y coordinacion,[],,,,,Unica,Naranja,Plastico
+Harbinger Training Log Book Negro,7,3,149,40,Activo,Ropa,Cuaderno para registrar progresos de entrenamiento,[],,,,,Unica,Negro,Papel
+
