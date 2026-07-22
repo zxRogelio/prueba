@@ -2552,9 +2552,9 @@
 .about-cta-card {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1.08fr) auto;
-  gap: 1.5rem;
-  align-items: center;
+  grid-template-columns: 1fr;
+  gap: 1.6rem;
+  align-items: stretch;
   padding: 2rem;
   border-radius: 32px;
   overflow: hidden;
@@ -2582,6 +2582,7 @@
 }
 
 .about-cta-copy,
+.cta-map-column,
 .cta-button-stack {
   position: relative;
   z-index: 1;
@@ -2591,9 +2592,10 @@
   margin: 1rem 0 0;
   color: #ffffff;
   font-family: "Bebas Neue", cursive;
-  font-size: clamp(3rem, 6vw, 4.8rem);
+  font-size: clamp(3rem, 5.4vw, 4.5rem);
   line-height: 0.92;
   letter-spacing: 0.03em;
+  max-width: 760px;
 }
 
 .cta-copy-modern {
@@ -2646,8 +2648,29 @@
   gap: 0.9rem;
 }
 
-.cta-button-wide {
-  min-width: 240px;
+.cta-map-column {
+  display: grid;
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.cta-map-panel {
+  position: relative;
+  min-height: 380px;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 22px 46px rgba(0, 0, 0, 0.22);
+}
+
+.cta-map-panel iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 380px;
+  border: 0;
+  filter: saturate(0.96) contrast(1.02);
 }
 
 @media (max-width: 1200px) {
@@ -2667,8 +2690,7 @@
 
   .hero-panel,
   .story-section-modern,
-  .team-layout-modern,
-  .about-cta-card {
+  .team-layout-modern {
     grid-template-columns: 1fr;
   }
 
@@ -2754,8 +2776,14 @@
 
   .hero-stat-grid,
   .story-card-grid,
-  .team-card-grid-modern {
+  .team-card-grid-modern,
+  .cta-map-column {
     grid-template-columns: 1fr;
+  }
+
+  .cta-map-panel,
+  .cta-map-panel iframe {
+    min-height: 340px;
   }
 }
 
@@ -2784,6 +2812,11 @@
   .hero-panel,
   .about-cta-card {
     padding: 1.4rem;
+  }
+
+  .cta-map-panel,
+  .cta-map-panel iframe {
+    min-height: 300px;
   }
 
   .hero-media-panel,

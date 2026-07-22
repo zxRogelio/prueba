@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import {
   FaCheckCircle,
   FaEnvelopeOpenText,
+  FaMoneyBillWave,
+  FaShieldAlt,
   FaSyncAlt,
+  FaUserCheck,
   FaUsers,
 } from "react-icons/fa";
 import {
@@ -79,7 +82,7 @@ function formatDate(value?: string | null) {
 function getInvitationStatusLabel(status: string) {
   switch (status) {
     case "pending_invitation":
-      return "Pendiente de aceptación";
+      return "Pendiente";
     case "accepted":
       return "Aceptada";
     case "approved":
@@ -100,7 +103,7 @@ function getGroupStatusLabel(status?: string) {
     case "pending_members":
       return "Esperando integrantes";
     case "pending_admin_approval":
-      return "Pendiente de aprobación";
+      return "Pendiente de aprobacion";
     case "active":
       return "Activo";
     case "cancelled":
@@ -126,7 +129,7 @@ export default function ClientInvitationsPage() {
 
       void showAlert({
         title: "No se pudieron cargar las invitaciones",
-        text: "Revisa que tu sesión siga activa y que el backend esté funcionando.",
+        text: "Revisa que tu sesion siga activa y que el backend este funcionando.",
         icon: "error",
       });
 
@@ -142,7 +145,7 @@ export default function ClientInvitationsPage() {
 
   async function handleAcceptInvitation(memberId: string) {
     const confirmed = window.confirm(
-      "¿Quieres aceptar esta invitación al paquete?"
+      "Quieres aceptar esta invitacion al paquete?"
     );
 
     if (!confirmed) return;
@@ -153,8 +156,8 @@ export default function ClientInvitationsPage() {
       await acceptGroupInvitation(memberId);
 
       showSuccessToast(
-        "Invitación aceptada",
-        "Ahora el paquete queda pendiente de aprobación del administrador."
+        "Invitacion aceptada",
+        "Ahora el paquete queda pendiente de aprobacion del administrador."
       );
 
       await loadInvitations();
@@ -162,8 +165,8 @@ export default function ClientInvitationsPage() {
       console.error("ACCEPT INVITATION ERROR:", error);
 
       void showAlert({
-        title: "No se pudo aceptar la invitación",
-        text: "Puede que ya tengas una membresía activa o que la invitación ya haya sido respondida.",
+        title: "No se pudo aceptar la invitacion",
+        text: "Puede que ya tengas una membresia activa o que la invitacion ya haya sido respondida.",
         icon: "error",
       });
     } finally {
@@ -188,120 +191,138 @@ export default function ClientInvitationsPage() {
   );
 
   return (
-    <section className={styles.clientPage}>
-      <header className={styles.clientHero}>
-        <div>
-          <span className={styles.clientEyebrow}>Paquetes grupales</span>
+    <section className={`${styles.clientPage} ${styles.invitationsPage}`}>
+      <header className={styles.invitationHero}>
+        <div className={styles.invitationHeroCopy}>
+          <span className={styles.routineEyebrow}>Paquetes grupales</span>
           <h1>Invitaciones</h1>
           <p>
-            Aquí puedes ver las invitaciones que otros clientes te enviaron para
-            unirte a un paquete grupal. Al aceptar, el paquete quedará listo para
-            que el administrador lo apruebe.
+            Revisa las invitaciones que otros clientes te enviaron para unirte a
+            un paquete grupal. Acepta solo si reconoces al titular del paquete.
           </p>
         </div>
 
-        <button
-          type="button"
-          className={styles.heroActionBtn}
-          onClick={() => void loadInvitations()}
-          disabled={loading}
-        >
-          <FaSyncAlt />
-          {loading ? "Cargando..." : "Actualizar"}
-        </button>
+        <div className={styles.invitationHeroPanel}>
+          <div>
+            <span>Pendientes</span>
+            <strong>{loading ? "--" : pendingInvitations.length}</strong>
+          </div>
+          <div>
+            <span>Aceptadas</span>
+            <strong>{loading ? "--" : acceptedInvitations.length}</strong>
+          </div>
+          <button
+            type="button"
+            className={styles.routineRefreshBtn}
+            onClick={() => void loadInvitations()}
+            disabled={loading}
+          >
+            <FaSyncAlt />
+            {loading ? "Cargando" : "Actualizar"}
+          </button>
+        </div>
       </header>
 
-      <div className={styles.summaryGrid}>
-        <article className={styles.summaryCard}>
-          <span className={styles.summaryIcon}>
+      <div className={styles.invitationSummaryGrid}>
+        <article>
+          <span>
             <FaEnvelopeOpenText />
           </span>
           <div>
             <p>Invitaciones pendientes</p>
             <strong>{pendingInvitations.length}</strong>
-            <span>Esperan tu aceptación.</span>
+            <small>Esperan tu respuesta.</small>
           </div>
         </article>
 
-        <article className={styles.summaryCard}>
-          <span className={styles.summaryIcon}>
+        <article>
+          <span>
             <FaCheckCircle />
           </span>
           <div>
             <p>Invitaciones aceptadas</p>
             <strong>{acceptedInvitations.length}</strong>
-            <span>Ya respondidas por ti.</span>
+            <small>Ya respondidas por ti.</small>
           </div>
         </article>
 
-        <article className={styles.summaryCard}>
-          <span className={styles.summaryIcon}>
+        <article>
+          <span>
             <FaUsers />
           </span>
           <div>
-            <p>Paquetes</p>
+            <p>Paquetes recibidos</p>
             <strong>{invitations.length}</strong>
-            <span>Total de invitaciones encontradas.</span>
+            <small>Total encontrado.</small>
           </div>
         </article>
       </div>
 
-      <section className={styles.panelCard}>
-        <h2>Mis invitaciones a paquetes</h2>
-        <p>
-          Acepta una invitación únicamente si reconoces al titular del paquete.
-        </p>
+      <section className={styles.invitationSection}>
+        <div className={styles.routineResultsHeader}>
+          <div>
+            <h2>Mis invitaciones a paquetes</h2>
+            <p>Confirma los datos antes de aceptar la invitacion.</p>
+          </div>
+          <span>{loading ? "Cargando" : `${invitations.length} registros`}</span>
+        </div>
 
         {loading ? (
-          <div className={styles.emptyStateCard}>Cargando invitaciones...</div>
+          <div className={styles.routineEmpty}>Cargando invitaciones...</div>
         ) : invitations.length > 0 ? (
-          <div className={styles.cardGrid}>
+          <div className={styles.invitationGrid}>
             {invitations.map((invitation) => {
               const group = invitation.group;
               const plan = group?.plan;
               const isPending = invitation.status === "pending_invitation";
 
               return (
-                <article key={invitation.id} className={styles.featureCard}>
-                  <span>{getInvitationStatusLabel(invitation.status)}</span>
-
-                  <h3>{plan?.name ?? "Paquete grupal"}</h3>
-
-                  <p>
-                    Titular:{" "}
-                    <strong>{group?.owner?.email ?? "No disponible"}</strong>
-                  </p>
-
-                  <div className={styles.detailList}>
+                <article key={invitation.id} className={styles.invitationCard}>
+                  <div className={styles.invitationCardHeader}>
                     <div>
-                      <span>Estado del paquete</span>
+                      <span>{getInvitationStatusLabel(invitation.status)}</span>
+                      <h3>{plan?.name ?? "Paquete grupal"}</h3>
+                    </div>
+
+                    <div className={styles.invitationStatusIcon}>
+                      {isPending ? <FaEnvelopeOpenText /> : <FaCheckCircle />}
+                    </div>
+                  </div>
+
+                  <div className={styles.invitationOwner}>
+                    <span>Titular del paquete</span>
+                    <strong>{group?.owner?.email ?? "No disponible"}</strong>
+                  </div>
+
+                  <div className={styles.invitationMetaGrid}>
+                    <div>
+                      <FaShieldAlt />
+                      <span>Estado</span>
                       <strong>{getGroupStatusLabel(group?.status)}</strong>
                     </div>
 
                     <div>
+                      <FaUsers />
                       <span>Integrantes</span>
                       <strong>{group?.memberLimit ?? 0} personas</strong>
                     </div>
 
                     <div>
-                      <span>Precio total</span>
-                      <strong>{formatCurrency(group?.totalAmount)}</strong>
-                    </div>
-
-                    <div>
-                      <span>Precio por persona</span>
+                      <FaMoneyBillWave />
+                      <span>Tu parte</span>
                       <strong>
                         {formatCurrency(
                           invitation.priceShare ?? group?.pricePerPerson
                         )}
                       </strong>
                     </div>
+                  </div>
 
+                  <div className={styles.invitationDates}>
                     <div>
                       <span>Inicio</span>
                       <strong>{formatDate(group?.startsAt)}</strong>
                     </div>
-
                     <div>
                       <span>Vence</span>
                       <strong>{formatDate(group?.endsAt)}</strong>
@@ -309,7 +330,7 @@ export default function ClientInvitationsPage() {
                   </div>
 
                   {Array.isArray(plan?.benefits) && plan.benefits.length > 0 ? (
-                    <ul className={styles.featureList}>
+                    <ul className={styles.invitationBenefits}>
                       {plan.benefits.slice(0, 3).map((benefit) => (
                         <li key={benefit}>
                           <FaCheckCircle />
@@ -322,26 +343,23 @@ export default function ClientInvitationsPage() {
                   {isPending ? (
                     <button
                       type="button"
-                      className={styles.heroActionBtn}
+                      className={styles.invitationAcceptBtn}
                       onClick={() => void handleAcceptInvitation(invitation.id)}
                       disabled={acceptingId === invitation.id}
                     >
-                      <FaCheckCircle />
+                      <FaUserCheck />
                       {acceptingId === invitation.id
-                        ? "Aceptando..."
-                        : "Aceptar invitación"}
+                        ? "Aceptando"
+                        : "Aceptar invitacion"}
                     </button>
                   ) : (
-                    <div className={styles.statusBanner}>
-                      <div>
-                        <span>Estado</span>
-                        <strong>{getInvitationStatusLabel(invitation.status)}</strong>
-                        <p>
-                          {invitation.status === "accepted"
-                            ? "Ahora espera la aprobación del administrador."
-                            : "Esta invitación ya fue procesada."}
-                        </p>
-                      </div>
+                    <div className={styles.invitationProcessed}>
+                      <strong>{getInvitationStatusLabel(invitation.status)}</strong>
+                      <p>
+                        {invitation.status === "accepted"
+                          ? "Ahora espera la aprobacion del administrador."
+                          : "Esta invitacion ya fue procesada."}
+                      </p>
                     </div>
                   )}
                 </article>
@@ -349,40 +367,41 @@ export default function ClientInvitationsPage() {
             })}
           </div>
         ) : (
-          <div className={styles.emptyStateCard}>
-            No tienes invitaciones pendientes a paquetes.
+          <div className={styles.invitationEmpty}>
+            <FaEnvelopeOpenText />
+            <strong>No tienes invitaciones pendientes a paquetes.</strong>
+            <p>Cuando alguien te invite a un paquete grupal aparecera aqui.</p>
           </div>
         )}
       </section>
 
-      <section className={styles.panelCard}>
-        <h2>¿Qué pasa después de aceptar?</h2>
+      <section className={styles.invitationSteps}>
+        <div className={styles.routineResultsHeader}>
+          <div>
+            <h2>Que pasa despues de aceptar</h2>
+            <p>El proceso queda sujeto a revision del administrador.</p>
+          </div>
+        </div>
 
-        <ul className={styles.timelineList}>
-          <li>
-            <div>
-              <strong>Aceptas la invitación</strong>
-              <p>Tu estado cambia de pendiente a aceptado.</p>
-            </div>
-            <span>Paso 1</span>
-          </li>
+        <div className={styles.invitationStepGrid}>
+          <article>
+            <span>01</span>
+            <strong>Aceptas la invitacion</strong>
+            <p>Tu estado cambia de pendiente a aceptado.</p>
+          </article>
 
-          <li>
-            <div>
-              <strong>El administrador revisa el paquete</strong>
-              <p>Cuando todos estén listos, el admin aprueba el grupo.</p>
-            </div>
-            <span>Paso 2</span>
-          </li>
+          <article>
+            <span>02</span>
+            <strong>El administrador revisa</strong>
+            <p>Cuando el paquete esta listo, el admin aprueba el grupo.</p>
+          </article>
 
-          <li>
-            <div>
-              <strong>Se activa tu membresía</strong>
-              <p>El sistema genera tu suscripción activa dentro del paquete.</p>
-            </div>
-            <span>Paso 3</span>
-          </li>
-        </ul>
+          <article>
+            <span>03</span>
+            <strong>Se activa tu membresia</strong>
+            <p>El sistema genera tu suscripcion activa dentro del paquete.</p>
+          </article>
+        </div>
       </section>
     </section>
   );

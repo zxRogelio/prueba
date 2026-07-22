@@ -18,6 +18,8 @@ const cx = (...names: Array<string | null | undefined | false>) =>
     .filter(Boolean)
     .join(" ");
 
+const PRODUCT_DETAIL_MIN_LOADING_MS = 520;
+
 export default function CatalogProductPage() {
   const { productId } = useParams();
   const { addItem, openCart } = useCart();
@@ -42,6 +44,7 @@ export default function CatalogProductPage() {
     const loadProduct = async () => {
       setIsLoading(true);
       setLoadError(null);
+      const loadingStartedAt = performance.now();
 
       try {
         const nextProduct = await fetchCatalogProductById(productId);
@@ -57,6 +60,18 @@ export default function CatalogProductPage() {
           setLoadError("No pudimos cargar el detalle del producto.");
         }
       } finally {
+        const elapsed = performance.now() - loadingStartedAt;
+        const remainingTime = Math.max(
+          PRODUCT_DETAIL_MIN_LOADING_MS - elapsed,
+          0
+        );
+
+        if (remainingTime > 0) {
+          await new Promise((resolve) => {
+            window.setTimeout(resolve, remainingTime);
+          });
+        }
+
         if (!ignore) {
           setIsLoading(false);
         }
@@ -96,11 +111,16 @@ export default function CatalogProductPage() {
     return (
       <main className={cx("detailPage")}>
         <div className={cx("detailShell")}>
-          <section className={cx("detailNotFound")}>
-            <h1 className={cx("detailNotFoundTitle")}>Cargando producto</h1>
-            <p className={cx("detailNotFoundText")}>
-              Estamos trayendo la informacion del producto desde el backend.
-            </p>
+          <section className={cx("detailLoading")} aria-live="polite">
+            <div className={cx("detailLoadingCopy")}>
+              <span className={cx("detailLoadingSpinner")} aria-hidden="true" />
+              <span className={cx("detailLoadingEyebrow")}>Titanium shop</span>
+              <h1 className={cx("detailLoadingTitle")}>Cargando producto</h1>
+              <p className={cx("detailLoadingText")}>
+                Preparando detalle y disponibilidad.
+              </p>
+              <span className={cx("detailLoadingProgress")} aria-hidden="true" />
+            </div>
           </section>
         </div>
       </main>

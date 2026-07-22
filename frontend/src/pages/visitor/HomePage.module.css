@@ -103,11 +103,11 @@
 
 .home-section-title {
   margin: 0;
-  font-family: "Cormorant Garamond", serif;
-  font-size: clamp(2.15rem, 4vw, 3.35rem);
-  font-weight: 700;
+  font-family: "Bebas Neue", Impact, "Arial Narrow", sans-serif;
+  font-size: clamp(3rem, 5.8vw, 5.8rem);
+  font-weight: 400;
   line-height: 0.98;
-  letter-spacing: 0.015em;
+  letter-spacing: 0;
   color: #101010;
   text-transform: uppercase;
 }
@@ -117,7 +117,7 @@
 }
 
 .home-section-title--left {
-  font-size: clamp(2rem, 3.7vw, 3rem);
+  font-size: clamp(3rem, 5vw, 4.55rem);
 }
 
 .home-section-title--light {
@@ -246,30 +246,32 @@
   font-family: "Manrope", sans-serif;
   font-size: 0.86rem;
   font-weight: 800;
-  letter-spacing: 0.16em;
+  letter-spacing: 0;
   text-transform: uppercase;
   color: #ef3c33;
 }
 
 .home-hero__title {
-  margin: 1rem 0 0;
-  font-family: "Cormorant Garamond", serif;
-  font-size: clamp(2.9rem, 6vw, 4.75rem);
-  font-weight: 700;
-  line-height: 0.92;
-  letter-spacing: 0.01em;
+  max-width: 1060px;
+  margin: 1.2rem 0 0;
+  font-family: "Bebas Neue", Impact, "Arial Narrow", sans-serif;
+  font-size: 7.25rem;
+  font-weight: 400;
+  line-height: 0.88;
+  letter-spacing: 0;
   text-transform: uppercase;
   color: #ffffff;
   text-shadow: 0 16px 32px rgba(0, 0, 0, 0.24);
 }
 
 .home-hero__accent {
-  margin: 1rem 0 0;
-  font-family: "Cormorant Garamond", serif;
-  font-size: clamp(1.35rem, 2.9vw, 2.15rem);
-  font-style: italic;
-  font-weight: 700;
-  line-height: 1;
+  margin: 0.85rem 0 0;
+  font-family: "Bebas Neue", Impact, "Arial Narrow", sans-serif;
+  font-size: 3.45rem;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 0.95;
+  letter-spacing: 0;
   text-transform: uppercase;
   color: #ef3c33;
 }
@@ -278,9 +280,9 @@
   max-width: 700px;
   margin: 1.2rem 0 0;
   color: rgba(255, 255, 255, 0.9);
-  font-family: "Cormorant Garamond", serif;
-  font-size: clamp(0.98rem, 1.45vw, 1.16rem);
-  line-height: 1.72;
+  font-family: "Manrope", sans-serif;
+  font-size: 1.05rem;
+  line-height: 1.7;
 }
 
 .home-hero__actions {
@@ -880,13 +882,14 @@
 
 .home-product-card__name {
   margin: 0;
-  font-family: "Cormorant Garamond", serif;
-  font-size: 1.5rem;
-  font-weight: 700;
-  line-height: 1.12;
+  font-family: "Bebas Neue", Impact, "Arial Narrow", sans-serif;
+  font-size: 1.85rem;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0;
   color: #101010;
   display: -webkit-box;
-  min-height: 3.35rem;
+  min-height: 3.7rem;
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -919,20 +922,21 @@
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  font-family: "Cormorant Garamond", serif;
+  font-family: "Bebas Neue", Impact, "Arial Narrow", sans-serif;
   min-height: 2.6rem;
 }
 
 .home-product-card__old-price {
   color: #777777;
-  font-size: 1.05rem;
+  font-size: 1.3rem;
   text-decoration: line-through;
 }
 
 .home-product-card__price {
   color: #ef3c33;
-  font-size: 1.7rem;
-  font-weight: 700;
+  font-size: 2rem;
+  font-weight: 400;
+  letter-spacing: 0;
 }
 
 .home-product-card__actions {
@@ -1117,10 +1121,12 @@
 
 .home-plan-card__title {
   margin: 0;
-  font-family: "Cormorant Garamond", serif;
-  font-size: 1.72rem;
-  font-weight: 700;
-  line-height: 1.02;
+  font-family: "Bebas Neue", Impact, "Arial Narrow", sans-serif;
+  font-size: 2.15rem;
+  font-weight: 400;
+  line-height: 0.98;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .home-plan-card__description {
@@ -1147,11 +1153,11 @@
 }
 
 .home-plan-card__price strong {
-  font-family: "Cormorant Garamond", serif;
+  font-family: "Bebas Neue", Impact, "Arial Narrow", sans-serif;
   font-size: clamp(2.55rem, 4vw, 3.25rem);
-  font-weight: 700;
+  font-weight: 400;
   line-height: 0.9;
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
 }
 
 .home-plan-card__price span {
@@ -1632,6 +1638,14 @@
 }
 
 @media (max-width: 1100px) {
+  .home-hero__title {
+    font-size: 6.2rem;
+  }
+
+  .home-hero__accent {
+    font-size: 3rem;
+  }
+
   .home-store__track {
     grid-auto-columns: calc((100% - 3rem) / 3);
   }
@@ -1660,6 +1674,14 @@
 }
 
 @media (max-width: 900px) {
+  .home-hero__title {
+    font-size: 5.4rem;
+  }
+
+  .home-hero__accent {
+    font-size: 2.65rem;
+  }
+
   .home-store__track {
     grid-auto-columns: calc((100% - 1.5rem) / 2);
   }
@@ -1694,6 +1716,14 @@
 
   .home-hero__inner {
     padding: 3.2rem 0 5rem;
+  }
+
+  .home-hero__title {
+    font-size: 4.6rem;
+  }
+
+  .home-hero__accent {
+    font-size: 2.35rem;
   }
 
   .home-hero__actions {
@@ -1778,7 +1808,12 @@
     font-size: 0.78rem;
   }
 
+  .home-hero__title {
+    font-size: 3.45rem;
+  }
+
   .home-hero__accent {
+    font-size: 1.95rem;
     margin-top: 0.6rem;
   }
 

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  FaCheck,
   FaHeart,
   FaMinus,
   FaPlus,
@@ -20,8 +19,6 @@ const cx = (...names: Array<string | null | undefined | false>) =>
     .map((name) => styles[name])
     .filter(Boolean)
     .join(" ");
-
-type DetailTab = "description" | "specifications" | "usage";
 
 interface CatalogProductDetailProps {
   product: CatalogProductView;
@@ -43,12 +40,10 @@ export default function CatalogProductDetail({
 }: CatalogProductDetailProps) {
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const [activeTab, setActiveTab] = useState<DetailTab>("description");
 
   useEffect(() => {
     setSelectedImage(0);
     setQuantity(1);
-    setActiveTab("description");
   }, [product.id]);
 
   const gallery = product.gallery?.length ? product.gallery : [product.image];
@@ -122,7 +117,10 @@ export default function CatalogProductDetail({
           </div>
 
           <div className={cx("priceRow")}>
-            <strong className={cx("price")}>${product.price.toFixed(2)} MXN</strong>
+            <strong className={cx("price")}>
+              ${product.price.toFixed(2)}
+              <span className={cx("currency")}>MXN</span>
+            </strong>
             {hasDiscount && (
               <span className={cx("oldPrice")}>
                 ${product.originalPrice!.toFixed(2)}
@@ -196,68 +194,43 @@ export default function CatalogProductDetail({
         </div>
       </section>
 
-      <section className={cx("detailTabsSection")}>
-        <div className={cx("tabs")}>
-          <button
-            type="button"
-            className={cx("tab", activeTab === "description" && "tabActive")}
-            onClick={() => setActiveTab("description")}
-          >
-            Descripcion
-          </button>
-          <button
-            type="button"
-            className={cx("tab", activeTab === "specifications" && "tabActive")}
-            onClick={() => setActiveTab("specifications")}
-          >
-            Especificaciones
-          </button>
-          <button
-            type="button"
-            className={cx("tab", activeTab === "usage" && "tabActive")}
-            onClick={() => setActiveTab("usage")}
-          >
-            Modo de uso
-          </button>
-        </div>
+      <section className={cx("detailInfoSection")}>
+        <h2 className={cx("detailInfoTitle")}>Caracteristicas del producto</h2>
 
-        <div className={cx("panel")}>
-          {activeTab === "description" && (
-            <div className={cx("descriptionPanel")}>
-              <p>{product.description}</p>
-              <div className={cx("highlights")}>
-                {product.features.map((feature) => (
-                  <div key={feature} className={cx("highlight")}>
-                    <FaCheck />
-                    <span>{feature}</span>
-                  </div>
-                ))}
+        <div className={cx("detailInfoGrid")}>
+          <article className={cx("detailInfoColumn")}>
+            <h3 className={cx("detailInfoHeading")}>Descripcion</h3>
+            <div className={cx("detailInfoTable")}>
+              <div className={cx("detailInfoRow", "detailInfoRowTall")}>
+                <span>Resumen</span>
+                <strong>{product.description}</strong>
               </div>
-            </div>
-          )}
-
-          {activeTab === "specifications" && (
-            <div className={cx("specsGrid")}>
-              {Object.entries(product.specifications).map(([key, value]) => (
-                <article key={key} className={cx("specCard")}>
-                  <span className={cx("specIcon")}>
-                    <FaCheck />
-                  </span>
-                  <div>
-                    <strong>{formatSpecLabel(key)}</strong>
-                    <span>{Array.isArray(value) ? value.join(", ") : value}</span>
-                  </div>
-                </article>
+              {product.features.map((feature) => (
+                <div key={feature} className={cx("detailInfoRow")}>
+                  <span>Beneficio</span>
+                  <strong>{feature}</strong>
+                </div>
               ))}
             </div>
-          )}
+          </article>
 
-          {activeTab === "usage" && (
-            <div className={cx("usagePanel")}>
-              <p>{product.usage}</p>
+          <article className={cx("detailInfoColumn")}>
+            <h3 className={cx("detailInfoHeading")}>Especificaciones</h3>
+            <div className={cx("detailInfoTable")}>
+              {Object.entries(product.specifications).map(([key, value]) => (
+                <div key={key} className={cx("detailInfoRow")}>
+                  <span>{formatSpecLabel(key)}</span>
+                  <strong>{Array.isArray(value) ? value.join(", ") : value}</strong>
+                </div>
+              ))}
             </div>
-          )}
+          </article>
         </div>
+
+        <article className={cx("detailUsageCard")}>
+          <h3 className={cx("detailInfoHeading")}>Modo de uso</h3>
+          <p>{product.usage}</p>
+        </article>
       </section>
     </div>
   );
