@@ -1,45 +1,8 @@
+import { Op } from "sequelize";
 import { Brand, Category, Product, ProductImage } from "../models/index.js";
 
-const STOP_WORDS = new Set([
-  "a",
-  "al",
-  "algo",
-  "ante",
-  "con",
-  "como",
-  "de",
-  "del",
-  "desde",
-  "durante",
-  "e",
-  "el",
-  "ella",
-  "en",
-  "entre",
-  "es",
-  "esta",
-  "este",
-  "esto",
-  "ideal",
-  "la",
-  "las",
-  "lo",
-  "los",
-  "mas",
-  "mejor",
-  "para",
-  "por",
-  "que",
-  "se",
-  "sin",
-  "su",
-  "sus",
-  "un",
-  "una",
-  "unas",
-  "unos",
-  "y",
-]);
+const ML_API_URL = (process.env.ML_RECOMMENDATION_API_URL || "http://localhost:5050")
+  .replace(/\/+$/, "");
 
 const productIncludes = [
   { model: Brand, attributes: ["id_marca", "name"] },
@@ -70,70 +33,6 @@ const parseJsonArray = (raw) => {
   }
 };
 
-const normalizeText = (value) =>
-  String(value ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-
-const cleanToken = (token) => token.trim();
-
-const tokenize = (text) => {
-  const baseTokens = normalizeText(text)
-    .match(/[a-z0-9]+(?:\.[0-9]+)?/g);
-
-  const tokens = (baseTokens || [])
-    .map(cleanToken)
-    .filter((token) => token.length > 1 && !STOP_WORDS.has(token));
-
-  const bigrams = [];
-  for (let index = 0; index < tokens.length - 1; index += 1) {
-    bigrams.push(`${tokens[index]} ${tokens[index + 1]}`);
-  }
-
-  return [...tokens, ...bigrams];
-};
-
-const termCounts = (text) => {
-  const counts = new Map();
-
-  for (const token of tokenize(text)) {
-    counts.set(token, (counts.get(token) || 0) + 1);
-  }
-
-  return counts;
-};
-
-const repeat = (value, times) => Array.from({ length: times }, () => value);
-
-const joinText = (...values) =>
-  values
-    .flat()
-    .map((value) => String(value ?? "").trim())
-    .filter(Boolean)
-    .join(" ");
-
-const buildRecommendationText = (product) => {
-  const json = product?.toJSON ? product.toJSON() : product;
-  const features = parseJsonArray(json.features).join(" ");
-
-  return joinText(
-    repeat(json.name, 3),
-    repeat(json.productType, 3),
-    repeat(json.Category?.name, 3),
-    repeat(json.Brand?.name, 2),
-    json.price,
-    json.description,
-    features,
-    json.supplementFlavor,
-    json.supplementPresentation,
-    json.supplementServings,
-    json.apparelSize,
-    json.apparelColor,
-    json.apparelMaterial
-  );
-};
-
 const serializeProduct = (product, score) => {
   const json = product?.toJSON ? product.toJSON() : product;
   const images = Array.isArray(json.images) ? [...json.images] : [];
@@ -147,75 +46,70 @@ const serializeProduct = (product, score) => {
     imageUrl: json.imageUrl || (images[0]?.url ?? null),
     brandName: json.Brand?.name ?? null,
     categoryName: json.Category?.name ?? null,
-    score_similitud: Number(score.toFixed(6)),
+    score_similitud: Number(score ?? 0),
   };
 };
 
-const buildTfIdf = (documents) => {
-  const countsByDocument = documents.map(termCounts);
-  const documentFrequency = new Map();
-
-  for (const counts of countsByDocument) {
-    for (const term of counts.keys()) {
-      documentFrequency.set(term, (documentFrequency.get(term) || 0) + 1);
-    }
-  }
-
-  const totalDocuments = documents.length;
-
-  return countsByDocument.map((counts) => {
-    const vector = new Map();
-    let norm = 0;
-
-    for (const [term, count] of counts.entries()) {
-      const idf = Math.log((totalDocuments + 1) / ((documentFrequency.get(term) || 0) + 1)) + 1;
-      const weight = count * idf;
-      vector.set(term, weight);
-      norm += weight * weight;
-    }
-
-    return {
-      vector,
-      norm: Math.sqrt(norm),
-    };
-  });
-};
-
-const cosineScore = (left, right) => {
-  if (!left.norm || !right.norm) return 0;
-
-  let dot = 0;
-  const [smaller, larger] =
-    left.vector.size <= right.vector.size
-      ? [left.vector, right.vector]
-      : [right.vector, left.vector];
-
-  for (const [term, weight] of smaller.entries()) {
-    const otherWeight = larger.get(term);
-    if (otherWeight) dot += weight * otherWeight;
-  }
-
-  return dot / (left.norm * right.norm);
-};
-
-const parseLimit = (value) => {
-  const limit = Number(value ?? 4);
-  if (!Number.isInteger(limit) || limit < 1) return 4;
+const parseLimit = (value, fallback = 4) => {
+  const limit = Number(value ?? fallback);
+  if (!Number.isInteger(limit) || limit < 1) return fallback;
   return Math.min(limit, 12);
 };
 
-const fetchActiveProducts = () =>
-  Product.findAll({
-    where: { status: "Activo" },
-    include: productIncludes,
-    order: [["id_producto", "ASC"]],
+const statusFromMlResponse = (response) => {
+  if (response.status === 404) return 404;
+  if (response.status >= 400 && response.status < 500) return 400;
+  return 502;
+};
+
+const callMlApi = async (path, options = {}) => {
+  const response = await fetch(`${ML_API_URL}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
   });
 
-const buildRecommendationModel = (products) => {
-  const documents = products.map(buildRecommendationText);
-  const vectors = buildTfIdf(documents);
+  const payload = await response.json().catch(() => ({}));
 
-  return { vectors };
+  if (!response.ok) {
+    const error = new Error(
+      payload?.error || "Error consultando API Flask de recomendaciones"
+    );
+    error.statusCode = statusFromMlResponse(response);
+    throw error;
+  }
+
+  return payload;
+};
+
+const hydrateRecommendations = async (mlRecommendations) => {
+  const ids = mlRecommendations
+    .map((recommendation) => Number(recommendation.id_producto))
+    .filter((id) => Number.isInteger(id) && id > 0);
+
+  if (!ids.length) return [];
+
+  const products = await Product.findAll({
+    where: {
+      id_producto: { [Op.in]: ids },
+      status: "Activo",
+    },
+    include: productIncludes,
+  });
+
+  const productsById = new Map(
+    products.map((product) => [Number(product.id_producto), product])
+  );
+
+  return mlRecommendations
+    .map((recommendation) => {
+      const product = productsById.get(Number(recommendation.id_producto));
+      if (!product) return null;
+      return serializeProduct(product, Number(recommendation.score_similitud ?? 0));
+    })
+    .filter(Boolean);
 };
 
 export const getProductRecommendations = async ({
@@ -231,59 +125,16 @@ export const getProductRecommendations = async ({
     throw error;
   }
 
-  const products = await fetchActiveProducts();
-
-  const baseIndex = products.findIndex(
-    (product) => Number(product.id_producto) === id_producto
+  const requestedLimit = parseLimit(limit, 4);
+  const searchParams = new URLSearchParams({
+    limit: String(requestedLimit),
+    sameType: String(Boolean(sameType)),
+  });
+  const payload = await callMlApi(
+    `/recommendations/product/${id_producto}?${searchParams.toString()}`
   );
 
-  if (baseIndex === -1) {
-    const error = new Error("Producto no encontrado");
-    error.statusCode = 404;
-    throw error;
-  }
-
-  const requestedLimit = parseLimit(limit);
-  const baseProduct = products[baseIndex];
-  const { vectors } = buildRecommendationModel(products);
-
-  const candidates = products
-    .map((product, index) => ({
-      product,
-      score: index === baseIndex ? -1 : cosineScore(vectors[baseIndex], vectors[index]),
-    }))
-    .filter(({ product, score }) => {
-      if (score < 0) return false;
-      if (!sameType) return true;
-      return product.productType === baseProduct.productType;
-    })
-    .sort((left, right) => right.score - left.score)
-    .slice(0, requestedLimit);
-
-  const fallbackCandidates =
-    candidates.length >= requestedLimit || !sameType
-      ? []
-      : products
-          .map((product, index) => ({
-            product,
-            score:
-              index === baseIndex ? -1 : cosineScore(vectors[baseIndex], vectors[index]),
-          }))
-          .filter(
-            ({ product, score }) =>
-              score >= 0 &&
-              product.productType !== baseProduct.productType &&
-              !candidates.some(
-                (candidate) =>
-                  candidate.product.id_producto === product.id_producto
-              )
-          )
-          .sort((left, right) => right.score - left.score)
-          .slice(0, requestedLimit - candidates.length);
-
-  return [...candidates, ...fallbackCandidates].map(({ product, score }) =>
-    serializeProduct(product, score)
-  );
+  return hydrateRecommendations(payload.recommendations || []);
 };
 
 export const getCartProductRecommendations = async ({
@@ -301,44 +152,14 @@ export const getCartProductRecommendations = async ({
 
   if (!ids.length) return [];
 
-  const requestedLimit = parseLimit(limit);
-  const products = await fetchActiveProducts();
-  const baseIndexes = products
-    .map((product, index) =>
-      ids.includes(Number(product.id_producto)) ? index : -1
-    )
-    .filter((index) => index >= 0);
+  const payload = await callMlApi("/recommendations/cart", {
+    method: "POST",
+    body: JSON.stringify({
+      productIds: ids,
+      limit: parseLimit(limit, 2),
+      sameType: Boolean(sameType),
+    }),
+  });
 
-  if (!baseIndexes.length) return [];
-
-  const baseProductIds = new Set(
-    baseIndexes.map((index) => Number(products[index].id_producto))
-  );
-  const baseProductTypes = new Set(
-    baseIndexes.map((index) => products[index].productType).filter(Boolean)
-  );
-  const { vectors } = buildRecommendationModel(products);
-
-  return products
-    .map((product, index) => {
-      if (baseProductIds.has(Number(product.id_producto))) {
-        return { product, score: -1 };
-      }
-
-      const scores = baseIndexes.map((baseIndex) =>
-        cosineScore(vectors[baseIndex], vectors[index])
-      );
-      const score =
-        scores.reduce((total, current) => total + current, 0) / scores.length;
-
-      return { product, score };
-    })
-    .filter(({ product, score }) => {
-      if (score <= 0) return false;
-      if (!sameType) return true;
-      return baseProductTypes.has(product.productType);
-    })
-    .sort((left, right) => right.score - left.score)
-    .slice(0, requestedLimit)
-    .map(({ product, score }) => serializeProduct(product, score));
+  return hydrateRecommendations(payload.recommendations || []);
 };
