@@ -109,7 +109,25 @@ def build_model_text(row: pd.Series) -> str:
 
 
 def get_dataset_path() -> Path:
-    return Path(os.getenv("DATASET_PATH", DEFAULT_DATASET_PATH)).resolve()
+    configured_path = os.getenv("DATASET_PATH")
+    if not configured_path:
+        return DEFAULT_DATASET_PATH.resolve()
+
+    raw_path = Path(configured_path)
+    candidates = [raw_path]
+
+    if not raw_path.is_absolute():
+        candidates.extend([
+            BASE_DIR / raw_path,
+            PROJECT_ROOT / raw_path,
+        ])
+
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if resolved.exists():
+            return resolved
+
+    return candidates[-1].resolve()
 
 
 def get_model_dir() -> Path:
