@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: titanium-recommendations-api
+    env: python
+    plan: free
+    buildCommand: pip install -r ml_api/requirements.txt && python ml_api/train_model.py
+    startCommand: gunicorn --chdir ml_api app:app
+    envVars:
+      - key: DATASET_PATH
+        value: docs/similitud_de_coseno_Productos.csv
