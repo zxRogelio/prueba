@@ -6,6 +6,7 @@ import CatalogProductDetail from "../../components/catalog/CatalogProductDetail"
 import { useCart } from "../../context/useCart";
 import {
   fetchCatalogProductById,
+  fetchCatalogProductRecommendations,
   getCatalogProductPath,
   registerProductView,
   type CatalogProductView,
@@ -25,6 +26,7 @@ export default function CatalogProductPage() {
   const { productId } = useParams();
   const { addItem, openCart } = useCart();
   const [product, setProduct] = useState<CatalogProductView | null>(null);
+  const [recommendations, setRecommendations] = useState<CatalogProductView[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Set<CatalogProductView["id"]>>(
@@ -36,6 +38,7 @@ export default function CatalogProductPage() {
 
     if (!productId) {
       setProduct(null);
+      setRecommendations([]);
       setIsLoading(false);
       return;
     }
@@ -48,15 +51,23 @@ export default function CatalogProductPage() {
       const loadingStartedAt = performance.now();
 
       try {
-        const nextProduct = await fetchCatalogProductById(productId);
+        const [nextProduct, nextRecommendations] = await Promise.all([
+          fetchCatalogProductById(productId),
+          fetchCatalogProductRecommendations(productId, 4).catch((error: unknown) => {
+            console.warn("fetchCatalogProductRecommendations error:", error);
+            return [];
+          }),
+        ]);
         if (ignore) return;
         setProduct(nextProduct);
+        setRecommendations(nextRecommendations);
         void registerProductView(nextProduct.id);
       } catch (error: unknown) {
         if (ignore) return;
 
         console.error("fetchCatalogProductById error:", error);
         setProduct(null);
+        setRecommendations([]);
 
         if (!axios.isAxiosError(error) || error.response?.status !== 404) {
           setLoadError("No pudimos cargar el detalle del producto.");
@@ -184,6 +195,7 @@ export default function CatalogProductPage() {
 
         <CatalogProductDetail
           product={product}
+          recommendations={recommendations}
           isFavorite={favorites.has(product.id)}
           onToggleFavorite={toggleFavorite}
           onAddToCart={addToCart}

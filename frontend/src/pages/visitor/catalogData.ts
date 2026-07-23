@@ -24,6 +24,7 @@ export type CatalogProductView = Product & {
   badge?: string;
   gallery?: string[];
   createdAt?: string;
+  similarityScore?: number;
 };
 
 type CatalogProductImageApi = {
@@ -53,6 +54,7 @@ type CatalogProductApi = {
   createdAt?: string;
   categoryName?: string | null;
   brandName?: string | null;
+  score_similitud?: number | string | null;
   Category?: { name?: string | null } | null;
   Brand?: { name?: string | null } | null;
 };
@@ -229,6 +231,10 @@ export function mapCatalogProduct(product: CatalogProductApi): CatalogProductVie
     badge: !inStock ? "Agotado" : isRecentlyAdded ? "Nuevo" : undefined,
     gallery,
     createdAt: product.createdAt,
+    similarityScore:
+      product.score_similitud != null
+        ? Number(product.score_similitud)
+        : undefined,
   };
 }
 
@@ -240,6 +246,30 @@ export async function fetchCatalogProducts() {
 export async function fetchCatalogProductById(productId: string | number) {
   const { data } = await API.get<CatalogProductApi>(`/products/${productId}`);
   return mapCatalogProduct(data);
+}
+
+export async function fetchCatalogProductRecommendations(
+  productId: string | number,
+  limit = 4,
+) {
+  const { data } = await API.get<CatalogProductApi[]>(
+    `/products/${productId}/recommendations`,
+    { params: { limit } },
+  );
+
+  return Array.isArray(data) ? data.map(mapCatalogProduct) : [];
+}
+
+export async function fetchCartProductRecommendations(
+  productIds: Array<string | number>,
+  limit = 2,
+) {
+  const { data } = await API.post<CatalogProductApi[]>("/products/recommendations", {
+    productIds,
+    limit,
+  });
+
+  return Array.isArray(data) ? data.map(mapCatalogProduct) : [];
 }
 
 function makeVisitorId() {

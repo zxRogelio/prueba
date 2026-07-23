@@ -14,7 +14,6 @@ import {
 import styles from "./CatalogProductDetail.module.css";
 import type { CatalogProductView } from "../../pages/visitor/catalogData";
 import type { CartProduct } from "../../context/CartContext";
-import { getCartRecommendations } from "../../data/cartRecommendations";
 
 const cx = (...names: Array<string | null | undefined | false>) =>
   names
@@ -25,6 +24,7 @@ const cx = (...names: Array<string | null | undefined | false>) =>
 
 interface CatalogProductDetailProps {
   product: CatalogProductView;
+  recommendations: CatalogProductView[];
   isFavorite: boolean;
   onToggleFavorite: (productId: CatalogProductView["id"]) => void;
   onAddToCart: (product: CatalogProductView, quantity?: number) => void;
@@ -38,6 +38,7 @@ function formatSpecLabel(key: string) {
 
 export default function CatalogProductDetail({
   product,
+  recommendations,
   isFavorite,
   onToggleFavorite,
   onAddToCart,
@@ -60,9 +61,7 @@ export default function CatalogProductDetail({
         ((product.originalPrice! - product.price) / product.originalPrice!) * 100
       )
     : 0;
-  const [recommendedProduct] = getCartRecommendations([
-    { ...product, quantity: 1 },
-  ]);
+  const visibleRecommendations = recommendations.slice(0, 4);
 
   return (
     <div className={cx("productDetail")}>
@@ -241,7 +240,7 @@ export default function CatalogProductDetail({
         </article>
       </section>
 
-      {recommendedProduct && (
+      {visibleRecommendations.length > 0 && (
         <section
           className={cx("detailRecommendation")}
           aria-labelledby="detail-recommendation-title"
@@ -250,29 +249,39 @@ export default function CatalogProductDetail({
             <h2 id="detail-recommendation-title">Tambien puede interesarte</h2>
           </div>
 
-          <article className={cx("detailRecommendationCard")}>
-            <img
-              src={recommendedProduct.image}
-              alt={recommendedProduct.name}
-              className={cx("detailRecommendationImage")}
-            />
+          <div className={cx("detailRecommendationList")}>
+            {visibleRecommendations.map((recommendedProduct) => (
+              <article
+                key={recommendedProduct.id}
+                className={cx("detailRecommendationCard")}
+              >
+                <img
+                  src={recommendedProduct.image}
+                  alt={recommendedProduct.name}
+                  className={cx("detailRecommendationImage")}
+                />
 
-            <div className={cx("detailRecommendationBody")}>
-              <span>{recommendedProduct.category}</span>
-              <strong>{recommendedProduct.name}</strong>
-              <small>${recommendedProduct.price.toFixed(2)} MXN</small>
-              <em>Complemento sugerido para esta compra</em>
-            </div>
+                <div className={cx("detailRecommendationBody")}>
+                  <span>{recommendedProduct.category}</span>
+                  <strong>{recommendedProduct.name}</strong>
+                  <small>${recommendedProduct.price.toFixed(2)} MXN</small>
+                  <em>
+                    Coincidencia{" "}
+                    {Math.round((recommendedProduct.similarityScore ?? 0) * 100)}%
+                  </em>
+                </div>
 
-            <button
-              type="button"
-              className={cx("detailRecommendationButton")}
-              onClick={() => onAddRecommendation(recommendedProduct)}
-              aria-label={`Agregar ${recommendedProduct.name}`}
-            >
-              <FaChevronRight />
-            </button>
-          </article>
+                <button
+                  type="button"
+                  className={cx("detailRecommendationButton")}
+                  onClick={() => onAddRecommendation(recommendedProduct)}
+                  aria-label={`Agregar ${recommendedProduct.name}`}
+                >
+                  <FaChevronRight />
+                </button>
+              </article>
+            ))}
+          </div>
         </section>
       )}
     </div>

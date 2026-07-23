@@ -1,8 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { FaBolt, FaPlus, FaShoppingCart, FaTimes } from "react-icons/fa";
 import { useCart } from "../../context/useCart";
-import { getCartRecommendations } from "../../data/cartRecommendations";
+import {
+  fetchCartProductRecommendations,
+  type CatalogProductView,
+} from "../../pages/visitor/catalogData";
 import "./CartDrawer.css";
 
 function formatMoney(value: number) {
@@ -22,7 +25,10 @@ export default function CartDrawer() {
     updateQuantity,
     removeItem,
   } = useCart();
-  const recommendations = getCartRecommendations(items);
+  const [recommendations, setRecommendations] = useState<CatalogProductView[]>([]);
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
+  const itemIds = useMemo(() => items.map((item) => item.id), [items]);
+  const itemIdsKey = useMemo(() => itemIds.map(String).sort().join("|"), [itemIds]);
 
   useEffect(() => {
     if (!isCartOpen) return;
@@ -40,6 +46,41 @@ export default function CartDrawer() {
       window.removeEventListener("keydown", handleEscape);
     };
   }, [closeCart, isCartOpen]);
+
+  useEffect(() => {
+    if (!isCartOpen || itemIds.length === 0) {
+      setRecommendations([]);
+      setIsLoadingRecommendations(false);
+      return;
+    }
+
+    let ignore = false;
+    setIsLoadingRecommendations(true);
+
+    fetchCartProductRecommendations(itemIds, 2)
+      .then((nextRecommendations) => {
+        if (ignore) return;
+
+        const idsInCart = new Set(itemIds.map(String));
+        setRecommendations(
+          nextRecommendations.filter(
+            (recommendation) => !idsInCart.has(String(recommendation.id)),
+          ),
+        );
+      })
+      .catch((error: unknown) => {
+        if (ignore) return;
+        console.warn("fetchCartProductRecommendations error:", error);
+        setRecommendations([]);
+      })
+      .finally(() => {
+        if (!ignore) setIsLoadingRecommendations(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [isCartOpen, itemIdsKey]);
 
   if (!isCartOpen) return null;
 
@@ -120,7 +161,7 @@ export default function CartDrawer() {
                 </article>
               ))}
 
-              {recommendations.length > 0 && (
+              {(isLoadingRecommendations || recommendations.length > 0) && (
                 <section
                   className="shared-cart-recommendations"
                   aria-labelledby="shared-cart-recommendations-title"
@@ -133,12 +174,17 @@ export default function CartDrawer() {
                       <h4 id="shared-cart-recommendations-title">
                         Recomendado para ti
                       </h4>
-                      <p>Simulacion con reglas de asociacion del carrito.</p>
+                      <p>Productos similares a los que agregaste.</p>
                     </div>
                   </div>
 
-                  <div className="shared-cart-recommendation-list">
-                    {recommendations.map((recommendation) => (
+                  {isLoadingRecommendations ? (
+                    <div className="shared-cart-recommendation-loading">
+                      Buscando recomendaciones...
+                    </div>
+                  ) : (
+                    <div className="shared-cart-recommendation-list">
+                      {recommendations.map((recommendation) => (
                       <article
                         key={recommendation.id}
                         className="shared-cart-recommendation"
@@ -151,7 +197,8 @@ export default function CartDrawer() {
 
                         <div className="shared-cart-recommendation-body">
                           <span className="shared-cart-recommendation-rule">
-                            {recommendation.rule}
+                            {Math.round((recommendation.similarityScore ?? 0) * 100)}
+                            % de coincidencia
                           </span>
                           <h5>{recommendation.name}</h5>
                         </div>
@@ -167,8 +214,9 @@ export default function CartDrawer() {
                           </button>
                         </div>
                       </article>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </section>
               )}
             </div>
