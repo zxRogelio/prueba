@@ -7,6 +7,7 @@ import { useCart } from "../../context/useCart";
 import {
   fetchCatalogProductById,
   getCatalogProductPath,
+  registerProductView,
   type CatalogProductView,
 } from "./catalogData";
 import styles from "./CatalogProductPage.module.css";
@@ -50,6 +51,7 @@ export default function CatalogProductPage() {
         const nextProduct = await fetchCatalogProductById(productId);
         if (ignore) return;
         setProduct(nextProduct);
+        void registerProductView(nextProduct.id);
       } catch (error: unknown) {
         if (ignore) return;
 

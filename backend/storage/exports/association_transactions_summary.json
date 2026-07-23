@@ -1,0 +1,124 @@
+{
+  "generatedAt": "2026-07-22T05:16:22.650Z",
+  "seedName": "association-rules-v1",
+  "orderPrefix": "AR-2026-",
+  "totalOrdersFound": 2000,
+  "totalTransactionsExported": 2000,
+  "totalOrderItems": 6200,
+  "uniqueProducts": 158,
+  "uniqueCustomers": 500,
+  "minimumProductsPerTransaction": 1,
+  "maximumProductsPerTransaction": 5,
+  "averageProductsPerTransaction": 3.1,
+  "transactionsByProductCount": {
+    "1": 100,
+    "2": 500,
+    "3": 700,
+    "4": 500,
+    "5": 200
+  },
+  "excludedEmptyOrders": [],
+  "itemsWithoutProductName": [],
+  "mostFrequentProducts": [
+    {
+      "productName": "Harbinger Shaker Bottle 700 ml Negro",
+      "transactionCount": 216,
+      "support": 0.108
+    },
+    {
+      "productName": "Harbinger Stainless Shaker 750 ml Plateado",
+      "transactionCount": 201,
+      "support": 0.1005
+    },
+    {
+      "productName": "Harbinger Gym Towel Negro",
+      "transactionCount": 94,
+      "support": 0.047
+    },
+    {
+      "productName": "Harbinger Training Towel Gris",
+      "transactionCount": 94,
+      "support": 0.047
+    },
+    {
+      "productName": "MuscleTech EAA Hydration Blue Raspberry",
+      "transactionCount": 86,
+      "support": 0.043
+    },
+    {
+      "productName": "Harbinger Pro Wristwrap Gloves Negro",
+      "transactionCount": 84,
+      "support": 0.042
+    },
+    {
+      "productName": "Harbinger Red Line Knee Wraps Rojo",
+      "transactionCount": 83,
+      "support": 0.0415
+    },
+    {
+      "productName": "MuscleTech Platinum Creatine 400 g",
+      "transactionCount": 73,
+      "support": 0.0365
+    },
+    {
+      "productName": "Optimum Nutrition Electrolyte Mix Lemon Lime",
+      "transactionCount": 73,
+      "support": 0.0365
+    },
+    {
+      "productName": "Optimum Nutrition Serious Mass Chocolate 6 lb",
+      "transactionCount": 72,
+      "support": 0.036
+    },
+    {
+      "productName": "Cellucor Hydration Stick Lemon 20 sobres",
+      "transactionCount": 71,
+      "support": 0.0355
+    },
+    {
+      "productName": "Optimum Nutrition Micronized Creatine 300 g",
+      "transactionCount": 71,
+      "support": 0.0355
+    },
+    {
+      "productName": "Harbinger Yoga Block Gris",
+      "transactionCount": 70,
+      "support": 0.035
+    },
+    {
+      "productName": "MuscleTech NitroTech Vanilla 4 lb",
+      "transactionCount": 70,
+      "support": 0.035
+    },
+    {
+      "productName": "Harbinger Power Lifting Belt Negro",
+      "transactionCount": 69,
+      "support": 0.0345
+    },
+    {
+      "productName": "Harbinger Training Grip Gloves Gris",
+      "transactionCount": 68,
+      "support": 0.034
+    },
+    {
+      "productName": "Creatina Monohidratada 300 g",
+      "transactionCount": 65,
+      "support": 0.0325
+    },
+    {
+      "productName": "MuscleTech NitroTech Chocolate 4 lb",
+      "transactionCount": 65,
+      "support": 0.0325
+    },
+    {
+      "productName": "Optimum Nutrition Amino Energy Blue Raspberry 270 g",
+      "transactionCount": 64,
+      "support": 0.032
+    },
+    {
+      "productName": "Harbinger Durafoam Mat Negro",
+      "transactionCount": 63,
+      "support": 0.0315
+    }
+  ]
+}
