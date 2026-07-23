@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: titanium-sales-ml
+    env: python
+    plan: starter
+    rootDir: ml-sales-service
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 1 --timeout 120
+    envVars:
+      - key: MODEL_PATH
+        value: model/modelo_ventas_productos.joblib
+      - key: ML_API_KEY
+        sync: false
+      - key: MODEL_VERSION
+        value: "1.0"
+      - key: OMP_NUM_THREADS
+        value: "1"
+      - key: OPENBLAS_NUM_THREADS
+        value: "1"
+      - key: MKL_NUM_THREADS
+        value: "1"
+      - key: NUMEXPR_NUM_THREADS
+        value: "1"
