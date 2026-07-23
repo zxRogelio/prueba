@@ -10,7 +10,12 @@
   backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 
-  transition: all var(--t, 0.3s ease);
+  transition:
+    transform 0.32s ease,
+    background 0.28s ease,
+    border-color 0.28s ease,
+    box-shadow 0.28s ease,
+    backdrop-filter 0.28s ease;
 }
 
 .headerTransparent {
@@ -23,6 +28,11 @@
 .headerScrolled {
   background: rgba(255, 255, 255, 0.99);
   box-shadow: var(--shadow-sm, 0 6px 25px rgba(0, 0, 0, 0.12));
+}
+
+.headerHidden {
+  transform: translateY(calc(-100% - 12px));
+  box-shadow: none;
 }
 
 .headerContent {
@@ -82,7 +92,7 @@
   align-items: center;
   justify-content: center;
   min-width: 0;
-  gap: clamp(0.75rem, 1.2vw, 2rem);
+  gap: clamp(1rem, 1.6vw, 2.35rem);
   justify-self: center;
 }
 
@@ -90,14 +100,14 @@
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  gap: clamp(0.5rem, 1vw, 1rem);
+  gap: clamp(0.65rem, 0.9vw, 1.05rem);
   justify-self: end;
 }
 
 .navDivider {
   width: 1px;
-  height: 24px;
-  background: rgba(0, 0, 0, 0.2);
+  height: 28px;
+  background: rgba(0, 0, 0, 0.16);
 }
 
 .cartButton {
@@ -105,8 +115,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -125,8 +135,8 @@
 }
 
 .cartButton svg {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
 }
 
 .cartBadge {
@@ -153,11 +163,11 @@
 
   color: var(--text, #1a1a1a);
   font-family: var(--font-ui, "Poppins", sans-serif);
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: 800;
+  font-size: 14px;
 
   text-transform: uppercase;
-  letter-spacing: 0.35px;
+  letter-spacing: 0;
   padding: 0.5rem 0;
   white-space: nowrap;
 
@@ -216,43 +226,44 @@
 }
 
 .headerTransparent .navLink:hover {
-  color: #ffffff;
+  color: #ef4444;
 }
 
 .headerTransparent .navLinkActive {
-  color: #ffffff;
+  color: #ef4444;
 }
 
 .headerTransparent .navUnderline {
-  background: #ef4444;
+  display: none;
 }
 
 .headerTransparent .navDivider {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.36);
 }
 
 .headerTransparent .cartButton {
   color: #ffffff;
-  background: rgba(8, 8, 8, 0.16);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  background: transparent;
+  box-shadow: none;
 }
 
 .headerTransparent .cartButton:hover {
-  background: rgba(255, 255, 255, 0.16);
-  color: #ffffff;
+  background: transparent;
+  color: #ef4444;
 }
 
 /* Botones */
 .btnOutline,
 .btnSolid {
-  padding: 12px 24px;
+  min-height: 42px;
+  padding: 10px 22px;
   border-radius: var(--radius-pill, 50px);
-  font-weight: 600;
+  font-weight: 800;
   font-size: 13px;
   font-family: var(--font-ui, "Poppins", sans-serif);
   text-decoration: none;
   cursor: pointer;
-  letter-spacing: 0.7px;
+  letter-spacing: 0;
   white-space: nowrap;
   text-transform: uppercase;
 
@@ -291,10 +302,10 @@
 }
 
 .headerTransparent .btnOutline {
-  border-color: rgba(255, 255, 255, 0.55);
+  border-color: rgba(255, 255, 255, 0.58);
   color: #ffffff;
-  background: rgba(8, 8, 8, 0.16);
-  backdrop-filter: blur(14px);
+  background: transparent;
+  backdrop-filter: none;
 }
 
 .headerTransparent .btnOutline:hover {
@@ -305,7 +316,7 @@
 }
 
 .headerTransparent .btnSolid {
-  box-shadow: 0 12px 28px rgba(239, 68, 68, 0.28);
+  box-shadow: none;
 }
 
 /* Mobile */

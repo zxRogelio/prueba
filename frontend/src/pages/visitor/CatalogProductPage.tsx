@@ -6,7 +6,9 @@ import CatalogProductDetail from "../../components/catalog/CatalogProductDetail"
 import { useCart } from "../../context/useCart";
 import {
   fetchCatalogProductById,
+  fetchCatalogProductRecommendations,
   getCatalogProductPath,
+  registerProductView,
   type CatalogProductView,
 } from "./catalogData";
 import styles from "./CatalogProductPage.module.css";
@@ -18,10 +20,13 @@ const cx = (...names: Array<string | null | undefined | false>) =>
     .filter(Boolean)
     .join(" ");
 
+const PRODUCT_DETAIL_MIN_LOADING_MS = 520;
+
 export default function CatalogProductPage() {
   const { productId } = useParams();
   const { addItem, openCart } = useCart();
   const [product, setProduct] = useState<CatalogProductView | null>(null);
+  const [recommendations, setRecommendations] = useState<CatalogProductView[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Set<CatalogProductView["id"]>>(
@@ -33,6 +38,7 @@ export default function CatalogProductPage() {
 
     if (!productId) {
       setProduct(null);
+      setRecommendations([]);
       setIsLoading(false);
       return;
     }
@@ -42,21 +48,43 @@ export default function CatalogProductPage() {
     const loadProduct = async () => {
       setIsLoading(true);
       setLoadError(null);
+      const loadingStartedAt = performance.now();
 
       try {
-        const nextProduct = await fetchCatalogProductById(productId);
+        const [nextProduct, nextRecommendations] = await Promise.all([
+          fetchCatalogProductById(productId),
+          fetchCatalogProductRecommendations(productId, 4).catch((error: unknown) => {
+            console.warn("fetchCatalogProductRecommendations error:", error);
+            return [];
+          }),
+        ]);
         if (ignore) return;
         setProduct(nextProduct);
+        setRecommendations(nextRecommendations);
+        void registerProductView(nextProduct.id);
       } catch (error: unknown) {
         if (ignore) return;
 
         console.error("fetchCatalogProductById error:", error);
         setProduct(null);
+        setRecommendations([]);
 
         if (!axios.isAxiosError(error) || error.response?.status !== 404) {
           setLoadError("No pudimos cargar el detalle del producto.");
         }
       } finally {
+        const elapsed = performance.now() - loadingStartedAt;
+        const remainingTime = Math.max(
+          PRODUCT_DETAIL_MIN_LOADING_MS - elapsed,
+          0
+        );
+
+        if (remainingTime > 0) {
+          await new Promise((resolve) => {
+            window.setTimeout(resolve, remainingTime);
+          });
+        }
+
         if (!ignore) {
           setIsLoading(false);
         }
@@ -96,11 +124,16 @@ export default function CatalogProductPage() {
     return (
       <main className={cx("detailPage")}>
         <div className={cx("detailShell")}>
-          <section className={cx("detailNotFound")}>
-            <h1 className={cx("detailNotFoundTitle")}>Cargando producto</h1>
-            <p className={cx("detailNotFoundText")}>
-              Estamos trayendo la informacion del producto desde el backend.
-            </p>
+          <section className={cx("detailLoading")} aria-live="polite">
+            <div className={cx("detailLoadingCopy")}>
+              <span className={cx("detailLoadingSpinner")} aria-hidden="true" />
+              <span className={cx("detailLoadingEyebrow")}>Titanium shop</span>
+              <h1 className={cx("detailLoadingTitle")}>Cargando producto</h1>
+              <p className={cx("detailLoadingText")}>
+                Preparando detalle y disponibilidad.
+              </p>
+              <span className={cx("detailLoadingProgress")} aria-hidden="true" />
+            </div>
           </section>
         </div>
       </main>
@@ -162,9 +195,14 @@ export default function CatalogProductPage() {
 
         <CatalogProductDetail
           product={product}
+          recommendations={recommendations}
           isFavorite={favorites.has(product.id)}
           onToggleFavorite={toggleFavorite}
           onAddToCart={addToCart}
+          onAddRecommendation={(recommendedProduct) => {
+            addItem(recommendedProduct);
+            openCart();
+          }}
         />
 
         <section className={cx("detailFooterNav")}>

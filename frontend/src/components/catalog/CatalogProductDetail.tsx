@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  FaCheck,
+  FaChevronRight,
   FaHeart,
   FaMinus,
   FaPlus,
@@ -13,6 +13,7 @@ import {
 } from "react-icons/fa";
 import styles from "./CatalogProductDetail.module.css";
 import type { CatalogProductView } from "../../pages/visitor/catalogData";
+import type { CartProduct } from "../../context/CartContext";
 
 const cx = (...names: Array<string | null | undefined | false>) =>
   names
@@ -21,13 +22,13 @@ const cx = (...names: Array<string | null | undefined | false>) =>
     .filter(Boolean)
     .join(" ");
 
-type DetailTab = "description" | "specifications" | "usage";
-
 interface CatalogProductDetailProps {
   product: CatalogProductView;
+  recommendations: CatalogProductView[];
   isFavorite: boolean;
   onToggleFavorite: (productId: CatalogProductView["id"]) => void;
   onAddToCart: (product: CatalogProductView, quantity?: number) => void;
+  onAddRecommendation: (product: CartProduct) => void;
 }
 
 function formatSpecLabel(key: string) {
@@ -37,18 +38,18 @@ function formatSpecLabel(key: string) {
 
 export default function CatalogProductDetail({
   product,
+  recommendations,
   isFavorite,
   onToggleFavorite,
   onAddToCart,
+  onAddRecommendation,
 }: CatalogProductDetailProps) {
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const [activeTab, setActiveTab] = useState<DetailTab>("description");
 
   useEffect(() => {
     setSelectedImage(0);
     setQuantity(1);
-    setActiveTab("description");
   }, [product.id]);
 
   const gallery = product.gallery?.length ? product.gallery : [product.image];
@@ -60,6 +61,7 @@ export default function CatalogProductDetail({
         ((product.originalPrice! - product.price) / product.originalPrice!) * 100
       )
     : 0;
+  const visibleRecommendations = recommendations.slice(0, 4);
 
   return (
     <div className={cx("productDetail")}>
@@ -122,7 +124,10 @@ export default function CatalogProductDetail({
           </div>
 
           <div className={cx("priceRow")}>
-            <strong className={cx("price")}>${product.price.toFixed(2)} MXN</strong>
+            <strong className={cx("price")}>
+              ${product.price.toFixed(2)}
+              <span className={cx("currency")}>MXN</span>
+            </strong>
             {hasDiscount && (
               <span className={cx("oldPrice")}>
                 ${product.originalPrice!.toFixed(2)}
@@ -196,69 +201,89 @@ export default function CatalogProductDetail({
         </div>
       </section>
 
-      <section className={cx("detailTabsSection")}>
-        <div className={cx("tabs")}>
-          <button
-            type="button"
-            className={cx("tab", activeTab === "description" && "tabActive")}
-            onClick={() => setActiveTab("description")}
-          >
-            Descripcion
-          </button>
-          <button
-            type="button"
-            className={cx("tab", activeTab === "specifications" && "tabActive")}
-            onClick={() => setActiveTab("specifications")}
-          >
-            Especificaciones
-          </button>
-          <button
-            type="button"
-            className={cx("tab", activeTab === "usage" && "tabActive")}
-            onClick={() => setActiveTab("usage")}
-          >
-            Modo de uso
-          </button>
-        </div>
+      <section className={cx("detailInfoSection")}>
+        <h2 className={cx("detailInfoTitle")}>Caracteristicas del producto</h2>
 
-        <div className={cx("panel")}>
-          {activeTab === "description" && (
-            <div className={cx("descriptionPanel")}>
-              <p>{product.description}</p>
-              <div className={cx("highlights")}>
-                {product.features.map((feature) => (
-                  <div key={feature} className={cx("highlight")}>
-                    <FaCheck />
-                    <span>{feature}</span>
-                  </div>
-                ))}
+        <div className={cx("detailInfoGrid")}>
+          <article className={cx("detailInfoColumn")}>
+            <h3 className={cx("detailInfoHeading")}>Descripcion</h3>
+            <div className={cx("detailInfoTable")}>
+              <div className={cx("detailInfoRow", "detailInfoRowTall")}>
+                <span>Resumen</span>
+                <strong>{product.description}</strong>
               </div>
-            </div>
-          )}
-
-          {activeTab === "specifications" && (
-            <div className={cx("specsGrid")}>
-              {Object.entries(product.specifications).map(([key, value]) => (
-                <article key={key} className={cx("specCard")}>
-                  <span className={cx("specIcon")}>
-                    <FaCheck />
-                  </span>
-                  <div>
-                    <strong>{formatSpecLabel(key)}</strong>
-                    <span>{Array.isArray(value) ? value.join(", ") : value}</span>
-                  </div>
-                </article>
+              {product.features.map((feature) => (
+                <div key={feature} className={cx("detailInfoRow")}>
+                  <span>Beneficio</span>
+                  <strong>{feature}</strong>
+                </div>
               ))}
             </div>
-          )}
+          </article>
 
-          {activeTab === "usage" && (
-            <div className={cx("usagePanel")}>
-              <p>{product.usage}</p>
+          <article className={cx("detailInfoColumn")}>
+            <h3 className={cx("detailInfoHeading")}>Especificaciones</h3>
+            <div className={cx("detailInfoTable")}>
+              {Object.entries(product.specifications).map(([key, value]) => (
+                <div key={key} className={cx("detailInfoRow")}>
+                  <span>{formatSpecLabel(key)}</span>
+                  <strong>{Array.isArray(value) ? value.join(", ") : value}</strong>
+                </div>
+              ))}
             </div>
-          )}
+          </article>
         </div>
+
+        <article className={cx("detailUsageCard")}>
+          <h3 className={cx("detailInfoHeading")}>Modo de uso</h3>
+          <p>{product.usage}</p>
+        </article>
       </section>
+
+      {visibleRecommendations.length > 0 && (
+        <section
+          className={cx("detailRecommendation")}
+          aria-labelledby="detail-recommendation-title"
+        >
+          <div className={cx("detailRecommendationHeader")}>
+            <h2 id="detail-recommendation-title">Tambien puede interesarte</h2>
+          </div>
+
+          <div className={cx("detailRecommendationList")}>
+            {visibleRecommendations.map((recommendedProduct) => (
+              <article
+                key={recommendedProduct.id}
+                className={cx("detailRecommendationCard")}
+              >
+                <img
+                  src={recommendedProduct.image}
+                  alt={recommendedProduct.name}
+                  className={cx("detailRecommendationImage")}
+                />
+
+                <div className={cx("detailRecommendationBody")}>
+                  <span>{recommendedProduct.category}</span>
+                  <strong>{recommendedProduct.name}</strong>
+                  <small>${recommendedProduct.price.toFixed(2)} MXN</small>
+                  <em>
+                    Coincidencia{" "}
+                    {Math.round((recommendedProduct.similarityScore ?? 0) * 100)}%
+                  </em>
+                </div>
+
+                <button
+                  type="button"
+                  className={cx("detailRecommendationButton")}
+                  onClick={() => onAddRecommendation(recommendedProduct)}
+                  aria-label={`Agregar ${recommendedProduct.name}`}
+                >
+                  <FaChevronRight />
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

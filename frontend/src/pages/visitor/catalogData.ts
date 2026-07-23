@@ -24,6 +24,7 @@ export type CatalogProductView = Product & {
   badge?: string;
   gallery?: string[];
   createdAt?: string;
+  similarityScore?: number;
 };
 
 type CatalogProductImageApi = {
@@ -53,6 +54,7 @@ type CatalogProductApi = {
   createdAt?: string;
   categoryName?: string | null;
   brandName?: string | null;
+  score_similitud?: number | string | null;
   Category?: { name?: string | null } | null;
   Brand?: { name?: string | null } | null;
 };
@@ -60,6 +62,9 @@ type CatalogProductApi = {
 const FALLBACK_IMAGE =
   "https://via.placeholder.com/1200x1200/f4f4f5/18181b?text=Titanium";
 const NEW_PRODUCT_WINDOW_DAYS = 45;
+const VISITOR_ID_STORAGE_KEY = "titaniumVisitorId";
+const PRODUCT_VIEW_DEDUP_WINDOW_MS = 30 * 60 * 1000;
+const PRODUCT_VIEW_VISITOR_ID_MAX_LENGTH = 160;
 
 export const catalogSortOptions = [
   "RECOMENDADO",
@@ -226,6 +231,10 @@ export function mapCatalogProduct(product: CatalogProductApi): CatalogProductVie
     badge: !inStock ? "Agotado" : isRecentlyAdded ? "Nuevo" : undefined,
     gallery,
     createdAt: product.createdAt,
+    similarityScore:
+      product.score_similitud != null
+        ? Number(product.score_similitud)
+        : undefined,
   };
 }
 
@@ -237,6 +246,136 @@ export async function fetchCatalogProducts() {
 export async function fetchCatalogProductById(productId: string | number) {
   const { data } = await API.get<CatalogProductApi>(`/products/${productId}`);
   return mapCatalogProduct(data);
+}
+
+export async function fetchCatalogProductRecommendations(
+  productId: string | number,
+  limit = 4,
+) {
+  const { data } = await API.get<CatalogProductApi[]>(
+    `/products/${productId}/recommendations`,
+    { params: { limit } },
+  );
+
+  return Array.isArray(data) ? data.map(mapCatalogProduct) : [];
+}
+
+export async function fetchCartProductRecommendations(
+  productIds: Array<string | number>,
+  limit = 2,
+) {
+  const { data } = await API.post<CatalogProductApi[]>("/products/recommendations", {
+    productIds,
+    limit,
+  });
+
+  return Array.isArray(data) ? data.map(mapCatalogProduct) : [];
+}
+
+function makeVisitorId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `visitor_${Date.now().toString(36)}_${Math.random()
+    .toString(36)
+    .slice(2, 12)}`;
+}
+
+function getOrCreateVisitorId() {
+  const fallbackId = makeVisitorId();
+
+  if (typeof window === "undefined") {
+    return fallbackId;
+  }
+
+  try {
+    const existing = window.localStorage
+      .getItem(VISITOR_ID_STORAGE_KEY)
+      ?.trim();
+
+    if (existing && existing.length <= PRODUCT_VIEW_VISITOR_ID_MAX_LENGTH) {
+      return existing;
+    }
+
+    window.localStorage.setItem(VISITOR_ID_STORAGE_KEY, fallbackId);
+    return fallbackId;
+  } catch {
+    return fallbackId;
+  }
+}
+
+function getLastProductViewAt(productId: string) {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const rawValue = window.sessionStorage.getItem(`productView:${productId}`);
+    const timestamp = Number(rawValue);
+
+    return Number.isFinite(timestamp) ? timestamp : null;
+  } catch {
+    return null;
+  }
+}
+
+function setLastProductViewAt(productId: string, timestamp: number) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.setItem(`productView:${productId}`, String(timestamp));
+  } catch {
+    // No registrar en sessionStorage no debe romper el detalle publico.
+  }
+}
+
+function clearLastProductViewAt(productId: string) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.removeItem(`productView:${productId}`);
+  } catch {
+    // No hay nada que recuperar si el navegador bloquea sessionStorage.
+  }
+}
+
+export async function registerProductView(productId: string | number) {
+  const normalizedProductId = String(productId).trim();
+  const numericProductId = Number(normalizedProductId);
+
+  if (
+    !normalizedProductId ||
+    !Number.isSafeInteger(numericProductId) ||
+    numericProductId <= 0
+  ) {
+    return;
+  }
+
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const now = Date.now();
+  const lastViewAt = getLastProductViewAt(normalizedProductId);
+
+  if (
+    lastViewAt != null &&
+    now - lastViewAt < PRODUCT_VIEW_DEDUP_WINDOW_MS
+  ) {
+    return;
+  }
+
+  setLastProductViewAt(normalizedProductId, now);
+
+  try {
+    await API.post("/behavior-events/product-view", {
+      productId: numericProductId,
+      visitorId: getOrCreateVisitorId(),
+      path: window.location.pathname,
+    });
+  } catch (error) {
+    clearLastProductViewAt(normalizedProductId);
+    console.warn("registerProductView error:", error);
+  }
 }
 
 export function buildCatalogCategories(products: CatalogProductView[]) {

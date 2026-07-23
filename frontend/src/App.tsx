@@ -44,6 +44,8 @@ import AdminUsersPage from "./pages/admin/AdminUsersPage";
 import AdminRoutinesPage from "./pages/admin/AdminRoutinesPage";
 import AdminChargebacksPage from "./pages/admin/AdminChargebacksPage";
 import AdminPaymentsPage from "./pages/admin/AdminPaymentsPage";
+import AdminSalesPredictionPage from "./pages/admin/AdminSalesPredictionPage";
+import AdminClientRenewalPredictionPage from "./pages/admin/AdminClientRenewalPredictionPage";
 // Client Portal
 import ClientInvitationsPage from "./pages/client/ClientInvitationsPage";
 import ClientPortalLayout from "./components/layout/client/ClientPortalLayout/ClientPortalLayout";
@@ -108,6 +110,11 @@ export default function App() {
           <Route index element={<AdminSummaryPage />} />
           <Route path="monitoring" element={<AdminDashboardPage />} />
           <Route path="products" element={<AdminProductsPage />} />
+          <Route path="sales-prediction" element={<AdminSalesPredictionPage />} />
+          <Route
+            path="client-renewal-prediction"
+            element={<AdminClientRenewalPredictionPage />}
+          />
           <Route path="suscripciones" element={<AdminSuscripcionesPage />} />
           <Route path="pagos" element={<AdminPaymentsPage />} />
           <Route path="chargebacks" element={<AdminChargebacksPage />} />

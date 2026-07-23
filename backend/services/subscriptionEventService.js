@@ -6,6 +6,7 @@ import {
   UserSubscription,
 } from "../models/index.js";
 import { SUBSCRIPTION_EVENT_TYPES } from "../models/SubscriptionEvent.js";
+import { createOrUpdateSubscriptionHistory } from "./subscriptionHistoryService.js";
 
 const EVENT_TYPES = new Set(SUBSCRIPTION_EVENT_TYPES);
 
@@ -276,6 +277,9 @@ export async function recordSubscriptionCancellation({
       },
       { transaction: t }
     );
+    await createOrUpdateSubscriptionHistory(subscription.id, {
+      transaction: t,
+    });
 
     return recordSubscriptionEvent({
       subscriptionId: subscription.id,
@@ -326,6 +330,9 @@ export async function expireEndedSubscriptions({
         },
         { transaction: t }
       );
+      await createOrUpdateSubscriptionHistory(subscription.id, {
+        transaction: t,
+      });
 
       events.push(
         await recordSubscriptionEvent({

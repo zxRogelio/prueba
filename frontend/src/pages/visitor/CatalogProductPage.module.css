@@ -3,12 +3,14 @@
   background:
     radial-gradient(circle at top right, rgba(239, 68, 68, 0.08), transparent 22%),
     linear-gradient(180deg, #faf8f5 0%, #ffffff 26%, #f8f5f1 100%);
+  animation: detailPageIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .detailShell {
   width: min(1380px, calc(100% - 2rem));
   margin: 0 auto;
   padding: calc(var(--header-h, 90px) + 1.4rem) 0 4rem;
+  animation: detailShellIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .detailBreadcrumbs {
@@ -20,6 +22,7 @@
   color: #6f6f6f;
   font-size: 0.84rem;
   line-height: 1.4;
+  animation: detailFadeUp 0.46s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .detailBreadcrumbLink {
@@ -103,6 +106,127 @@
   border-radius: 28px;
   background: rgba(255, 255, 255, 0.96);
   text-align: center;
+  animation: detailFadeUp 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.detailLoading {
+  display: grid;
+  place-items: center;
+  min-height: 260px;
+  padding: 2rem 1rem;
+  animation: detailFadeUp 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.detailLoadingCopy {
+  display: grid;
+  justify-items: center;
+  width: min(100%, 380px);
+  text-align: center;
+}
+
+.detailLoadingSpinner {
+  width: 34px;
+  height: 34px;
+  margin-bottom: 1rem;
+  border: 3px solid rgba(17, 17, 17, 0.1);
+  border-top-color: #ef4444;
+  border-radius: 999px;
+  animation: detailLoaderSpin 0.58s linear infinite;
+}
+
+.detailLoadingEyebrow {
+  display: inline-flex;
+  margin-bottom: 0.55rem;
+  color: #ef4444;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.detailLoadingTitle {
+  margin: 0;
+  color: #101010;
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+.detailLoadingText {
+  margin: 0.55rem 0 0;
+  color: #666666;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.detailLoadingProgress {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  width: min(100%, 220px);
+  height: 3px;
+  margin-top: 1rem;
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.08);
+}
+
+.detailLoadingProgress::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 38%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #111111, #ef4444);
+  animation: detailLoadingProgress 0.62s ease-in-out infinite;
+}
+
+@keyframes detailPageIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes detailShellIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes detailFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes detailLoaderSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes detailLoadingProgress {
+  0% {
+    transform: translateX(-105%);
+  }
+
+  100% {
+    transform: translateX(250%);
+  }
 }
 
 .detailNotFoundTitle {
@@ -129,5 +253,21 @@
   .detailFooterNav {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .detailLoading {
+    min-height: 220px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .detailPage,
+  .detailShell,
+  .detailBreadcrumbs,
+  .detailNotFound,
+  .detailLoading,
+  .detailLoadingSpinner,
+  .detailLoadingProgress::after {
+    animation: none;
   }
 }

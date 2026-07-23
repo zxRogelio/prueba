@@ -8,10 +8,8 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaClock,
-  FaCrown,
   FaDumbbell,
   FaEnvelope,
-  FaFireAlt,
   FaGlobeAmericas,
   FaMapMarkerAlt,
   FaMoneyBillWave,
@@ -28,6 +26,14 @@ import {
   getCatalogProductPath,
   type CatalogProductView,
 } from "./catalogData";
+import {
+  buildMembershipPlanCards,
+  type MembershipPlanCardView,
+} from "./membershipPlanView";
+import {
+  getMembershipPlans,
+  type MembershipPlan,
+} from "../../services/membershipService";
 
 import HeroExterior from "../../assets/SliderTitanuim.jpg";
 import HeroTeam from "../../assets/abaout1.jpg";
@@ -59,20 +65,6 @@ type WelcomeFeature = {
   image: string;
   linkLabel: string;
   linkTo: string;
-};
-
-type PlanItem = {
-  id: string;
-  name: string;
-  description: string;
-  icon: IconType;
-  theme: "light" | "dark";
-  price: number;
-  features: Array<{
-    label: string;
-    included: boolean;
-  }>;
-  popular?: boolean;
 };
 
 type TrainerItem = {
@@ -152,64 +144,6 @@ const welcomeFeatures: WelcomeFeature[] = [
     image: HeroTeam,
     linkLabel: "Conocer mas",
     linkTo: "/AboutePage",
-  },
-];
-
-const plans: PlanItem[] = [
-  {
-    id: "basic",
-    name: "Basico",
-    description: "Perfecto para comenzar tu rutina fitness con una base solida.",
-    icon: FaDumbbell,
-    theme: "light",
-    price: 499,
-    features: [
-      { label: "Acceso al gimnasio", included: true },
-      { label: "Horario limitado (6am - 6pm)", included: true },
-      { label: "Equipos de cardio", included: true },
-      { label: "Vestuarios y duchas", included: true },
-      { label: "App de seguimiento", included: false },
-      { label: "Clases grupales", included: false },
-      { label: "Entrenador personal", included: false },
-      { label: "Acceso 24/7", included: false },
-    ],
-  },
-  {
-    id: "premium",
-    name: "Premium",
-    description: "El plan favorito para avanzar mas rapido con una experiencia mas completa.",
-    icon: FaCrown,
-    theme: "dark",
-    price: 799,
-    popular: true,
-    features: [
-      { label: "Acceso al gimnasio", included: true },
-      { label: "Horario completo", included: true },
-      { label: "Todos los equipos", included: true },
-      { label: "Vestuarios y duchas", included: true },
-      { label: "App de seguimiento", included: true },
-      { label: "Clases grupales ilimitadas", included: true },
-      { label: "1 sesion de entrenador / mes", included: true },
-      { label: "Acceso 24/7", included: false },
-    ],
-  },
-  {
-    id: "elite",
-    name: "Elite",
-    description: "Pensado para quienes buscan resultados fuertes, atencion y mayor libertad.",
-    icon: FaFireAlt,
-    theme: "light",
-    price: 1199,
-    features: [
-      { label: "Acceso al gimnasio", included: true },
-      { label: "Horario completo", included: true },
-      { label: "Todos los equipos", included: true },
-      { label: "Vestuarios VIP", included: true },
-      { label: "App de seguimiento premium", included: true },
-      { label: "Clases grupales ilimitadas", included: true },
-      { label: "4 sesiones de entrenador / mes", included: true },
-      { label: "Acceso 24/7", included: true },
-    ],
   },
 ];
 
@@ -318,6 +252,7 @@ export default function HomePage() {
   const { addItem, openCart } = useCart();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [storeProducts, setStoreProducts] = useState<CatalogProductView[]>([]);
+  const [membershipPlans, setMembershipPlans] = useState<MembershipPlan[]>([]);
   const [isStoreLoading, setIsStoreLoading] = useState(true);
   const productTrackRef = useRef<HTMLDivElement | null>(null);
 
@@ -327,6 +262,28 @@ export default function HomePage() {
     }, 6000);
 
     return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadMembershipPlans = async () => {
+      try {
+        const response = await getMembershipPlans();
+        if (ignore) return;
+        setMembershipPlans(Array.isArray(response.plans) ? response.plans : []);
+      } catch (error) {
+        if (ignore) return;
+        console.error("getMembershipPlans error:", error);
+        setMembershipPlans([]);
+      }
+    };
+
+    void loadMembershipPlans();
+
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -376,6 +333,23 @@ export default function HomePage() {
 
     return recommendedProducts.slice(0, HOME_STORE_PRODUCTS_LIMIT);
   }, [storeProducts]);
+  const homePlanCards = useMemo<MembershipPlanCardView[]>(() => {
+    const mainMemberships = membershipPlans.filter(
+      (plan) => plan.type !== "visit" && plan.type !== "group" && plan.durationDays >= 30,
+    );
+    const sourcePlans =
+      mainMemberships.length >= 3 ? mainMemberships.slice(0, 3) : membershipPlans.slice(0, 3);
+
+    const cards = buildMembershipPlanCards(sourcePlans);
+    const featuredIndex = cards.findIndex((plan) => plan.featured);
+
+    if (cards.length >= 3 && featuredIndex >= 0 && featuredIndex !== 1) {
+      const [featuredPlan] = cards.splice(featuredIndex, 1);
+      cards.splice(1, 0, featuredPlan);
+    }
+
+    return cards;
+  }, [membershipPlans]);
 
   const scrollProducts = (direction: number) => {
     const track = productTrackRef.current;
@@ -684,6 +658,7 @@ export default function HomePage() {
                           "home-product-card__action",
                           "home-product-card__action--secondary",
                         )}
+                        viewTransition
                       >
                         <FaRegEye />
                         Ver detalles
@@ -716,7 +691,7 @@ export default function HomePage() {
           </div>
 
           <div className={cx("home-plans__grid")}>
-            {plans.map((plan) => (
+            {homePlanCards.map((plan) => (
               <article
                 key={plan.id}
                 className={cx(
@@ -724,10 +699,10 @@ export default function HomePage() {
                   plan.theme === "dark"
                     ? "home-plan-card--dark"
                     : "home-plan-card--light",
-                  plan.popular && "is-popular",
+                  plan.featured && "is-popular",
                 )}
               >
-                {plan.popular && (
+                {plan.featured && (
                   <span className={cx("home-plan-card__popular")}>
                     <FaStar />
                     <span>Mas popular</span>
@@ -751,10 +726,10 @@ export default function HomePage() {
                   <div className={cx("home-plan-card__price-block")}>
                     <div className={cx("home-plan-card__price")}>
                       <strong>{formatPriceMXN(plan.price)}</strong>
-                      <span>MXN / mes</span>
+                      <span>{plan.priceSuffix}</span>
                     </div>
                     <p className={cx("home-plan-card__meta")}>
-                      Sin ataduras y con renovacion flexible.
+                      {plan.priceMeta}
                     </p>
                   </div>
                 </div>
@@ -782,10 +757,10 @@ export default function HomePage() {
                 </ul>
 
                 <Link
-                  to="/suscripciones"
+                  to={plan.paymentPath}
                   className={cx(
                     "home-plan-card__button",
-                    plan.popular && "is-popular",
+                    plan.featured && "is-popular",
                   )}
                 >
                   Comenzar Ahora

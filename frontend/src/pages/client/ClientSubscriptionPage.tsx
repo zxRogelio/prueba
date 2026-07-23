@@ -4,13 +4,15 @@ import {
   FaClock,
   FaCreditCard,
   FaGem,
+  FaReceipt,
+  FaShieldAlt,
   FaSyncAlt,
   FaTimesCircle,
   FaWallet,
 } from "react-icons/fa";
 import {
-  getMyActiveSubscription,
   getMembershipPlans,
+  getMyActiveSubscription,
   type MembershipPlan,
 } from "../../services/membershipService";
 import styles from "./ClientPages.module.css";
@@ -85,13 +87,28 @@ function getMethodLabel(method?: string) {
     case "transfer":
       return "Transferencia";
     case "card_terminal":
-      return "Tarjeta presencial / Mercado Pago";
+      return "Tarjeta presencial";
     case "online_card":
-      return "Pago en línea con tarjeta";
+      return "Tarjeta en linea";
     case "online_wallet":
-      return "Pago en línea";
+      return "Billetera en linea";
     default:
       return "No especificado";
+  }
+}
+
+function getStatusLabel(status?: string) {
+  switch (status) {
+    case "active":
+      return "Activa";
+    case "pending":
+      return "Pendiente";
+    case "expired":
+      return "Vencida";
+    case "cancelled":
+      return "Cancelada";
+    default:
+      return status ?? "Sin estado";
   }
 }
 
@@ -137,7 +154,7 @@ export default function ClientSubscriptionPage() {
     return [
       "Acceso al gimnasio durante la vigencia del plan.",
       "Consulta de historial de pagos y comprobantes.",
-      "Acceso a rutinas cuando la membresía está activa.",
+      "Acceso a rutinas cuando la membresia esta activa.",
     ];
   }, [plan]);
 
@@ -147,149 +164,178 @@ export default function ClientSubscriptionPage() {
   if (loading) {
     return (
       <section className={styles.clientPage}>
-        <div className={styles.emptyStateCard}>Cargando membresía...</div>
+        <div className={styles.routineEmpty}>Cargando membresia...</div>
       </section>
     );
   }
 
   if (!data?.hasActiveSubscription || !subscription) {
     return (
-      <section className={styles.clientPage}>
-        <header className={styles.clientHero}>
-          <div>
-            <span className={styles.clientEyebrow}>Membresía Titanium</span>
-            <h1>No tienes una membresía activa</h1>
+      <section className={`${styles.clientPage} ${styles.subscriptionPage}`}>
+        <header className={styles.subscriptionHero}>
+          <div className={styles.subscriptionHeroCopy}>
+            <span className={styles.routineEyebrow}>Membresia Titanium</span>
+            <h1>No tienes una membresia activa</h1>
             <p>
               Para acceder a rutinas, entrenamientos y beneficios del portal,
-              necesitas una membresía activa registrada por el administrador.
+              necesitas una membresia activa registrada por el administrador.
             </p>
           </div>
-          <span className={styles.heroIconDanger}>
+
+          <div className={styles.subscriptionHeroAlert}>
             <FaTimesCircle />
-          </span>
+            <strong>Sin acceso activo</strong>
+            <span>Solicita activacion en recepcion.</span>
+          </div>
         </header>
 
-        <div className={styles.summaryGrid}>
-          <article className={styles.summaryCard}>
-            <span className={styles.summaryIcon}>
+        <div className={styles.subscriptionSummaryGrid}>
+          <article>
+            <span>
               <FaWallet />
             </span>
             <div>
               <p>Estado</p>
-              <strong>Sin membresía</strong>
-              <span>Acude a recepción o solicita activación.</span>
+              <strong>Sin membresia</strong>
+              <small>Acude a recepcion o solicita activacion.</small>
             </div>
           </article>
 
-          <article className={styles.summaryCard}>
-            <span className={styles.summaryIcon}>
+          <article>
+            <span>
               <FaCreditCard />
             </span>
             <div>
               <p>Pago</p>
               <strong>Pendiente</strong>
-              <span>El admin debe confirmar el pago.</span>
+              <small>El admin debe confirmar el pago.</small>
             </div>
           </article>
         </div>
 
-        <section className={styles.panelCard}>
-          <h2>Planes disponibles</h2>
-          <p>Estos son los planes cargados desde el sistema.</p>
-
-          <div className={styles.cardGrid}>
-            {availablePlans.map((item) => (
-              <article key={item.id} className={styles.featureCard}>
-                <span>{item.type === "group" ? "Paquete" : "Plan"}</span>
-                <h3>{item.name}</h3>
-                <strong>{formatCurrency(item.price)}</strong>
-                <p>{item.description}</p>
-              </article>
-            ))}
+        <section className={styles.subscriptionSection}>
+          <div className={styles.routineResultsHeader}>
+            <div>
+              <h2>Planes disponibles</h2>
+              <p>Estos son los planes cargados desde el sistema.</p>
+            </div>
+            <span>{availablePlans.length} planes</span>
           </div>
+
+          {availablePlans.length > 0 ? (
+            <div className={styles.subscriptionPlansGrid}>
+              {availablePlans.map((item) => (
+                <article key={item.id} className={styles.subscriptionPlanCard}>
+                  <span>{item.type === "group" ? "Paquete" : "Plan"}</span>
+                  <h3>{item.name}</h3>
+                  <strong>{formatCurrency(item.price)}</strong>
+                  <p>{item.description}</p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className={styles.routineEmpty}>
+              No hay planes activos disponibles por ahora.
+            </div>
+          )}
         </section>
       </section>
     );
   }
 
   return (
-    <section className={styles.clientPage}>
-      <header className={styles.clientHero}>
-        <div>
-          <span className={styles.clientEyebrow}>Membresía Titanium</span>
-          <h1>Tu membresía está activa</h1>
+    <section className={`${styles.clientPage} ${styles.subscriptionPage}`}>
+      <header className={styles.subscriptionHero}>
+        <div className={styles.subscriptionHeroCopy}>
+          <span className={styles.routineEyebrow}>Membresia Titanium</span>
+          <h1>Tu membresia esta activa</h1>
           <p>
-            Aquí puedes consultar tu plan, vigencia, beneficios y datos del pago
-            confirmado.
+            Consulta tu plan, vigencia, beneficios y datos del pago confirmado
+            desde el sistema.
           </p>
         </div>
 
-        <button
-          type="button"
-          className={styles.heroActionBtn}
-          onClick={() => void loadSubscription()}
-        >
-          <FaSyncAlt />
-          Actualizar
-        </button>
+        <div className={styles.subscriptionHeroPanel}>
+          <div>
+            <span>Plan</span>
+            <strong>{plan?.name ?? "Activa"}</strong>
+          </div>
+          <div>
+            <span>Vence</span>
+            <strong>{formatDate(subscription.endsAt)}</strong>
+          </div>
+          <button
+            type="button"
+            className={styles.routineRefreshBtn}
+            onClick={() => void loadSubscription()}
+          >
+            <FaSyncAlt />
+            Actualizar
+          </button>
+        </div>
       </header>
 
-      <div className={styles.summaryGrid}>
-        <article className={styles.summaryCard}>
-          <span className={styles.summaryIcon}>
+      <div className={styles.subscriptionSummaryGrid}>
+        <article>
+          <span>
             <FaGem />
           </span>
           <div>
             <p>Plan actual</p>
-            <strong>{plan?.name ?? "Membresía activa"}</strong>
-            <span>{plan?.description ?? "Plan activo en el sistema."}</span>
+            <strong>{plan?.name ?? "Membresia activa"}</strong>
+            <small>{plan?.description ?? "Plan activo en el sistema."}</small>
           </div>
         </article>
 
-        <article className={styles.summaryCard}>
-          <span className={styles.summaryIcon}>
+        <article>
+          <span>
             <FaCheckCircle />
           </span>
           <div>
             <p>Estado</p>
-            <strong>{subscription.status}</strong>
-            <span>
+            <strong>{getStatusLabel(subscription.status)}</strong>
+            <small>
               {daysLeft !== null
-                ? `Quedan ${Math.max(daysLeft, 0)} días.`
+                ? `Quedan ${Math.max(daysLeft, 0)} dias.`
                 : "Vigencia activa."}
-            </span>
+            </small>
           </div>
         </article>
 
-        <article className={styles.summaryCard}>
-          <span className={styles.summaryIcon}>
+        <article>
+          <span>
             <FaClock />
           </span>
           <div>
             <p>Vigencia</p>
             <strong>{formatDate(subscription.endsAt)}</strong>
-            <span>Inicio: {formatDate(subscription.startsAt)}</span>
+            <small>Inicio: {formatDate(subscription.startsAt)}</small>
           </div>
         </article>
 
-        <article className={styles.summaryCard}>
-          <span className={styles.summaryIcon}>
+        <article>
+          <span>
             <FaCreditCard />
           </span>
           <div>
             <p>Pago</p>
             <strong>{formatCurrency(subscription.payment?.amount)}</strong>
-            <span>{getMethodLabel(subscription.payment?.method)}</span>
+            <small>{getMethodLabel(subscription.payment?.method)}</small>
           </div>
         </article>
       </div>
 
-      <div className={styles.contentGrid}>
-        <section className={styles.panelCard}>
-          <h2>Beneficios incluidos</h2>
-          <p>Disponibles mientras tu membresía permanezca activa.</p>
+      <div className={styles.subscriptionContentGrid}>
+        <section className={styles.subscriptionBenefitsPanel}>
+          <div className={styles.routineResultsHeader}>
+            <div>
+              <h2>Beneficios incluidos</h2>
+              <p>Disponibles mientras tu membresia permanezca activa.</p>
+            </div>
+            <span>{benefits.length} beneficios</span>
+          </div>
 
-          <ul className={styles.featureList}>
+          <ul className={styles.subscriptionBenefitsList}>
             {benefits.map((benefit) => (
               <li key={benefit}>
                 <FaCheckCircle />
@@ -299,25 +345,44 @@ export default function ClientSubscriptionPage() {
           </ul>
         </section>
 
-        <section className={styles.panelCard}>
-          <h2>Detalle del pago</h2>
-          <p>Información generada al registrar el pago de tu membresía.</p>
-
-          <div className={styles.detailList}>
+        <section className={styles.subscriptionPaymentPanel}>
+          <div className={styles.routineResultsHeader}>
             <div>
-              <span>Método</span>
+              <h2>Detalle del pago</h2>
+              <p>Informacion generada al registrar el pago de tu membresia.</p>
+            </div>
+          </div>
+
+          <div className={styles.subscriptionPaymentList}>
+            <div>
+              <span>
+                <FaWallet />
+                Metodo
+              </span>
               <strong>{getMethodLabel(subscription.payment?.method)}</strong>
             </div>
+
             <div>
-              <span>Proveedor</span>
+              <span>
+                <FaShieldAlt />
+                Proveedor
+              </span>
               <strong>{subscription.payment?.provider ?? "No especificado"}</strong>
             </div>
+
             <div>
-              <span>Estado del pago</span>
+              <span>
+                <FaCheckCircle />
+                Estado del pago
+              </span>
               <strong>{subscription.payment?.status ?? "Sin pago"}</strong>
             </div>
+
             <div>
-              <span>Comprobante</span>
+              <span>
+                <FaReceipt />
+                Comprobante
+              </span>
               <strong>
                 {subscription.payment?.receipt?.folio ?? "Sin folio disponible"}
               </strong>

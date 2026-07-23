@@ -11,6 +11,33 @@ type AdminPaginationProps = {
   totalPages: number;
 };
 
+const DOTS = "dots";
+
+function getVisiblePages(page: number, totalPages: number) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const pages: Array<number | typeof DOTS> = [1];
+  const start = Math.max(2, page - 1);
+  const end = Math.min(totalPages - 1, page + 1);
+
+  if (start > 2) {
+    pages.push(DOTS);
+  }
+
+  for (let current = start; current <= end; current += 1) {
+    pages.push(current);
+  }
+
+  if (end < totalPages - 1) {
+    pages.push(DOTS);
+  }
+
+  pages.push(totalPages);
+  return pages;
+}
+
 export default function AdminPagination({
   itemLabel,
   onPageChange,
@@ -21,6 +48,7 @@ export default function AdminPagination({
   totalPages,
 }: AdminPaginationProps) {
   const hasItems = totalItems > 0;
+  const visiblePages = getVisiblePages(page, totalPages);
 
   return (
     <div className={styles.root}>
@@ -45,13 +73,37 @@ export default function AdminPagination({
             disabled={!hasItems || page <= 1}
             onClick={() => onPageChange(page - 1)}
             aria-label="Pagina anterior"
+            title="Pagina anterior"
           >
             <FaChevronLeft />
-            <span>Anterior</span>
           </button>
 
-          <div className={styles.indicator}>
-            Pagina {hasItems ? page : 0} de {hasItems ? totalPages : 0}
+          <div className={styles.pages} aria-label="Paginas">
+            {hasItems ? (
+              visiblePages.map((item, index) =>
+                item === DOTS ? (
+                  <span key={`dots-${index}`} className={styles.dots}>
+                    ...
+                  </span>
+                ) : (
+                  <button
+                    key={item}
+                    type="button"
+                    className={`${styles.pageButton} ${
+                      item === page ? styles.pageButtonActive : ""
+                    }`}
+                    onClick={() => onPageChange(item)}
+                    aria-current={item === page ? "page" : undefined}
+                    aria-label={`Ir a pagina ${item}`}
+                    title={`Pagina ${item}`}
+                  >
+                    {item}
+                  </button>
+                ),
+              )
+            ) : (
+              <span className={styles.dots}>0</span>
+            )}
           </div>
 
           <button
@@ -60,8 +112,8 @@ export default function AdminPagination({
             disabled={!hasItems || page >= totalPages}
             onClick={() => onPageChange(page + 1)}
             aria-label="Pagina siguiente"
+            title="Pagina siguiente"
           >
-            <span>Siguiente</span>
             <FaChevronRight />
           </button>
         </div>

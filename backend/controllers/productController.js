@@ -8,6 +8,10 @@ import {
   applyInventoryMovement,
 } from "../services/inventoryService.js";
 import { updateProductWithCentralizedPrice } from "../services/productPriceService.js";
+import {
+  getCartProductRecommendations,
+  getProductRecommendations,
+} from "../services/productRecommendationService.js";
 
 const parseJsonArray = (raw) => {
   if (!raw) return [];
@@ -148,6 +152,42 @@ export const getPublicProductById = async (req, res) => {
     console.error("getPublicProductById error:", err);
     return res.status(500).json({
       error: "Error obteniendo producto",
+      details: err.message,
+    });
+  }
+};
+
+export const getPublicProductRecommendations = async (req, res) => {
+  try {
+    const recommendations = await getProductRecommendations({
+      productId: req.params.id,
+      limit: req.query.limit,
+      sameType: req.query.sameType !== "false",
+    });
+
+    return res.json(recommendations);
+  } catch (err) {
+    console.error("getPublicProductRecommendations error:", err);
+    return res.status(statusFromError(err)).json({
+      error: "Error obteniendo recomendaciones",
+      details: err.message,
+    });
+  }
+};
+
+export const getPublicCartProductRecommendations = async (req, res) => {
+  try {
+    const recommendations = await getCartProductRecommendations({
+      productIds: req.body?.productIds,
+      limit: req.body?.limit,
+      sameType: req.body?.sameType !== false,
+    });
+
+    return res.json(recommendations);
+  } catch (err) {
+    console.error("getPublicCartProductRecommendations error:", err);
+    return res.status(statusFromError(err)).json({
+      error: "Error obteniendo recomendaciones del carrito",
       details: err.message,
     });
   }

@@ -1,5 +1,22 @@
-import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+  type FormEvent,
+} from "react";
 import axios from "axios";
+import {
+  Archive,
+  CheckCircle2,
+  FileText,
+  Image,
+  ListChecks,
+  Plus,
+  Trash2,
+  Video,
+} from "lucide-react";
 import {
   createTrainerRoutine,
   updateTrainerRoutine,
@@ -183,7 +200,18 @@ export default function TrainerRoutinesPage() {
         name === "daysPerWeek" ||
         name === "estimatedMinutes"
           ? Number(value)
-          : value,
+      : value,
+    }));
+  };
+
+  const updateRoutineNumber = (
+    field: "durationWeeks" | "daysPerWeek" | "estimatedMinutes",
+    amount: number,
+    min = 1,
+  ) => {
+    setForm((current) => ({
+      ...current,
+      [field]: Math.max(min, Number(current[field] || min) + amount),
     }));
   };
 
@@ -193,6 +221,27 @@ export default function TrainerRoutinesPage() {
 
   const handleVideoChange = (event: ChangeEvent<HTMLInputElement>) => {
     setVideoFile(event.target.files?.[0] || null);
+  };
+
+  const handleFileDrop = (
+    event: DragEvent<HTMLDivElement>,
+    kind: "image" | "video",
+  ) => {
+    event.preventDefault();
+
+    const droppedFile = Array.from(event.dataTransfer.files).find((file) =>
+      kind === "image"
+        ? file.type.startsWith("image/")
+        : file.type.startsWith("video/"),
+    );
+
+    if (!droppedFile) return;
+
+    if (kind === "image") {
+      setImageFile(droppedFile);
+    } else {
+      setVideoFile(droppedFile);
+    }
   };
 
   const updateExercise = (
@@ -207,6 +256,25 @@ export default function TrainerRoutinesPage() {
           ? {
               ...exercise,
               [field]: value,
+            }
+          : exercise,
+      ),
+    }));
+  };
+
+  const updateExerciseNumber = (
+    index: number,
+    field: "dayNumber" | "sets" | "restSeconds",
+    amount: number,
+    min = 0,
+  ) => {
+    setForm((current) => ({
+      ...current,
+      exercises: current.exercises.map((exercise, exerciseIndex) =>
+        exerciseIndex === index
+          ? {
+              ...exercise,
+              [field]: Math.max(min, Number(exercise[field] ?? min) + amount),
             }
           : exercise,
       ),
@@ -374,21 +442,33 @@ export default function TrainerRoutinesPage() {
 
       <section className={styles.statsGrid}>
         <article className={styles.statCard}>
+          <span className={styles.statIcon}>
+            <ListChecks size={20} />
+          </span>
           <span>Total</span>
           <strong>{stats.total}</strong>
         </article>
 
         <article className={styles.statCard}>
+          <span className={styles.statIcon}>
+            <CheckCircle2 size={20} />
+          </span>
           <span>Publicadas</span>
           <strong>{stats.published}</strong>
         </article>
 
         <article className={styles.statCard}>
+          <span className={styles.statIcon}>
+            <FileText size={20} />
+          </span>
           <span>Borradores</span>
           <strong>{stats.draft}</strong>
         </article>
 
         <article className={styles.statCard}>
+          <span className={styles.statIcon}>
+            <Archive size={20} />
+          </span>
           <span>Archivadas</span>
           <strong>{stats.archived}</strong>
         </article>
@@ -411,6 +491,21 @@ export default function TrainerRoutinesPage() {
               Cancelar edición
             </button>
           ) : null}
+        </div>
+
+        <div className={styles.creationGuide}>
+          <article>
+            <strong>1</strong>
+            <span>Datos de la rutina</span>
+          </article>
+          <article>
+            <strong>2</strong>
+            <span>Imagen, video o enlace</span>
+          </article>
+          <article>
+            <strong>3</strong>
+            <span>Ejercicios por dia</span>
+          </article>
         </div>
 
         <form className={styles.form} onSubmit={handleSubmit}>
@@ -459,35 +554,89 @@ export default function TrainerRoutinesPage() {
 
             <label>
               <span>Duración en semanas</span>
-              <input
-                type="number"
-                name="durationWeeks"
-                value={form.durationWeeks}
-                onChange={handleInputChange}
-                min={1}
-              />
+              <div className={styles.numberControl}>
+                <input
+                  type="number"
+                  name="durationWeeks"
+                  value={form.durationWeeks}
+                  onChange={handleInputChange}
+                  min={1}
+                />
+                <div className={styles.numberButtons}>
+                  <button
+                    type="button"
+                    onClick={() => updateRoutineNumber("durationWeeks", -1)}
+                    aria-label="Restar una semana"
+                  >
+                    -
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateRoutineNumber("durationWeeks", 1)}
+                    aria-label="Agregar una semana"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
             </label>
 
             <label>
               <span>Días por semana</span>
-              <input
-                type="number"
-                name="daysPerWeek"
-                value={form.daysPerWeek}
-                onChange={handleInputChange}
-                min={1}
-              />
+              <div className={styles.numberControl}>
+                <input
+                  type="number"
+                  name="daysPerWeek"
+                  value={form.daysPerWeek}
+                  onChange={handleInputChange}
+                  min={1}
+                />
+                <div className={styles.numberButtons}>
+                  <button
+                    type="button"
+                    onClick={() => updateRoutineNumber("daysPerWeek", -1)}
+                    aria-label="Restar un dia por semana"
+                  >
+                    -
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateRoutineNumber("daysPerWeek", 1)}
+                    aria-label="Agregar un dia por semana"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
             </label>
 
             <label>
               <span>Minutos por sesión</span>
-              <input
-                type="number"
-                name="estimatedMinutes"
-                value={form.estimatedMinutes}
-                onChange={handleInputChange}
-                min={1}
-              />
+              <div className={styles.numberControl}>
+                <input
+                  type="number"
+                  name="estimatedMinutes"
+                  value={form.estimatedMinutes}
+                  onChange={handleInputChange}
+                  min={1}
+                />
+                <div className={styles.numberButtons}>
+                  <button
+                    type="button"
+                    onClick={() => updateRoutineNumber("estimatedMinutes", -5)}
+                    aria-label="Restar cinco minutos"
+                  >
+                    -
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateRoutineNumber("estimatedMinutes", 5)}
+                    aria-label="Agregar cinco minutos"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
             </label>
 
             <label>
@@ -514,7 +663,31 @@ export default function TrainerRoutinesPage() {
           <div className={styles.gridTwo}>
             <label>
               <span>Imagen de portada</span>
-              <input type="file" accept="image/*" onChange={handleImageChange} />
+              <input
+                className={styles.fileInputNative}
+                id="routine-cover-image"
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+              />
+              <div
+                className={styles.uploadDropzone}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => handleFileDrop(event, "image")}
+                onClick={() =>
+                  document.getElementById("routine-cover-image")?.click()
+                }
+              >
+                <span className={styles.uploadIcon}>
+                  <Image size={22} />
+                </span>
+                <strong>{imageFile?.name || "Arrastra la imagen aqui"}</strong>
+                <small>
+                  {imageFile
+                    ? "Imagen lista para guardar."
+                    : "o haz clic para seleccionar PNG, JPG o WEBP."}
+                </small>
+              </div>
               {editingRoutine?.imageUrl ? (
                 <small>Si subes otra imagen, reemplazará la actual.</small>
               ) : null}
@@ -522,7 +695,31 @@ export default function TrainerRoutinesPage() {
 
             <label>
               <span>Video de la rutina</span>
-              <input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoChange} />
+              <input
+                className={styles.fileInputNative}
+                id="routine-video-file"
+                type="file"
+                accept="video/mp4,video/webm,video/quicktime"
+                onChange={handleVideoChange}
+              />
+              <div
+                className={styles.uploadDropzone}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => handleFileDrop(event, "video")}
+                onClick={() =>
+                  document.getElementById("routine-video-file")?.click()
+                }
+              >
+                <span className={styles.uploadIcon}>
+                  <Video size={22} />
+                </span>
+                <strong>{videoFile?.name || "Arrastra el video aqui"}</strong>
+                <small>
+                  {videoFile
+                    ? "Video listo para guardar."
+                    : "o haz clic para seleccionar MP4, WEBM o MOV."}
+                </small>
+              </div>
               {editingRoutine?.videoType === "upload" ? (
                 <small>Si subes otro video, reemplazará el actual.</small>
               ) : null}
@@ -566,6 +763,7 @@ export default function TrainerRoutinesPage() {
               </div>
 
               <button type="button" className={styles.secondaryBtn} onClick={addExercise}>
+                <Plus size={17} />
                 Agregar ejercicio
               </button>
             </div>
@@ -581,6 +779,7 @@ export default function TrainerRoutinesPage() {
                       className={styles.dangerLightBtn}
                       onClick={() => removeExercise(index)}
                     >
+                      <Trash2 size={15} />
                       Quitar
                     </button>
                   </div>
@@ -599,26 +798,66 @@ export default function TrainerRoutinesPage() {
 
                     <label>
                       <span>Día</span>
-                      <input
-                        type="number"
-                        min={1}
-                        value={exercise.dayNumber}
-                        onChange={(event) =>
-                          updateExercise(index, "dayNumber", Number(event.target.value))
-                        }
-                      />
+                      <div className={styles.numberControl}>
+                        <input
+                          type="number"
+                          min={1}
+                          value={exercise.dayNumber}
+                          onChange={(event) =>
+                            updateExercise(index, "dayNumber", Number(event.target.value))
+                          }
+                        />
+                        <div className={styles.numberButtons}>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateExerciseNumber(index, "dayNumber", -1, 1)
+                            }
+                            aria-label="Restar dia"
+                          >
+                            -
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateExerciseNumber(index, "dayNumber", 1, 1)
+                            }
+                            aria-label="Agregar dia"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
                     </label>
 
                     <label>
                       <span>Series</span>
-                      <input
-                        type="number"
-                        min={0}
-                        value={exercise.sets ?? ""}
-                        onChange={(event) =>
-                          updateExercise(index, "sets", Number(event.target.value))
-                        }
-                      />
+                      <div className={styles.numberControl}>
+                        <input
+                          type="number"
+                          min={0}
+                          value={exercise.sets ?? ""}
+                          onChange={(event) =>
+                            updateExercise(index, "sets", Number(event.target.value))
+                          }
+                        />
+                        <div className={styles.numberButtons}>
+                          <button
+                            type="button"
+                            onClick={() => updateExerciseNumber(index, "sets", -1, 0)}
+                            aria-label="Restar serie"
+                          >
+                            -
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateExerciseNumber(index, "sets", 1, 0)}
+                            aria-label="Agregar serie"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
                     </label>
 
                     <label>
@@ -634,14 +873,36 @@ export default function TrainerRoutinesPage() {
 
                     <label>
                       <span>Descanso en segundos</span>
-                      <input
-                        type="number"
-                        min={0}
-                        value={exercise.restSeconds ?? ""}
-                        onChange={(event) =>
-                          updateExercise(index, "restSeconds", Number(event.target.value))
-                        }
-                      />
+                      <div className={styles.numberControl}>
+                        <input
+                          type="number"
+                          min={0}
+                          value={exercise.restSeconds ?? ""}
+                          onChange={(event) =>
+                            updateExercise(index, "restSeconds", Number(event.target.value))
+                          }
+                        />
+                        <div className={styles.numberButtons}>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateExerciseNumber(index, "restSeconds", -15, 0)
+                            }
+                            aria-label="Restar descanso"
+                          >
+                            -
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateExerciseNumber(index, "restSeconds", 15, 0)
+                            }
+                            aria-label="Agregar descanso"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
                     </label>
                   </div>
 
