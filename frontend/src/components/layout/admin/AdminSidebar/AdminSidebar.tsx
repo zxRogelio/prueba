@@ -5,6 +5,7 @@ import {
   FaBoxOpen,
   FaBoxes,
   FaChartBar,
+  FaChartLine,
   FaChevronRight,
   FaCog,
   FaDatabase,
@@ -13,9 +14,12 @@ import {
   FaHdd,
   FaIdCard,
   FaInfoCircle,
+  FaMoneyBillWave,
+  FaShieldAlt,
   FaServer,
   FaTags,
   FaThLarge,
+  FaUserCheck,
   FaUsers,
 } from "react-icons/fa";
 import Logo from "../../../../assets/LogoP.png";
@@ -23,16 +27,28 @@ import Logo from "../../../../assets/LogoP.png";
 const topItems = [
   { to: "/admin", label: "Resumen", icon: <FaChartBar /> },
   { to: "/admin/users", label: "Usuarios", icon: <FaUsers /> },
+  {
+    to: "/admin/client-renewal-prediction",
+    label: "Renovacion clientes",
+    icon: <FaUserCheck />,
+  },
 ];
 
 const catalogItems = [
   { to: "/admin/products", label: "Productos", icon: <FaBoxOpen /> },
+  {
+    to: "/admin/sales-prediction",
+    label: "Prediccion ventas",
+    icon: <FaChartLine />,
+  },
   { to: "/admin/brands", label: "Marcas", icon: <FaTags /> },
   { to: "/admin/categories", label: "Categorias", icon: <FaThLarge /> },
 ];
 
 const bottomItems = [
   { to: "/admin/suscripciones", label: "Suscripciones", icon: <FaIdCard /> },
+  { to: "/admin/pagos", label: "Pagos", icon: <FaMoneyBillWave /> },
+  { to: "/admin/chargebacks", label: "Contracargos", icon: <FaShieldAlt /> },
   { to: "/admin/routines", label: "Rutinas", icon: <FaDumbbell /> },
   { to: "/admin/reports", label: "Reportes", icon: <FaFileAlt /> },
   { to: "/admin/settings", label: "Gestion del sitio", icon: <FaCog /> },

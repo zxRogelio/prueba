@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { FaShoppingCart } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
-import { useCart } from "../../context/CartContext";
+import { useCart } from "../../context/useCart";
 import { getPortalRoute, normalizeAppRole } from "../../utils/authRouting";
 import menuStyles from "./MobileMenu.module.css";
 import navStyles from "./Navbar/Navbar.module.css";

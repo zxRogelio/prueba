@@ -94,9 +94,9 @@ export const createExecutionLogContext = ({
     mode,
     origin,
     uploadToCloudinary: Boolean(uploadToCloudinary),
-    targetDatabase: dbConfig?.dbName || null,
-    targetHost: dbConfig?.dbHost || null,
-    targetPort: dbConfig?.dbPort || null,
+    targetDatabase: dbConfig ? "$DATABASE_URL_RUNTIME" : null,
+    targetHost: null,
+    targetPort: null,
     taskLabel: getTaskLabel({ scope, schema, table }),
     schedule: schedule
       ? {
@@ -127,7 +127,7 @@ export const writeExecutionLog = async ({
   const durationMs = Math.max(0, endedAt.getTime() - startedAt.getTime());
   const upperStatus = sanitizeLine(status, "SUCCESS").toUpperCase();
   const targetDatabase = execution.targetDatabase
-    ? `${execution.targetDatabase} @ ${sanitizeLine(execution.targetHost, "N/D")}:${sanitizeLine(execution.targetPort, "5432")}`
+    ? sanitizeLine(execution.targetDatabase)
     : "N/D";
   const scheduleLine =
     execution.origin === "scheduled"

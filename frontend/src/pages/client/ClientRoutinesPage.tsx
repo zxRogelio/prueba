@@ -2,9 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import {
+  FaArrowRight,
+  FaCalendarAlt,
   FaClock,
   FaDumbbell,
   FaFilter,
+  FaLayerGroup,
   FaLock,
   FaSearch,
   FaSyncAlt,
@@ -24,10 +27,13 @@ type MembershipBlockedState = {
 function getLevelLabel(level?: string) {
   switch (level) {
     case "beginner":
+    case "principiante":
       return "Principiante";
     case "intermediate":
+    case "intermedio":
       return "Intermedio";
     case "advanced":
+    case "avanzado":
       return "Avanzado";
     default:
       return level || "General";
@@ -37,18 +43,36 @@ function getLevelLabel(level?: string) {
 function getCategoryLabel(category?: string) {
   switch (category) {
     case "strength":
+    case "fuerza":
       return "Fuerza";
     case "cardio":
-      return "Cardio";
+    case "resistencia":
+      return "Resistencia";
     case "mobility":
+    case "movilidad":
       return "Movilidad";
     case "hypertrophy":
+    case "hipertrofia":
       return "Hipertrofia";
     case "weight_loss":
-      return "Pérdida de peso";
+    case "perdida_peso":
+      return "Perdida de peso";
+    case "general":
+      return "General";
     default:
       return category || "Entrenamiento";
   }
+}
+
+function getRoutineDuration(routine: ClientRoutine) {
+  if (routine.estimatedMinutes) return `${routine.estimatedMinutes} min`;
+  if (routine.durationWeeks) return `${routine.durationWeeks} semanas`;
+  return "No especificada";
+}
+
+function getRoutineFrequency(routine: ClientRoutine) {
+  if (routine.daysPerWeek) return `${routine.daysPerWeek} dias`;
+  return "Flexible";
 }
 
 export default function ClientRoutinesPage() {
@@ -90,7 +114,7 @@ export default function ClientRoutinesPage() {
           blocked: true,
           message:
             error.response.data.error ||
-            "Necesitas una membresía activa para acceder a las rutinas.",
+            "Necesitas una membresia activa para acceder a las rutinas.",
         });
         setRoutines([]);
         return;
@@ -110,11 +134,12 @@ export default function ClientRoutinesPage() {
   const categories = useMemo(
     () => [
       { value: "", label: "Todas" },
-      { value: "strength", label: "Fuerza" },
-      { value: "cardio", label: "Cardio" },
-      { value: "mobility", label: "Movilidad" },
-      { value: "hypertrophy", label: "Hipertrofia" },
-      { value: "weight_loss", label: "Pérdida de peso" },
+      { value: "general", label: "General" },
+      { value: "fuerza", label: "Fuerza" },
+      { value: "hipertrofia", label: "Hipertrofia" },
+      { value: "perdida_peso", label: "Perdida de peso" },
+      { value: "resistencia", label: "Resistencia" },
+      { value: "movilidad", label: "Movilidad" },
     ],
     []
   );
@@ -122,12 +147,14 @@ export default function ClientRoutinesPage() {
   const levels = useMemo(
     () => [
       { value: "", label: "Todos" },
-      { value: "beginner", label: "Principiante" },
-      { value: "intermediate", label: "Intermedio" },
-      { value: "advanced", label: "Avanzado" },
+      { value: "principiante", label: "Principiante" },
+      { value: "intermedio", label: "Intermedio" },
+      { value: "avanzado", label: "Avanzado" },
     ],
     []
   );
+
+  const activeFilterCount = [search.trim(), category, level].filter(Boolean).length;
 
   if (blocked.blocked) {
     return (
@@ -135,10 +162,10 @@ export default function ClientRoutinesPage() {
         <header className={styles.clientHero}>
           <div>
             <span className={styles.clientEyebrow}>Rutinas bloqueadas</span>
-            <h1>Necesitas una membresía activa</h1>
+            <h1>Necesitas una membresia activa</h1>
             <p>
-              Las rutinas del gimnasio solo están disponibles para clientes con
-              membresía activa.
+              Las rutinas del gimnasio solo estan disponibles para clientes con
+              membresia activa.
             </p>
           </div>
 
@@ -154,10 +181,10 @@ export default function ClientRoutinesPage() {
           <div className={styles.statusBanner}>
             <div>
               <span>Estado</span>
-              <strong>Membresía requerida</strong>
+              <strong>Membresia requerida</strong>
               <p>
-                Activa una membresía individual o entra a un paquete grupal
-                aprobado para desbloquear esta sección.
+                Activa una membresia individual o entra a un paquete grupal
+                aprobado para desbloquear esta seccion.
               </p>
             </div>
           </div>
@@ -166,7 +193,7 @@ export default function ClientRoutinesPage() {
             <Link to="/cliente/suscripcion" className={styles.quickCard}>
               <FaUserShield />
               <div>
-                <strong>Ver mi membresía</strong>
+                <strong>Ver mi membresia</strong>
                 <span>Consulta tu estado, vigencia y beneficios.</span>
               </div>
             </Link>
@@ -185,51 +212,62 @@ export default function ClientRoutinesPage() {
   }
 
   return (
-    <section className={styles.clientPage}>
-      <header className={styles.clientHero}>
-        <div>
-          <span className={styles.clientEyebrow}>Entrenamiento</span>
+    <section className={`${styles.clientPage} ${styles.routinesPage}`}>
+      <header className={styles.routineHero}>
+        <div className={styles.routineHeroContent}>
+          <span className={styles.routineEyebrow}>Entrenamiento</span>
           <h1>Rutinas disponibles</h1>
           <p>
-            Consulta las rutinas publicadas por los entrenadores. Esta sección
-            solo se desbloquea cuando tienes una membresía activa.
+            Explora entrenamientos publicados por el equipo Titanium y filtra
+            por categoria, nivel o palabra clave.
           </p>
         </div>
 
-        <button
-          type="button"
-          className={styles.heroActionBtn}
-          onClick={() => void loadRoutines()}
-          disabled={loading}
-        >
-          <FaSyncAlt />
-          {loading ? "Cargando..." : "Actualizar"}
-        </button>
+        <div className={styles.routineHeroPanel}>
+          <div className={styles.routineStat}>
+            <span>Rutinas</span>
+            <strong>{loading ? "--" : routines.length}</strong>
+          </div>
+          <div className={styles.routineStat}>
+            <span>Filtros</span>
+            <strong>{activeFilterCount}</strong>
+          </div>
+          <button
+            type="button"
+            className={styles.routineRefreshBtn}
+            onClick={() => void loadRoutines()}
+            disabled={loading}
+          >
+            <FaSyncAlt />
+            {loading ? "Cargando" : "Actualizar"}
+          </button>
+        </div>
       </header>
 
-      <section className={styles.panelCard}>
-        <div className={styles.sectionHeader}>
+      <section className={styles.routineToolbar}>
+        <div className={styles.routineToolbarHeader}>
           <div>
             <h2>Explorar rutinas</h2>
-            <p>Filtra por objetivo, categoría o nivel.</p>
+            <p>Busca por nombre, objetivo, categoria o nivel.</p>
           </div>
+          <span>{activeFilterCount} filtros activos</span>
         </div>
 
-        <div className={styles.formStack}>
-          <label>
+        <div className={styles.routineFilterGrid}>
+          <label className={styles.routineField}>
             Buscar
-            <div className={styles.searchBox}>
+            <div className={styles.routineSearchBox}>
               <FaSearch />
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Buscar por nombre, objetivo o descripción..."
+                placeholder="Nombre, objetivo o descripcion..."
               />
             </div>
           </label>
 
-          <label>
-            Categoría
+          <label className={styles.routineField}>
+            Categoria
             <select
               value={category}
               onChange={(event) => setCategory(event.target.value)}
@@ -242,7 +280,7 @@ export default function ClientRoutinesPage() {
             </select>
           </label>
 
-          <label>
+          <label className={styles.routineField}>
             Nivel
             <select
               value={level}
@@ -258,88 +296,96 @@ export default function ClientRoutinesPage() {
 
           <button
             type="button"
-            className={styles.heroActionBtn}
+            className={styles.routineFilterBtn}
             onClick={() => void loadRoutines()}
             disabled={loading}
           >
             <FaFilter />
-            Aplicar filtros
+            Filtrar
           </button>
         </div>
       </section>
 
-      <section className={styles.panelCard}>
-        <h2>Rutinas publicadas</h2>
-        <p>Solo se muestran rutinas con estado publicado.</p>
+      <section className={styles.routineSection}>
+        <div className={styles.routineResultsHeader}>
+          <div>
+            <h2>Rutinas publicadas</h2>
+            <p>Solo aparecen rutinas disponibles para clientes con membresia activa.</p>
+          </div>
+          <span>{loading ? "Cargando" : `${routines.length} resultados`}</span>
+        </div>
 
         {loading ? (
-          <div className={styles.emptyStateCard}>Cargando rutinas...</div>
+          <div className={styles.routineEmpty}>Cargando rutinas...</div>
         ) : routines.length > 0 ? (
-          <div className={styles.cardGrid}>
+          <div className={styles.routineGrid}>
             {routines.map((routine) => (
-              <article key={routine.id} className={styles.featureCard}>
-                {routine.imageUrl ? (
-                  <img
-                    src={routine.imageUrl}
-                    alt={routine.title}
-                    style={{
-                      width: "100%",
-                      height: 180,
-                      objectFit: "cover",
-                      borderRadius: 18,
-                      marginBottom: 16,
-                    }}
-                  />
-                ) : null}
+              <article key={routine.id} className={styles.routineCard}>
+                <div className={styles.routineMedia}>
+                  {routine.imageUrl ? (
+                    <img src={routine.imageUrl} alt={routine.title} />
+                  ) : (
+                    <div className={styles.routineMediaFallback}>
+                      <FaDumbbell />
+                    </div>
+                  )}
+                </div>
 
-                <span>{getCategoryLabel(routine.category)}</span>
-                <h3>{routine.title}</h3>
-
-                <p>
-                  {routine.objective ||
-                    routine.description ||
-                    "Rutina publicada por el entrenador."}
-                </p>
-
-                <div className={styles.detailList}>
-                  <div>
-                    <span>Nivel</span>
-                    <strong>{getLevelLabel(routine.level)}</strong>
+                <div className={styles.routineCardBody}>
+                  <div className={styles.routineBadgeRow}>
+                    <span>{getCategoryLabel(routine.category)}</span>
+                    <span>{getLevelLabel(routine.level)}</span>
                   </div>
 
-                  <div>
-                    <span>Duración</span>
-                    <strong>
-                      <FaClock /> {routine.estimatedMinutes
-  ? `${routine.estimatedMinutes} min`
-  : routine.durationWeeks
-  ? `${routine.durationWeeks} semanas`
-  : "No especificada"}
-                    </strong>
+                  <h3>{routine.title}</h3>
+
+                  <p>
+                    {routine.objective ||
+                      routine.description ||
+                      "Rutina publicada por el entrenador."}
+                  </p>
+
+                  <div className={styles.routineMetaGrid}>
+                    <div>
+                      <FaClock />
+                      <span>Duracion</span>
+                      <strong>{getRoutineDuration(routine)}</strong>
+                    </div>
+
+                    <div>
+                      <FaCalendarAlt />
+                      <span>Semana</span>
+                      <strong>{getRoutineFrequency(routine)}</strong>
+                    </div>
+
+                    <div>
+                      <FaLayerGroup />
+                      <span>Nivel</span>
+                      <strong>{getLevelLabel(routine.level)}</strong>
+                    </div>
                   </div>
 
-                  <div>
-                    <span>Entrenador</span>
-                    <strong>
+                  <div className={styles.routineCardFooter}>
+                    <span>
                       {routine.trainer?.name ||
                         routine.trainer?.email ||
                         "Entrenador Titanium"}
-                    </strong>
+                    </span>
+
+                    <Link
+                      to={`/cliente/rutinas/${routine.id}`}
+                      className={styles.routinePrimaryLink}
+                    >
+                      Ver rutina
+                      <FaArrowRight />
+                    </Link>
                   </div>
                 </div>
-
-                <Link
-                  to={`/cliente/rutinas/${routine.id}`}
-                  className={styles.heroActionBtn}
-                >
-                  <FaDumbbell />
-                  Ver rutina
-                </Link>
               </article>
             ))}
           </div>
         ) : (
-          <div className={styles.emptyStateCard}>
+          <div className={styles.routineEmpty}>
             No hay rutinas publicadas por ahora.
           </div>
         )}

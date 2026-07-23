@@ -1,0 +1,254 @@
+.page {
+  --surface: rgba(255, 255, 255, 0.96);
+  --surface-soft: rgba(248, 250, 252, 0.94);
+  --border: rgba(15, 23, 42, 0.08);
+  --text: #111827;
+  --muted: #667085;
+  --red-soft: rgba(239, 68, 68, 0.12);
+  --amber-soft: rgba(245, 158, 11, 0.16);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 8px 0 28px;
+}
+
+.header,
+.statCard,
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-start;
+  padding: 24px;
+  border-radius: 24px;
+}
+
+.headerCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 800px;
+}
+
+.eyebrow,
+.panelEyebrow {
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.header h1,
+.panelHeader h2 {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-ui, "Poppins", sans-serif);
+}
+
+.header h1 {
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  line-height: 1.08;
+}
+
+.header p {
+  margin: 0;
+  color: #475467;
+  line-height: 1.7;
+}
+
+.secondaryBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: #fff;
+  color: #1f2937;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.secondaryBtn:hover {
+  transform: translateY(-1px);
+}
+
+.secondaryBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.statCard {
+  border-radius: 20px;
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.statIcon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--red-soft);
+  color: #dc2626;
+  flex-shrink: 0;
+}
+
+.statLabel {
+  display: block;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.statValue {
+  display: block;
+  margin-top: 5px;
+  color: var(--text);
+  font-size: 1.45rem;
+  line-height: 1.1;
+}
+
+.panel {
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.panelHeader {
+  padding: 22px 22px 12px;
+}
+
+.feedback {
+  margin: 0 22px 16px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(254, 242, 242, 0.95);
+  border: 1px solid rgba(239, 68, 68, 0.18);
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.tableScroll {
+  overflow-x: auto;
+  margin: 0 22px 22px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: #fff;
+}
+
+.table {
+  width: 100%;
+  min-width: 1100px;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.07);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table th {
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.table td strong,
+.secondaryText {
+  display: block;
+}
+
+.secondaryText,
+.reviewText {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.statusChargeback {
+  background: var(--red-soft);
+  color: #b91c1c;
+}
+
+.statusDisputed {
+  background: var(--amber-soft);
+  color: #b45309;
+}
+
+.itemList {
+  display: grid;
+  gap: 5px;
+  color: var(--text);
+}
+
+.emptyRow {
+  text-align: center;
+  color: var(--muted);
+  padding: 24px !important;
+}
+
+@media (max-width: 1180px) {
+  .statsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 780px) {
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .secondaryBtn {
+    width: 100%;
+  }
+
+  .tableScroll,
+  .feedback {
+    margin-left: 16px;
+    margin-right: 16px;
+  }
+}

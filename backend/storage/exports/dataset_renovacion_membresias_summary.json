@@ -1,0 +1,55 @@
+{
+  "generatedAt": "2026-07-22T07:11:24.330Z",
+  "seedName": "renewal-classification-v1",
+  "totalHistoriesFound": 2000,
+  "rowsExported": 1885,
+  "renewedTrue": 1035,
+  "renewedFalse": 850,
+  "truePercentage": 54.91,
+  "falsePercentage": 45.09,
+  "uniqueCustomers": 484,
+  "rowsWithPreviousSubscriptions": 1395,
+  "rowsWithoutPreviousSubscriptions": 490,
+  "rowsWithPreviousPurchases": 1193,
+  "rowsWithoutPreviousPurchases": 692,
+  "minimumPredictionDate": "2025-12-31",
+  "maximumPredictionDate": "2026-06-29",
+  "nullValuesByColumn": {
+    "planType": 0,
+    "durationDays": 0,
+    "amountPaid": 0,
+    "paymentMethod": 0,
+    "source": 0,
+    "isGroupSubscription": 0,
+    "previousSubscriptionsCount": 0,
+    "previousRenewalsCount": 0,
+    "previousRenewalRate": 0,
+    "daysAsCustomer": 0,
+    "paidOrdersCount": 0,
+    "productsPurchasedCount": 0,
+    "totalProductSpend": 0,
+    "averageOrderValue": 0,
+    "daysSinceLastPurchase": 0,
+    "failedPaymentsCount": 0,
+    "renewedNextPeriod": 0
+  },
+  "categoricalValues": {
+    "planType": {
+      "individual": 1870,
+      "student": 15
+    },
+    "paymentMethod": {
+      "cash": 545,
+      "transfer": 403,
+      "online_checkout": 530,
+      "card_terminal": 407
+    },
+    "source": {
+      "admin_manual": 1355,
+      "online_checkout": 530
+    }
+  },
+  "tableSnapshotChanged": false,
+  "validationErrors": [],
+  "warnings": []
+}

@@ -3,6 +3,15 @@ import { Brand, Category, Product, ProductImage } from "../models/index.js";
 import { validateProductPayload } from "../utils/productValidation.js";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
 import { getNextId } from "../utils/nextBusinessId.js";
+import {
+  adjustProductStock,
+  applyInventoryMovement,
+} from "../services/inventoryService.js";
+import { updateProductWithCentralizedPrice } from "../services/productPriceService.js";
+import {
+  getCartProductRecommendations,
+  getProductRecommendations,
+} from "../services/productRecommendationService.js";
 
 const parseJsonArray = (raw) => {
   if (!raw) return [];
@@ -32,6 +41,39 @@ const normalizeProductFeatures = (raw) => {
   }
 
   return parseJsonArray(raw);
+};
+
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+
+const normalizeStockInput = (value) => {
+  const normalized = Number(value ?? 0);
+
+  if (!Number.isInteger(normalized) || normalized < 0) {
+    const error = new Error("Stock invalido");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return normalized;
+};
+
+const normalizePriceInput = (value) => {
+  const normalized = Number(value ?? 0);
+
+  if (!Number.isFinite(normalized) || normalized < 0) {
+    const error = new Error("Precio invalido");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return normalized;
+};
+
+const statusFromError = (error) => {
+  const statusCode = Number(error.statusCode);
+  return Number.isInteger(statusCode) && statusCode >= 400 && statusCode < 600
+    ? statusCode
+    : 500;
 };
 
 const serializeProduct = (product) => {
@@ -115,6 +157,42 @@ export const getPublicProductById = async (req, res) => {
   }
 };
 
+export const getPublicProductRecommendations = async (req, res) => {
+  try {
+    const recommendations = await getProductRecommendations({
+      productId: req.params.id,
+      limit: req.query.limit,
+      sameType: req.query.sameType !== "false",
+    });
+
+    return res.json(recommendations);
+  } catch (err) {
+    console.error("getPublicProductRecommendations error:", err);
+    return res.status(statusFromError(err)).json({
+      error: "Error obteniendo recomendaciones",
+      details: err.message,
+    });
+  }
+};
+
+export const getPublicCartProductRecommendations = async (req, res) => {
+  try {
+    const recommendations = await getCartProductRecommendations({
+      productIds: req.body?.productIds,
+      limit: req.body?.limit,
+      sameType: req.body?.sameType !== false,
+    });
+
+    return res.json(recommendations);
+  } catch (err) {
+    console.error("getPublicCartProductRecommendations error:", err);
+    return res.status(statusFromError(err)).json({
+      error: "Error obteniendo recomendaciones del carrito",
+      details: err.message,
+    });
+  }
+};
+
 export const createProduct = async (req, res) => {
   const t = await sequelize.transaction();
   try {
@@ -168,6 +246,8 @@ export const createProduct = async (req, res) => {
     }
 
     const id_producto = await getNextId(Product, "id_producto", t);
+    const initialStock = normalizeStockInput(req.body.stock);
+    const initialPrice = normalizePriceInput(req.body.price);
 
     const created = await Product.create(
       {
@@ -175,8 +255,8 @@ export const createProduct = async (req, res) => {
         name: String(req.body.name).trim(),
         brandId,
         categoryId,
-        price: Number(req.body.price ?? 0),
-        stock: Number(req.body.stock ?? 0),
+        price: initialPrice,
+        stock: 0,
         status: req.body.status || "Activo",
         imageUrl,
         productType: req.body.productType,
@@ -193,6 +273,18 @@ export const createProduct = async (req, res) => {
       },
       { transaction: t }
     );
+
+    if (initialStock > 0) {
+      await applyInventoryMovement({
+        productId: created.id_producto,
+        movementType: "restock",
+        quantity: initialStock,
+        reference: `product:create:${created.id_producto}`,
+        createdBy: req.user?.id || null,
+        notes: "Stock inicial registrado al crear producto",
+        transaction: t,
+      });
+    }
 
     if (uploadedImages.length) {
       await ProductImage.bulkCreate(
@@ -233,7 +325,7 @@ export const createProduct = async (req, res) => {
   } catch (err) {
     await t.rollback();
     console.error("createProduct error:", err);
-    return res.status(500).json({
+    return res.status(statusFromError(err)).json({
       error: "Error creando producto",
       details: err.message,
     });
@@ -281,12 +373,37 @@ export const updateProduct = async (req, res) => {
       req.body.categoryId = Number(req.body.categoryId);
     }
 
-    if (req.body.description != null) {
-      req.body.description = String(req.body.description).trim() || null;
+    const updatePayload = { ...req.body };
+    const stockProvided = hasOwn(updatePayload, "stock");
+    const nextStock = stockProvided ? normalizeStockInput(updatePayload.stock) : null;
+    const stockChangeReason =
+      updatePayload.stockChangeReason ||
+      updatePayload.stockReason ||
+      updatePayload.reason ||
+      null;
+    const priceChangeReason =
+      updatePayload.priceChangeReason ||
+      updatePayload.priceReason ||
+      updatePayload.reason ||
+      null;
+
+    if (hasOwn(updatePayload, "price")) {
+      updatePayload.price = normalizePriceInput(updatePayload.price);
     }
 
-    if (req.body.features != null) {
-      req.body.features = JSON.stringify(parseJsonArray(req.body.features));
+    delete updatePayload.stock;
+    delete updatePayload.stockChangeReason;
+    delete updatePayload.stockReason;
+    delete updatePayload.priceChangeReason;
+    delete updatePayload.priceReason;
+    delete updatePayload.reason;
+
+    if (updatePayload.description != null) {
+      updatePayload.description = String(updatePayload.description).trim() || null;
+    }
+
+    if (updatePayload.features != null) {
+      updatePayload.features = JSON.stringify(parseJsonArray(updatePayload.features));
     }
 
     const files = Array.isArray(req.files) ? req.files : [];
@@ -318,11 +435,29 @@ export const updateProduct = async (req, res) => {
           { transaction: t }
         );
 
-        if (!product.imageUrl) req.body.imageUrl = uploadedImages[0].url;
+        if (!product.imageUrl) updatePayload.imageUrl = uploadedImages[0].url;
       }
     }
 
-    await product.update(req.body, { transaction: t });
+    await updateProductWithCentralizedPrice({
+      product,
+      updates: updatePayload,
+      changedBy: req.user?.id || null,
+      reason: priceChangeReason,
+      transaction: t,
+    });
+
+    if (stockProvided) {
+      await adjustProductStock({
+        productId: id_producto,
+        newStock: nextStock,
+        reference: `product:update:${id_producto}`,
+        createdBy: req.user?.id || null,
+        notes: stockChangeReason,
+        transaction: t,
+      });
+    }
+
     await t.commit();
 
     const full = await Product.findOne({
@@ -349,7 +484,7 @@ export const updateProduct = async (req, res) => {
   } catch (err) {
     await t.rollback();
     console.error("updateProduct error:", err);
-    return res.status(500).json({
+    return res.status(statusFromError(err)).json({
       error: "Error actualizando producto",
       details: err.message,
     });

@@ -38,7 +38,8 @@ export type ManualPaymentPayload = {
   userId: string;
   planId: string;
   method: "cash" | "transfer" | "card_terminal";
-  provider?: "none" | "bank_transfer" | "mercadopago_point";
+  provider?: "none" | "bank_transfer" | "mercadopago_terminal";
+  idempotencyKey?: string;
   reference?: string;
   notes?: string;
   startsAt?: string;
@@ -48,7 +49,8 @@ export type ManualGroupPaymentPayload = {
   ownerUserId: string;
   planId: string;
   method: "cash" | "transfer" | "card_terminal";
-  provider?: "none" | "bank_transfer" | "mercadopago_point";
+  provider?: "none" | "bank_transfer" | "mercadopago_terminal";
+  idempotencyKey?: string;
   reference?: string;
   notes?: string;
   startsAt?: string;

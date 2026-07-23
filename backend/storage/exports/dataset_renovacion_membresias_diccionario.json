@@ -1,0 +1,178 @@
+{
+  "planType": {
+    "name": "planType",
+    "type": "categorical",
+    "description": "Tipo de plan de la membresia actual.",
+    "sources": [
+      "core.SubscriptionHistories.planType"
+    ],
+    "calculation": "Valor directo guardado por el historial de suscripcion.",
+    "missingHistoryValue": "Se registra advertencia; no se reemplaza silenciosamente."
+  },
+  "durationDays": {
+    "name": "durationDays",
+    "type": "numeric_integer",
+    "description": "Duracion en dias del plan actual.",
+    "sources": [
+      "core.SubscriptionHistories.durationDays"
+    ],
+    "calculation": "Valor directo convertido a entero.",
+    "missingHistoryValue": "No aplica; el modelo lo requiere."
+  },
+  "amountPaid": {
+    "name": "amountPaid",
+    "type": "numeric_decimal",
+    "description": "Importe pagado por la membresia actual.",
+    "sources": [
+      "core.SubscriptionHistories.amountPaid"
+    ],
+    "calculation": "Valor directo con dos decimales.",
+    "missingHistoryValue": "No aplica; el modelo lo requiere."
+  },
+  "paymentMethod": {
+    "name": "paymentMethod",
+    "type": "categorical",
+    "description": "Metodo de pago de la membresia actual.",
+    "sources": [
+      "core.SubscriptionHistories.paymentMethod"
+    ],
+    "calculation": "Valor directo guardado por el historial.",
+    "missingHistoryValue": "Se registra advertencia; no se reemplaza silenciosamente."
+  },
+  "source": {
+    "name": "source",
+    "type": "categorical",
+    "description": "Origen de activacion de la membresia.",
+    "sources": [
+      "core.SubscriptionHistories.source"
+    ],
+    "calculation": "Valor directo guardado por el historial.",
+    "missingHistoryValue": "Se registra advertencia; no se reemplaza silenciosamente."
+  },
+  "isGroupSubscription": {
+    "name": "isGroupSubscription",
+    "type": "binary",
+    "description": "Indica si la membresia pertenece a un paquete grupal.",
+    "sources": [
+      "core.SubscriptionHistories.isGroupSubscription"
+    ],
+    "calculation": "true se exporta como 1; false se exporta como 0.",
+    "missingHistoryValue": "0 cuando el historial indica false."
+  },
+  "previousSubscriptionsCount": {
+    "name": "previousSubscriptionsCount",
+    "type": "numeric_integer",
+    "description": "Cantidad de membresias anteriores del mismo usuario.",
+    "sources": [
+      "core.SubscriptionHistories",
+      "core.UserSubscriptions"
+    ],
+    "calculation": "Cuenta suscripciones del mismo usuario con startsAt anterior al actual y registro disponible hasta predictionDate.",
+    "missingHistoryValue": "0 si no existen membresias anteriores."
+  },
+  "previousRenewalsCount": {
+    "name": "previousRenewalsCount",
+    "type": "numeric_integer",
+    "description": "Cantidad de renovaciones positivas conocidas antes de predictionDate.",
+    "sources": [
+      "core.SubscriptionHistories.renewedNextPeriod"
+    ],
+    "calculation": "Cuenta historiales anteriores con renewedNextPeriod=true y endsAt + 30 dias <= predictionDate.",
+    "missingHistoryValue": "0 si no hay renovaciones previas conocidas."
+  },
+  "previousRenewalRate": {
+    "name": "previousRenewalRate",
+    "type": "numeric_decimal",
+    "description": "Tasa historica de renovacion conocida.",
+    "sources": [
+      "core.SubscriptionHistories",
+      "core.UserSubscriptions"
+    ],
+    "calculation": "previousRenewalsCount / previousSubscriptionsCount, redondeado a seis decimales.",
+    "missingHistoryValue": "0 si previousSubscriptionsCount es 0."
+  },
+  "daysAsCustomer": {
+    "name": "daysAsCustomer",
+    "type": "numeric_integer",
+    "description": "Dias entre la primera membresia del usuario y predictionDate.",
+    "sources": [
+      "core.SubscriptionHistories.startsAt"
+    ],
+    "calculation": "predictionDate menos el startsAt de la primera membresia del usuario; nunca menor que 0.",
+    "missingHistoryValue": "0 si el calculo seria negativo."
+  },
+  "paidOrdersCount": {
+    "name": "paidOrdersCount",
+    "type": "numeric_integer",
+    "description": "Cantidad de ordenes pagadas de productos antes de predictionDate.",
+    "sources": [
+      "core.Orders"
+    ],
+    "calculation": "Cuenta ordenes paid del seed association-rules-v1 con COALESCE(paidAt, createdAt) <= predictionDate.",
+    "missingHistoryValue": "0 si no existen compras previas."
+  },
+  "productsPurchasedCount": {
+    "name": "productsPurchasedCount",
+    "type": "numeric_integer",
+    "description": "Cantidad total de productos comprados antes de predictionDate.",
+    "sources": [
+      "core.OrderItems.quantity"
+    ],
+    "calculation": "Suma quantity de items con itemType=product en ordenes pagadas validas.",
+    "missingHistoryValue": "0 si no existen productos comprados."
+  },
+  "totalProductSpend": {
+    "name": "totalProductSpend",
+    "type": "numeric_decimal",
+    "description": "Gasto total en productos antes de predictionDate.",
+    "sources": [
+      "core.OrderItems.subtotal",
+      "core.OrderItems.quantity",
+      "core.OrderItems.unitPrice"
+    ],
+    "calculation": "Suma subtotal de items de producto; si falta subtotal usa quantity por unitPrice.",
+    "missingHistoryValue": "0.00 si no existen compras previas."
+  },
+  "averageOrderValue": {
+    "name": "averageOrderValue",
+    "type": "numeric_decimal",
+    "description": "Valor promedio de ordenes pagadas de productos.",
+    "sources": [
+      "core.Orders",
+      "core.OrderItems"
+    ],
+    "calculation": "totalProductSpend / paidOrdersCount, con dos decimales.",
+    "missingHistoryValue": "0.00 si paidOrdersCount es 0."
+  },
+  "daysSinceLastPurchase": {
+    "name": "daysSinceLastPurchase",
+    "type": "numeric_integer",
+    "description": "Dias desde la ultima compra pagada de productos hasta predictionDate.",
+    "sources": [
+      "core.Orders.paidAt",
+      "core.Orders.createdAt"
+    ],
+    "calculation": "predictionDate menos la fecha mas reciente de orden pagada usada.",
+    "missingHistoryValue": "-1 si no existe compra previa."
+  },
+  "failedPaymentsCount": {
+    "name": "failedPaymentsCount",
+    "type": "numeric_integer",
+    "description": "Cantidad de intentos fallidos de pago de membresia antes de predictionDate.",
+    "sources": [
+      "core.Payments"
+    ],
+    "calculation": "Cuenta pagos del usuario con status=failed, paymentType=membership y createdAt <= predictionDate.",
+    "missingHistoryValue": "0 si no existen pagos fallidos previos."
+  },
+  "renewedNextPeriod": {
+    "name": "renewedNextPeriod",
+    "type": "binary_target",
+    "description": "Variable objetivo: indica si el cliente renovo dentro de la ventana definida.",
+    "sources": [
+      "core.SubscriptionHistories.renewedNextPeriod"
+    ],
+    "calculation": "true se exporta como 1; false se exporta como 0; null se excluye.",
+    "missingHistoryValue": "Las filas null no se exportan al dataset de entrenamiento."
+  }
+}

@@ -572,6 +572,2004 @@
   font-weight: 800;
 }
 
+.routinesPage {
+  gap: 18px;
+}
+
+.routineHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 22px;
+  align-items: stretch;
+  padding: 24px;
+  border-radius: 18px;
+  background: #111111;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.14);
+}
+
+.routineHeroContent {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.routineEyebrow {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(219, 36, 28, 0.18);
+  color: #fecaca;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.routineHero h1 {
+  margin: 12px 0 8px;
+  font-size: 32px;
+  line-height: 1.08;
+  font-weight: 800;
+}
+
+.routineHero p {
+  max-width: 680px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.routineHeroPanel {
+  display: grid;
+  grid-template-columns: repeat(2, 112px);
+  gap: 10px;
+  align-content: center;
+  min-width: 250px;
+}
+
+.routineStat {
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.routineStat span {
+  display: block;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.routineStat strong {
+  display: block;
+  margin-top: 8px;
+  color: #ffffff;
+  font-size: 26px;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.routineRefreshBtn,
+.routineFilterBtn,
+.routinePrimaryLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  border-radius: 12px;
+  border: 0;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s ease,
+    background 0.2s ease;
+}
+
+.routineRefreshBtn {
+  grid-column: 1 / -1;
+  background: #ffffff;
+  color: #111827;
+}
+
+.routineFilterBtn,
+.routinePrimaryLink {
+  background: #b91c1c;
+  color: #ffffff;
+}
+
+.routineRefreshBtn:hover,
+.routineFilterBtn:hover,
+.routinePrimaryLink:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 26px rgba(15, 23, 42, 0.14);
+}
+
+.routineRefreshBtn:disabled,
+.routineFilterBtn:disabled {
+  opacity: 0.62;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.routineToolbar,
+.routineSection {
+  padding: 20px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
+}
+
+.routineToolbarHeader,
+.routineResultsHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.routineToolbarHeader h2,
+.routineResultsHeader h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.routineToolbarHeader p,
+.routineResultsHeader p {
+  margin: 5px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.routineToolbarHeader > span,
+.routineResultsHeader > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #f9fafb;
+  color: #374151;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.routineFilterGrid {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.4fr) minmax(180px, 0.7fr) minmax(160px, 0.6fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.routineField {
+  display: grid;
+  gap: 8px;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.routineField select,
+.routineSearchBox {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  background: #ffffff;
+}
+
+.routineField select {
+  width: 100%;
+  padding: 0 12px;
+  color: #111827;
+  font: inherit;
+  outline: none;
+}
+
+.routineSearchBox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+}
+
+.routineSearchBox svg {
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+.routineSearchBox input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #111827;
+  font: inherit;
+}
+
+.routineField select:focus,
+.routineSearchBox:focus-within {
+  border-color: rgba(185, 28, 28, 0.45);
+  box-shadow: 0 0 0 4px rgba(219, 36, 28, 0.08);
+}
+
+.routineFilterBtn {
+  min-width: 118px;
+  padding: 0 16px;
+}
+
+.routineGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.routineCard {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.045);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.routineCard:hover {
+  transform: translateY(-2px);
+  border-color: rgba(185, 28, 28, 0.22);
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.08);
+}
+
+.routineMedia {
+  aspect-ratio: 16 / 9;
+  background: #111111;
+}
+
+.routineMedia img,
+.routineMediaFallback {
+  width: 100%;
+  height: 100%;
+}
+
+.routineMedia img {
+  display: block;
+  object-fit: cover;
+}
+
+.routineMediaFallback {
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 36px;
+  background:
+    linear-gradient(135deg, rgba(185, 28, 28, 0.75), rgba(17, 17, 17, 0.92)),
+    #111111;
+}
+
+.routineCardBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+}
+
+.routineBadgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.routineBadgeRow span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: rgba(219, 36, 28, 0.08);
+  color: #b91c1c;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.routineCard h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 17px;
+  line-height: 1.25;
+  font-weight: 800;
+}
+
+.routineCardBody > p {
+  min-height: 42px;
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.routineMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.routineMetaGrid > div {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: #f9fafb;
+  border: 1px solid rgba(17, 24, 39, 0.06);
+}
+
+.routineMetaGrid svg {
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+.routineMetaGrid span {
+  display: block;
+  margin-top: 8px;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.routineMetaGrid strong {
+  display: block;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+  color: #111827;
+  font-size: 12px;
+  line-height: 1.25;
+  font-weight: 800;
+}
+
+.routineCardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 2px;
+}
+
+.routineCardFooter > span {
+  min-width: 0;
+  overflow: hidden;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.routinePrimaryLink {
+  flex-shrink: 0;
+  min-height: 38px;
+  padding: 0 12px;
+}
+
+.routineEmpty {
+  padding: 34px;
+  border-radius: 16px;
+  background: #f9fafb;
+  border: 1px dashed rgba(17, 24, 39, 0.18);
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.routineDetailPage {
+  gap: 18px;
+}
+
+.routineDetailHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.42fr);
+  gap: 0;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #111111;
+  color: #ffffff;
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.14);
+}
+
+.routineDetailHeroCopy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding: 34px;
+}
+
+.routineDetailHero h1 {
+  margin: 12px 0 10px;
+  color: #ffffff;
+  font-size: 40px;
+  line-height: 1.05;
+  font-weight: 800;
+}
+
+.routineDetailHero p {
+  max-width: 760px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.routineDetailActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.routineBackLink,
+.routineVideoBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 0;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.routineBackLink {
+  background: #ffffff;
+  color: #111827;
+}
+
+.routineVideoBtn {
+  background: #b91c1c;
+  color: #ffffff;
+}
+
+.routineBackLink:hover,
+.routineVideoBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 26px rgba(15, 23, 42, 0.18);
+}
+
+.routineDetailHeroMedia {
+  min-height: 280px;
+  background: #18181b;
+}
+
+.routineDetailHeroMedia img,
+.routineDetailHeroMedia .routineMediaFallback {
+  width: 100%;
+  height: 100%;
+}
+
+.routineDetailHeroMedia img {
+  display: block;
+  object-fit: cover;
+}
+
+.routineDetailStats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.routineDetailStats article {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 18px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
+}
+
+.routineDetailStats article > span {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 14px;
+  background: rgba(219, 36, 28, 0.08);
+  color: #b91c1c;
+}
+
+.routineDetailStats p {
+  margin: 0 0 8px;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.routineDetailStats strong {
+  display: block;
+  overflow-wrap: anywhere;
+  color: #111827;
+  font-size: 22px;
+  line-height: 1.15;
+  font-weight: 800;
+}
+
+.routineDetailStats small {
+  display: block;
+  margin-top: 8px;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.routineDetailGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.42fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.routineInfoPanel,
+.routineVideoPanel,
+.routineExercisesPanel {
+  padding: 20px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
+}
+
+.routinePanelHeader {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.routinePanelHeader > span {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 14px;
+  background: #111111;
+  color: #ffffff;
+}
+
+.routinePanelHeader h2,
+.routineVideoPanel h2,
+.routineExercisesPanel h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.routinePanelHeader p,
+.routineVideoPanel p,
+.routineExercisesPanel p {
+  margin: 6px 0 0;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.routineVideoPanel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.routineVideoPanel span,
+.routineVideoModalHeader span {
+  display: block;
+  color: #b91c1c;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.routineExercisesPanel {
+  display: flex;
+  flex-direction: column;
+}
+
+.routineExerciseGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.routineDayCard {
+  overflow: hidden;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+}
+
+.routineDayHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  background: #111111;
+  color: #ffffff;
+}
+
+.routineDayHeader span {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.routineDayHeader strong {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.routineExerciseList {
+  display: flex;
+  flex-direction: column;
+}
+
+.routineExerciseItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: 16px;
+  border-bottom: 1px solid rgba(17, 24, 39, 0.08);
+}
+
+.routineExerciseItem:last-child {
+  border-bottom: 0;
+}
+
+.routineExerciseItem span {
+  display: block;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.routineExerciseItem p {
+  margin: 5px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.routineExerciseMeta {
+  min-width: 96px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f9fafb;
+  border: 1px solid rgba(17, 24, 39, 0.06);
+  text-align: right;
+}
+
+.routineExerciseMeta strong {
+  display: block;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.routineExerciseMeta small {
+  display: block;
+  margin-top: 4px;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.routineExerciseNote {
+  grid-column: 1 / -1;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(219, 36, 28, 0.06);
+  color: #7f1d1d !important;
+  font-weight: 700;
+}
+
+.routineVideoOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(17, 24, 39, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.routineVideoModal {
+  width: min(980px, 100%);
+  overflow: hidden;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.34);
+}
+
+.routineVideoModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(17, 24, 39, 0.08);
+}
+
+.routineVideoModalHeader h2 {
+  margin: 4px 0 0;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.routineVideoModalHeader button {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(17, 24, 39, 0.1);
+  background: #ffffff;
+  color: #111827;
+  cursor: pointer;
+}
+
+.routineVideoFrame {
+  aspect-ratio: 16 / 9;
+  background: #000000;
+}
+
+.routineVideoFrame iframe,
+.routineVideoFrame video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.invitationsPage {
+  gap: 18px;
+}
+
+.invitationHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 22px;
+  align-items: stretch;
+  padding: 24px;
+  border-radius: 18px;
+  background: #111111;
+  color: #ffffff;
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.14);
+}
+
+.invitationHeroCopy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.invitationHero h1 {
+  margin: 12px 0 8px;
+  color: #ffffff;
+  font-size: 36px;
+  line-height: 1.08;
+  font-weight: 800;
+}
+
+.invitationHero p {
+  max-width: 760px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.invitationHeroPanel {
+  display: grid;
+  grid-template-columns: repeat(2, 112px);
+  gap: 10px;
+  align-content: center;
+  min-width: 250px;
+}
+
+.invitationHeroPanel > div {
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.invitationHeroPanel span {
+  display: block;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.invitationHeroPanel strong {
+  display: block;
+  margin-top: 8px;
+  color: #ffffff;
+  font-size: 26px;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.invitationHeroPanel .routineRefreshBtn {
+  grid-column: 1 / -1;
+}
+
+.invitationSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.invitationSummaryGrid article {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 18px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
+}
+
+.invitationSummaryGrid article > span {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 14px;
+  background: rgba(219, 36, 28, 0.08);
+  color: #b91c1c;
+}
+
+.invitationSummaryGrid p {
+  margin: 0 0 8px;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.invitationSummaryGrid strong {
+  display: block;
+  color: #111827;
+  font-size: 24px;
+  line-height: 1.1;
+  font-weight: 800;
+}
+
+.invitationSummaryGrid small {
+  display: block;
+  margin-top: 8px;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.invitationSection,
+.invitationSteps {
+  padding: 20px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
+}
+
+.invitationGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.invitationCard {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.045);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.invitationCard:hover {
+  transform: translateY(-2px);
+  border-color: rgba(185, 28, 28, 0.22);
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.08);
+}
+
+.invitationCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.invitationCardHeader span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: rgba(219, 36, 28, 0.08);
+  color: #b91c1c;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.invitationCardHeader h3 {
+  margin: 10px 0 0;
+  color: #111827;
+  font-size: 18px;
+  line-height: 1.25;
+  font-weight: 800;
+}
+
+.invitationStatusIcon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 14px;
+  background: #111111;
+  color: #ffffff;
+}
+
+.invitationOwner {
+  padding: 14px;
+  border-radius: 14px;
+  background: #f9fafb;
+  border: 1px solid rgba(17, 24, 39, 0.06);
+}
+
+.invitationOwner span,
+.invitationDates span,
+.invitationMetaGrid span {
+  display: block;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.invitationOwner strong {
+  display: block;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.invitationMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.invitationMetaGrid > div {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: #f9fafb;
+  border: 1px solid rgba(17, 24, 39, 0.06);
+}
+
+.invitationMetaGrid svg {
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+.invitationMetaGrid span {
+  margin-top: 8px;
+}
+
+.invitationMetaGrid strong {
+  display: block;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+  color: #111827;
+  font-size: 12px;
+  line-height: 1.25;
+  font-weight: 800;
+}
+
+.invitationDates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.invitationDates > div {
+  padding: 12px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+}
+
+.invitationDates strong {
+  display: block;
+  margin-top: 5px;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.invitationBenefits {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.invitationBenefits li {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  color: #374151;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.invitationBenefits svg {
+  margin-top: 3px;
+  color: #15803d;
+  flex-shrink: 0;
+}
+
+.invitationAcceptBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  margin-top: auto;
+  border-radius: 12px;
+  border: 0;
+  background: #b91c1c;
+  color: #ffffff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.invitationAcceptBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 26px rgba(15, 23, 42, 0.14);
+}
+
+.invitationAcceptBtn:disabled {
+  opacity: 0.62;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.invitationProcessed {
+  margin-top: auto;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(21, 128, 61, 0.08);
+  border: 1px solid rgba(21, 128, 61, 0.16);
+}
+
+.invitationProcessed strong {
+  display: block;
+  color: #166534;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.invitationProcessed p {
+  margin: 5px 0 0;
+  color: #4b5563;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.invitationEmpty {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  padding: 38px;
+  border-radius: 16px;
+  background: #f9fafb;
+  border: 1px dashed rgba(17, 24, 39, 0.18);
+  color: #6b7280;
+  text-align: center;
+}
+
+.invitationEmpty svg {
+  color: #b91c1c;
+  font-size: 28px;
+}
+
+.invitationEmpty strong {
+  color: #111827;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.invitationEmpty p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.invitationStepGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.invitationStepGrid article {
+  padding: 16px;
+  border-radius: 16px;
+  background: #f9fafb;
+  border: 1px solid rgba(17, 24, 39, 0.06);
+}
+
+.invitationStepGrid span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: #111111;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.invitationStepGrid strong {
+  display: block;
+  margin-top: 12px;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.invitationStepGrid p {
+  margin: 6px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.paymentsPage {
+  gap: 18px;
+}
+
+.paymentHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 22px;
+  align-items: stretch;
+  padding: 24px;
+  border-radius: 18px;
+  background: #111111;
+  color: #ffffff;
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.14);
+}
+
+.paymentHeroCopy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.paymentHero h1 {
+  margin: 12px 0 8px;
+  color: #ffffff;
+  font-size: 36px;
+  line-height: 1.08;
+  font-weight: 800;
+}
+
+.paymentHero p {
+  max-width: 780px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.paymentHeroPanel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(112px, 1fr));
+  gap: 10px;
+  align-content: center;
+  min-width: 300px;
+}
+
+.paymentHeroPanel > div {
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.paymentHeroPanel span {
+  display: block;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.paymentHeroPanel strong {
+  display: block;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+  color: #ffffff;
+  font-size: 22px;
+  line-height: 1.08;
+  font-weight: 800;
+}
+
+.paymentHeroPanel .routineRefreshBtn {
+  grid-column: 1 / -1;
+}
+
+.paymentSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.paymentSummaryGrid article {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 18px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
+}
+
+.paymentSummaryGrid article > span {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 14px;
+  background: rgba(219, 36, 28, 0.08);
+  color: #b91c1c;
+}
+
+.paymentSummaryGrid p {
+  margin: 0 0 8px;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.paymentSummaryGrid strong {
+  display: block;
+  overflow-wrap: anywhere;
+  color: #111827;
+  font-size: 23px;
+  line-height: 1.1;
+  font-weight: 800;
+}
+
+.paymentSummaryGrid small {
+  display: block;
+  margin-top: 8px;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.paymentSection {
+  padding: 20px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
+}
+
+.paymentDesktopTable {
+  overflow: hidden;
+  overflow-x: auto;
+  border-radius: 16px;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+}
+
+.paymentDesktopTable table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+}
+
+.paymentDesktopTable th,
+.paymentDesktopTable td {
+  padding: 16px;
+  text-align: left;
+  border-bottom: 1px solid rgba(17, 24, 39, 0.08);
+  font-size: 14px;
+}
+
+.paymentDesktopTable th {
+  background: #f9fafb;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.paymentDesktopTable tr:last-child td {
+  border-bottom: 0;
+}
+
+.paymentDesktopTable td {
+  color: #111827;
+}
+
+.paymentDesktopTable td strong {
+  color: #111827;
+  font-weight: 800;
+}
+
+.paymentDesktopTable td p {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.paymentStatusPill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.paymentStatusPaid {
+  background: rgba(21, 128, 61, 0.1);
+  color: #166534;
+}
+
+.paymentStatusPending {
+  background: rgba(245, 158, 11, 0.12);
+  color: #92400e;
+}
+
+.paymentStatusDanger {
+  background: rgba(185, 28, 28, 0.1);
+  color: #991b1b;
+}
+
+.paymentStatusNeutral {
+  background: rgba(107, 114, 128, 0.12);
+  color: #374151;
+}
+
+.paymentReceiptLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.paymentReceiptLink:hover {
+  text-decoration: underline;
+}
+
+.paymentMobileList {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.paymentCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.045);
+}
+
+.paymentCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.paymentCardHeader span {
+  display: block;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.paymentCardHeader h3 {
+  margin: 6px 0 0;
+  color: #111827;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.paymentCardHeader > strong {
+  color: #111827;
+  font-size: 16px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.paymentCardMeta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.paymentCardMeta > div {
+  padding: 12px;
+  border-radius: 12px;
+  background: #f9fafb;
+  border: 1px solid rgba(17, 24, 39, 0.06);
+}
+
+.paymentCardMeta span {
+  display: block;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.paymentCardMeta strong {
+  display: block;
+  margin-top: 5px;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.paymentNoReceipt {
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.paymentEmpty {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  padding: 38px;
+  border-radius: 16px;
+  background: #f9fafb;
+  border: 1px dashed rgba(17, 24, 39, 0.18);
+  color: #6b7280;
+  text-align: center;
+}
+
+.paymentEmpty svg {
+  color: #b91c1c;
+  font-size: 28px;
+}
+
+.paymentEmpty strong {
+  color: #111827;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.paymentEmpty p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.paymentInsightGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.paymentInsightGrid article {
+  padding: 18px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
+}
+
+.paymentInsightGrid span {
+  display: block;
+  color: #b91c1c;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.paymentInsightGrid strong {
+  display: block;
+  margin-top: 8px;
+  color: #111827;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.paymentInsightGrid p {
+  margin: 6px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.subscriptionPage {
+  gap: 18px;
+}
+
+.subscriptionHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 22px;
+  align-items: stretch;
+  padding: 24px;
+  border-radius: 18px;
+  background: #111111;
+  color: #ffffff;
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.14);
+}
+
+.subscriptionHeroCopy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.subscriptionHero h1 {
+  margin: 12px 0 8px;
+  color: #ffffff;
+  font-size: 36px;
+  line-height: 1.08;
+  font-weight: 800;
+}
+
+.subscriptionHero p {
+  max-width: 780px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.subscriptionHeroPanel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(122px, 1fr));
+  gap: 10px;
+  align-content: center;
+  min-width: 300px;
+}
+
+.subscriptionHeroPanel > div,
+.subscriptionHeroAlert {
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.subscriptionHeroPanel span,
+.subscriptionHeroAlert span {
+  display: block;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.subscriptionHeroPanel strong,
+.subscriptionHeroAlert strong {
+  display: block;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+  color: #ffffff;
+  font-size: 20px;
+  line-height: 1.12;
+  font-weight: 800;
+}
+
+.subscriptionHeroPanel .routineRefreshBtn {
+  grid-column: 1 / -1;
+}
+
+.subscriptionHeroAlert {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 250px;
+}
+
+.subscriptionHeroAlert svg {
+  color: #fecaca;
+  font-size: 28px;
+}
+
+.subscriptionSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.subscriptionSummaryGrid article {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 18px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
+}
+
+.subscriptionSummaryGrid article > span {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 14px;
+  background: rgba(219, 36, 28, 0.08);
+  color: #b91c1c;
+}
+
+.subscriptionSummaryGrid p {
+  margin: 0 0 8px;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.subscriptionSummaryGrid strong {
+  display: block;
+  overflow-wrap: anywhere;
+  color: #111827;
+  font-size: 22px;
+  line-height: 1.15;
+  font-weight: 800;
+}
+
+.subscriptionSummaryGrid small {
+  display: block;
+  margin-top: 8px;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.subscriptionSection,
+.subscriptionBenefitsPanel,
+.subscriptionPaymentPanel {
+  padding: 20px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
+}
+
+.subscriptionPlansGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.subscriptionPlanCard {
+  padding: 18px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.045);
+}
+
+.subscriptionPlanCard > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: rgba(219, 36, 28, 0.08);
+  color: #b91c1c;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.subscriptionPlanCard h3 {
+  margin: 12px 0 8px;
+  color: #111827;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.subscriptionPlanCard strong {
+  display: block;
+  color: #111827;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.subscriptionPlanCard p {
+  margin: 8px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.subscriptionContentGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.subscriptionBenefitsList {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.subscriptionBenefitsList li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 14px;
+  border-radius: 14px;
+  background: #f9fafb;
+  border: 1px solid rgba(17, 24, 39, 0.06);
+  color: #374151;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.subscriptionBenefitsList svg {
+  margin-top: 3px;
+  color: #15803d;
+  flex-shrink: 0;
+}
+
+.subscriptionPaymentList {
+  display: grid;
+  gap: 12px;
+}
+
+.subscriptionPaymentList > div {
+  padding: 14px;
+  border-radius: 14px;
+  background: #f9fafb;
+  border: 1px solid rgba(17, 24, 39, 0.06);
+}
+
+.subscriptionPaymentList span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.subscriptionPaymentList span svg {
+  color: #b91c1c;
+}
+
+.subscriptionPaymentList strong {
+  display: block;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+  color: #111827;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+/* Metric cards standard */
+.summaryGrid,
+.routineDetailStats,
+.invitationSummaryGrid,
+.paymentSummaryGrid,
+.subscriptionSummaryGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px 18px;
+}
+
+.invitationSummaryGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.summaryCard,
+.routineDetailStats article,
+.invitationSummaryGrid article,
+.paymentSummaryGrid article,
+.subscriptionSummaryGrid article {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 14px;
+  min-height: 126px;
+  padding: 20px 22px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(17, 24, 39, 0.1);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.04);
+}
+
+.summaryIcon,
+.routineDetailStats article > span,
+.invitationSummaryGrid article > span,
+.paymentSummaryGrid article > span,
+.subscriptionSummaryGrid article > span {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: #f4f6fa;
+  color: #111827;
+  font-size: 18px;
+}
+
+.summaryCard > div,
+.routineDetailStats article > div,
+.invitationSummaryGrid article > div,
+.paymentSummaryGrid article > div,
+.subscriptionSummaryGrid article > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "label label"
+    "value meta";
+  align-content: end;
+  align-items: end;
+  column-gap: 16px;
+  min-width: 0;
+}
+
+.summaryCard p,
+.routineDetailStats p,
+.invitationSummaryGrid p,
+.paymentSummaryGrid p,
+.subscriptionSummaryGrid p {
+  grid-area: label;
+  margin: 0 0 10px;
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 500;
+}
+
+.summaryCard strong,
+.routineDetailStats strong,
+.invitationSummaryGrid strong,
+.paymentSummaryGrid strong,
+.subscriptionSummaryGrid strong {
+  grid-area: value;
+  display: block;
+  color: #111827;
+  overflow-wrap: normal;
+  white-space: nowrap;
+  font-size: 26px;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.summaryCard span:not(.summaryIcon),
+.routineDetailStats small,
+.invitationSummaryGrid small,
+.paymentSummaryGrid small,
+.subscriptionSummaryGrid small {
+  grid-area: meta;
+  justify-self: end;
+  align-self: end;
+  max-width: none;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(219, 36, 28, 0.08);
+  color: #b91c1c;
+  font-size: 11px;
+  line-height: 1.25;
+  font-weight: 800;
+  text-align: center;
+  white-space: nowrap;
+}
+
 @media (max-width: 1180px) {
   .summaryGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -583,6 +2581,52 @@
 
   .cardGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .routineFilterGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .routineGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .routineDetailHero,
+  .routineDetailGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .routineDetailStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .invitationGrid,
+  .invitationSummaryGrid,
+  .invitationStepGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .paymentHero {
+    grid-template-columns: 1fr;
+  }
+
+  .paymentHeroPanel,
+  .paymentSummaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .subscriptionHero {
+    grid-template-columns: 1fr;
+  }
+
+  .subscriptionHeroPanel,
+  .subscriptionSummaryGrid,
+  .subscriptionPlansGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .subscriptionContentGrid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -609,5 +2653,143 @@
 
   .timelineList li {
     grid-template-columns: 1fr;
+  }
+
+  .routineHero {
+    grid-template-columns: 1fr;
+    padding: 20px;
+  }
+
+  .routineHeroPanel,
+  .routineFilterGrid,
+  .routineGrid,
+  .routineMetaGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .routineHeroPanel {
+    min-width: 0;
+  }
+
+  .routineToolbarHeader,
+  .routineResultsHeader,
+  .routineCardFooter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .routinePrimaryLink {
+    width: 100%;
+  }
+
+  .routineDetailHeroCopy {
+    padding: 22px;
+  }
+
+  .routineDetailHero h1 {
+    font-size: 30px;
+  }
+
+  .routineDetailStats,
+  .routineExerciseGrid,
+  .routineExerciseItem {
+    grid-template-columns: 1fr;
+  }
+
+  .routineVideoPanel,
+  .routineDayHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .routineExerciseMeta {
+    text-align: left;
+  }
+
+  .routineVideoOverlay {
+    padding: 14px;
+  }
+
+  .invitationHero,
+  .invitationHeroPanel,
+  .invitationGrid,
+  .invitationSummaryGrid,
+  .invitationStepGrid,
+  .invitationMetaGrid,
+  .invitationDates {
+    grid-template-columns: 1fr;
+  }
+
+  .invitationHero {
+    padding: 20px;
+  }
+
+  .invitationHeroPanel {
+    min-width: 0;
+  }
+
+  .paymentHero,
+  .paymentHeroPanel,
+  .paymentSummaryGrid,
+  .paymentInsightGrid,
+  .paymentCardMeta {
+    grid-template-columns: 1fr;
+  }
+
+  .paymentHero {
+    padding: 20px;
+  }
+
+  .paymentHeroPanel {
+    min-width: 0;
+  }
+
+  .paymentDesktopTable {
+    display: none;
+  }
+
+  .paymentMobileList {
+    display: flex;
+  }
+
+  .paymentCardHeader {
+    flex-direction: column;
+  }
+
+  .summaryCard > div,
+  .routineDetailStats article > div,
+  .invitationSummaryGrid article > div,
+  .paymentSummaryGrid article > div,
+  .subscriptionSummaryGrid article > div {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "label"
+      "value"
+      "meta";
+    row-gap: 10px;
+  }
+
+  .summaryCard span:not(.summaryIcon),
+  .routineDetailStats small,
+  .invitationSummaryGrid small,
+  .paymentSummaryGrid small,
+  .subscriptionSummaryGrid small {
+    justify-self: start;
+  }
+
+  .subscriptionHero,
+  .subscriptionHeroPanel,
+  .subscriptionSummaryGrid,
+  .subscriptionPlansGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .subscriptionHero {
+    padding: 20px;
+  }
+
+  .subscriptionHeroPanel,
+  .subscriptionHeroAlert {
+    min-width: 0;
   }
 }

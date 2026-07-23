@@ -28,3 +28,12 @@ coverage/
 *.local
 *.swp
 *.swo
+*.sql
+!scripts/queries/productViewsRegression.sql
+!scripts/regression-data/productRegressionValidation.sql
+*.sql.meta.json
+scripts/regression-data/output/*
+!scripts/regression-data/output/.gitkeep
+# Backups locales de PostgreSQL
+storage/backups/*
+!storage/backups/.gitkeep

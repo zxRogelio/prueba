@@ -1,0 +1,555 @@
+import { Op } from "sequelize";
+import {
+  MembershipPlan,
+  Order,
+  OrderItem,
+  Payment,
+  User,
+} from "../models/index.js";
+import {
+  exportAdminPaymentsCsv,
+  getAdminPaymentDetail,
+  getAdminPaymentsChart,
+  getAdminPaymentsSummary,
+  listAdminPaymentsReport,
+  listAdminRefunds,
+} from "../services/adminPaymentReportingService.js";
+import { processRefund } from "../services/paymentService.js";
+
+const PAYMENT_STATUSES = new Set([
+  "pending",
+  "paid",
+  "failed",
+  "cancelled",
+  "disputed",
+  "charged_back",
+  "refunded",
+]);
+const PAYMENT_REVIEW_STATUSES = new Set(["disputed", "charged_back"]);
+const PAYMENT_METHODS = new Set([
+  "cash",
+  "transfer",
+  "card_terminal",
+  "online_checkout",
+]);
+const PAYMENT_PROVIDERS = new Set([
+  "none",
+  "bank_transfer",
+  "mercadopago_terminal",
+  "mercadopago_checkout",
+]);
+const ORDER_CHANNELS = new Set(["online", "reception", "mobile"]);
+
+function parsePagination(query) {
+  const page = Math.max(Number.parseInt(query.page || "1", 10), 1);
+  const limit = Math.min(
+    Math.max(Number.parseInt(query.limit || "20", 10), 1),
+    100
+  );
+
+  return {
+    page,
+    limit,
+    offset: (page - 1) * limit,
+  };
+}
+
+function parseList(value) {
+  if (!value) return [];
+
+  return String(value)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function parseDate(value, label, endOfDay = false) {
+  if (!value) return null;
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    const error = new Error(`${label} no es una fecha valida.`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (endOfDay && /^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+    date.setHours(23, 59, 59, 999);
+  }
+
+  return date;
+}
+
+function buildCreatedAtFilter(query) {
+  const from = parseDate(
+    query.from || query.dateFrom || query.startDate,
+    "Fecha inicial"
+  );
+  const to = parseDate(
+    query.to || query.dateTo || query.endDate,
+    "Fecha final",
+    true
+  );
+
+  if (!from && !to) return null;
+
+  return {
+    ...(from ? { [Op.gte]: from } : {}),
+    ...(to ? { [Op.lte]: to } : {}),
+  };
+}
+
+function buildEnumFilter(queryValue, allowedValues, label) {
+  const values = parseList(queryValue);
+
+  if (values.length === 0) return null;
+
+  const invalid = values.find((value) => !allowedValues.has(value));
+
+  if (invalid) {
+    const error = new Error(`${label} invalido: ${invalid}`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return values.length === 1 ? values[0] : { [Op.in]: values };
+}
+
+function sanitizePayment(payment, { admin = false } = {}) {
+  const plain = payment.get ? payment.get({ plain: true }) : payment;
+  const orderItems = Array.isArray(plain.order?.items)
+    ? plain.order.items.map((item) => ({
+        id: item.id,
+        itemType: item.itemType,
+        productId: item.productId,
+        membershipPlanId: item.membershipPlanId,
+        quantity: item.quantity,
+        itemNameSnapshot: item.itemNameSnapshot,
+        itemDescriptionSnapshot: item.itemDescriptionSnapshot,
+        subtotal: item.subtotal,
+      }))
+    : [];
+  const base = {
+    id: plain.id,
+    orderId: plain.orderId,
+    amount: plain.amount,
+    currency: plain.currency,
+    method: plain.method,
+    status: plain.status,
+    providerStatus: plain.providerStatus,
+    paidAt: plain.paidAt,
+    approvedAt: plain.approvedAt,
+    cancelledAt: plain.cancelledAt,
+    refundedAt: plain.refundedAt,
+    order: plain.order
+      ? {
+          id: plain.order.id,
+          orderNumber: plain.order.orderNumber,
+          status: plain.order.status,
+          channel: plain.order.channel,
+          total: plain.order.total,
+          items: admin ? orderItems : undefined,
+        }
+      : null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+
+  if (!admin) return base;
+
+  return {
+    ...base,
+    userId: plain.userId,
+    planId: plain.planId,
+    subscriptionId: plain.subscriptionId,
+    groupId: plain.groupId,
+    paymentType: plain.paymentType,
+    source: plain.source,
+    provider: plain.provider,
+    providerPreferenceId: plain.providerPreferenceId,
+    providerPaymentId: plain.providerPaymentId,
+    externalReference: plain.externalReference,
+    providerStatusDetail: plain.providerStatusDetail,
+    idempotencyKey: plain.idempotencyKey,
+    reference: plain.reference,
+    notes: plain.notes,
+    metadata: plain.metadata,
+    review:
+      PAYMENT_REVIEW_STATUSES.has(plain.status) || plain.metadata?.paymentReview
+        ? {
+            required: true,
+            reason:
+              plain.metadata?.paymentReview?.reason ||
+              plain.metadata?.mercadopago?.reviewReason ||
+              plain.status,
+            receivedAt:
+              plain.metadata?.paymentReview?.receivedAt ||
+              plain.metadata?.mercadopago?.processedAt ||
+              plain.updatedAt,
+          }
+        : null,
+    createdBy: plain.createdBy,
+    user: plain.user
+      ? {
+          id: plain.user.id,
+          email: plain.user.email,
+          role: plain.user.role,
+        }
+      : null,
+    plan: plain.plan
+      ? {
+          id: plain.plan.id,
+          name: plain.plan.name,
+          type: plain.plan.type,
+        }
+      : null,
+  };
+}
+
+async function buildPaymentWhere(query, options = {}) {
+  const { userId = null } = options;
+  const where = {};
+  const status = buildEnumFilter(query.status, PAYMENT_STATUSES, "Estado");
+  const method = buildEnumFilter(query.method, PAYMENT_METHODS, "Metodo");
+  const provider = buildEnumFilter(query.provider, PAYMENT_PROVIDERS, "Proveedor");
+  const source = query.source
+    ? buildEnumFilter(
+        query.source,
+        new Set(["admin_manual", "online_checkout"]),
+        "Origen"
+      )
+    : null;
+  const createdAt = buildCreatedAtFilter(query);
+
+  if (userId) where.userId = userId;
+  if (status) where.status = status;
+  if (method) where.method = method;
+  if (provider) where.provider = provider;
+  if (source) where.source = source;
+  if (createdAt) where.createdAt = createdAt;
+
+  const customerId = query.customerId || query.clientId || query.userId;
+
+  if (customerId && !userId) {
+    where.userId = customerId;
+  }
+
+  if (query.planId) {
+    const orderItems = await OrderItem.findAll({
+      attributes: ["orderId"],
+      where: {
+        membershipPlanId: query.planId,
+      },
+      raw: true,
+    });
+    const orderIds = [
+      ...new Set(orderItems.map((item) => item.orderId).filter(Boolean)),
+    ];
+
+    where[Op.or] = [
+      { planId: query.planId },
+      ...(orderIds.length > 0 ? [{ orderId: { [Op.in]: orderIds } }] : []),
+    ];
+  }
+
+  return where;
+}
+
+function buildPaymentIncludes(query, { admin = false } = {}) {
+  const channel = buildEnumFilter(query.channel, ORDER_CHANNELS, "Canal");
+
+  return [
+    {
+      model: Order,
+      as: "order",
+      required: Boolean(channel),
+      where: channel ? { channel } : undefined,
+      include: [
+        {
+          model: OrderItem,
+          as: "items",
+          required: false,
+        },
+      ],
+    },
+    ...(admin
+      ? [
+          {
+            model: User,
+            as: "user",
+            attributes: ["id", "email", "role"],
+          },
+          {
+            model: MembershipPlan,
+            as: "plan",
+            required: false,
+          },
+        ]
+      : []),
+  ];
+}
+
+async function findPaymentById(paymentId, options = {}) {
+  const { admin = false, transaction = null, lock = null } = options;
+
+  return Payment.findByPk(paymentId, {
+    include: buildPaymentIncludes({}, { admin }),
+    transaction,
+    lock,
+  });
+}
+
+function handleControllerError(res, error, fallbackMessage) {
+  const statusCode = error.statusCode || 500;
+
+  if (statusCode >= 500) {
+    console.error(fallbackMessage, error);
+  }
+
+  return res.status(statusCode).json({
+    ok: false,
+    error: error.message || fallbackMessage,
+  });
+}
+
+export async function listMyPayments(req, res) {
+  try {
+    const { page, limit, offset } = parsePagination(req.query);
+    const where = await buildPaymentWhere(req.query, { userId: req.user.id });
+
+    const { rows, count } = await Payment.findAndCountAll({
+      where,
+      include: buildPaymentIncludes(req.query),
+      order: [["createdAt", "DESC"]],
+      limit,
+      offset,
+      distinct: true,
+    });
+
+    return res.json({
+      ok: true,
+      payments: rows.map((payment) => sanitizePayment(payment)),
+      pagination: {
+        page,
+        limit,
+        total: count,
+        pages: Math.ceil(count / limit),
+      },
+    });
+  } catch (error) {
+    return handleControllerError(res, error, "Error listando pagos");
+  }
+}
+
+export async function getPaymentStatus(req, res) {
+  try {
+    const isAdmin = req.user.role === "administrador";
+    const payment = await findPaymentById(req.params.paymentId, {
+      admin: isAdmin,
+    });
+
+    if (!payment) {
+      return res.status(404).json({ ok: false, error: "Pago no encontrado" });
+    }
+
+    if (!isAdmin && payment.userId !== req.user.id) {
+      return res.status(403).json({
+        ok: false,
+        error: "No tienes permisos para consultar este pago",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      payment: sanitizePayment(payment, { admin: isAdmin }),
+    });
+  } catch (error) {
+    return handleControllerError(res, error, "Error consultando pago");
+  }
+}
+
+export async function listAdminPayments(req, res) {
+  try {
+    const result = await listAdminPaymentsReport(req.query);
+
+    return res.json({
+      ok: true,
+      ...result,
+    });
+  } catch (error) {
+    return handleControllerError(res, error, "Error listando pagos admin");
+  }
+}
+
+export async function getAdminPaymentsSummaryController(req, res) {
+  try {
+    const summary = await getAdminPaymentsSummary(req.query);
+
+    return res.json({
+      ok: true,
+      summary,
+    });
+  } catch (error) {
+    return handleControllerError(res, error, "Error calculando resumen de pagos");
+  }
+}
+
+export async function getAdminPaymentsChartController(req, res) {
+  try {
+    const chart = await getAdminPaymentsChart(req.query);
+
+    return res.json({
+      ok: true,
+      chart,
+    });
+  } catch (error) {
+    return handleControllerError(res, error, "Error calculando grafica de pagos");
+  }
+}
+
+export async function exportAdminPaymentsCsvController(req, res) {
+  try {
+    const csv = await exportAdminPaymentsCsv(req.query);
+    const generatedAt = new Date().toISOString().slice(0, 10);
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="pagos-titanium-${generatedAt}.csv"`
+    );
+
+    return res.status(200).send(csv);
+  } catch (error) {
+    return handleControllerError(res, error, "Error exportando pagos admin");
+  }
+}
+
+export async function getAdminPaymentDetailController(req, res) {
+  try {
+    const payment = await getAdminPaymentDetail(req.params.paymentId);
+
+    return res.json({
+      ok: true,
+      payment,
+    });
+  } catch (error) {
+    return handleControllerError(res, error, "Error consultando detalle de pago");
+  }
+}
+
+export async function listAdminRefundsController(req, res) {
+  try {
+    const result = await listAdminRefunds(req.query);
+
+    return res.json({
+      ok: true,
+      ...result,
+    });
+  } catch (error) {
+    return handleControllerError(res, error, "Error listando reembolsos admin");
+  }
+}
+
+export async function listAdminChargebacks(req, res) {
+  try {
+    const { page, limit, offset } = parsePagination(req.query);
+    const filters = { ...req.query };
+    delete filters.status;
+    const where = await buildPaymentWhere(filters);
+
+    where.status = { [Op.in]: [...PAYMENT_REVIEW_STATUSES] };
+
+    const { rows, count } = await Payment.findAndCountAll({
+      where,
+      include: buildPaymentIncludes(filters, { admin: true }),
+      order: [["updatedAt", "DESC"]],
+      limit,
+      offset,
+      distinct: true,
+    });
+
+    return res.json({
+      ok: true,
+      payments: rows.map((payment) => sanitizePayment(payment, { admin: true })),
+      summary: {
+        total: count,
+        disputed: rows.filter((payment) => payment.status === "disputed").length,
+        chargedBack: rows.filter((payment) => payment.status === "charged_back").length,
+      },
+      pagination: {
+        page,
+        limit,
+        total: count,
+        pages: Math.ceil(count / limit),
+      },
+    });
+  } catch (error) {
+    return handleControllerError(
+      res,
+      error,
+      "Error listando contracargos admin"
+    );
+  }
+}
+
+export async function refundPayment(req, res) {
+  try {
+    const { paymentId } = req.params;
+
+    if (!paymentId) {
+      return res.status(400).json({
+        ok: false,
+        error: "paymentId es obligatorio",
+      });
+    }
+
+    if (!req.user?.id) {
+      return res.status(401).json({
+        ok: false,
+        error: "Usuario autenticado requerido",
+      });
+    }
+
+    const amount = Object.prototype.hasOwnProperty.call(req.body || {}, "amount")
+      ? req.body.amount
+      : null;
+    const refundItems = Object.prototype.hasOwnProperty.call(req.body || {}, "items")
+      ? req.body.items
+      : req.body?.refundItems ?? null;
+    const refund = await processRefund({
+      paymentId,
+      amount,
+      reason: req.body?.reason ?? null,
+      providerRefundId: req.body?.providerRefundId ?? null,
+      idempotencyKey: req.body?.idempotencyKey ?? req.body?.providerRefundId ?? null,
+      requestedBy: req.user.id,
+      status: "approved",
+      items: refundItems,
+      metadata: {
+        source: "admin_manual",
+      },
+    });
+    const refunded = await findPaymentById(refund.paymentId, { admin: true });
+
+    return res.json({
+      ok: true,
+      payment: sanitizePayment(refunded, { admin: true }),
+      refund: {
+        id: refund.id,
+        paymentId: refund.paymentId,
+        orderId: refund.orderId,
+        providerRefundId: refund.providerRefundId,
+        idempotencyKey: refund.idempotencyKey,
+        amount: refund.amount,
+        reason: refund.reason,
+        status: refund.status,
+        requestedAt: refund.requestedAt,
+        approvedAt: refund.approvedAt,
+        items: refund.get?.("items") || refund.items || [],
+      },
+    });
+  } catch (error) {
+    return handleControllerError(res, error, "Error registrando reembolso");
+  }
+}

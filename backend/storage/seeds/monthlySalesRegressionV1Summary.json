@@ -1,0 +1,586 @@
+{
+  "seedName": "sales-regression-monthly-v1",
+  "purpose": "monthly-product-sales-regression",
+  "randomSeed": "TITANIUM_MONTHLY_SALES_REGRESSION_2026",
+  "startMonth": "2024-07",
+  "endMonth": "2026-06",
+  "months": 24,
+  "usersExpected": 500,
+  "usersFound": 500,
+  "usersUsed": 487,
+  "productsFound": 160,
+  "productsUsed": 158,
+  "ordersCreated": 7377,
+  "orderItemsCreated": 21699,
+  "unitsSold": 26331,
+  "averageItemsPerOrder": 2.94,
+  "averageUnitsPerOrder": 3.57,
+  "ordersByMonth": {
+    "2024-07": 287,
+    "2024-08": 278,
+    "2024-09": 290,
+    "2024-10": 300,
+    "2024-11": 323,
+    "2024-12": 299,
+    "2025-01": 320,
+    "2025-02": 297,
+    "2025-03": 282,
+    "2025-04": 309,
+    "2025-05": 300,
+    "2025-06": 327,
+    "2025-07": 302,
+    "2025-08": 292,
+    "2025-09": 324,
+    "2025-10": 292,
+    "2025-11": 335,
+    "2025-12": 321,
+    "2026-01": 324,
+    "2026-02": 314,
+    "2026-03": 315,
+    "2026-04": 324,
+    "2026-05": 314,
+    "2026-06": 308
+  },
+  "orderItemsByMonth": {
+    "2024-07": 828,
+    "2024-08": 808,
+    "2024-09": 858,
+    "2024-10": 864,
+    "2024-11": 978,
+    "2024-12": 884,
+    "2025-01": 937,
+    "2025-02": 868,
+    "2025-03": 848,
+    "2025-04": 926,
+    "2025-05": 930,
+    "2025-06": 925,
+    "2025-07": 880,
+    "2025-08": 857,
+    "2025-09": 907,
+    "2025-10": 863,
+    "2025-11": 981,
+    "2025-12": 956,
+    "2026-01": 996,
+    "2026-02": 890,
+    "2026-03": 933,
+    "2026-04": 944,
+    "2026-05": 921,
+    "2026-06": 917
+  },
+  "unitsByMonth": {
+    "2024-07": 1010,
+    "2024-08": 974,
+    "2024-09": 1040,
+    "2024-10": 1043,
+    "2024-11": 1190,
+    "2024-12": 1073,
+    "2025-01": 1141,
+    "2025-02": 1044,
+    "2025-03": 1021,
+    "2025-04": 1135,
+    "2025-05": 1135,
+    "2025-06": 1090,
+    "2025-07": 1055,
+    "2025-08": 1054,
+    "2025-09": 1108,
+    "2025-10": 1051,
+    "2025-11": 1199,
+    "2025-12": 1164,
+    "2026-01": 1206,
+    "2026-02": 1082,
+    "2026-03": 1122,
+    "2026-04": 1151,
+    "2026-05": 1138,
+    "2026-06": 1105
+  },
+  "revenueByMonth": {
+    "2024-07": 622386.74,
+    "2024-08": 619370.35,
+    "2024-09": 638655.74,
+    "2024-10": 647410.86,
+    "2024-11": 700497.33,
+    "2024-12": 667821.86,
+    "2025-01": 720782.87,
+    "2025-02": 635000.71,
+    "2025-03": 630551.82,
+    "2025-04": 697756.93,
+    "2025-05": 708059.92,
+    "2025-06": 672396.46,
+    "2025-07": 627135.45,
+    "2025-08": 675446.21,
+    "2025-09": 685349.88,
+    "2025-10": 673386.84,
+    "2025-11": 742330.96,
+    "2025-12": 757641.03,
+    "2026-01": 770323.74,
+    "2026-02": 693789.49,
+    "2026-03": 728792.2,
+    "2026-04": 717821.61,
+    "2026-05": 716490.21,
+    "2026-06": 701105.8
+  },
+  "uniqueCustomersByMonth": {
+    "2024-07": 143,
+    "2024-08": 150,
+    "2024-09": 155,
+    "2024-10": 160,
+    "2024-11": 180,
+    "2024-12": 175,
+    "2025-01": 195,
+    "2025-02": 188,
+    "2025-03": 182,
+    "2025-04": 191,
+    "2025-05": 185,
+    "2025-06": 198,
+    "2025-07": 201,
+    "2025-08": 203,
+    "2025-09": 204,
+    "2025-10": 201,
+    "2025-11": 223,
+    "2025-12": 217,
+    "2026-01": 235,
+    "2026-02": 217,
+    "2026-03": 224,
+    "2026-04": 229,
+    "2026-05": 229,
+    "2026-06": 240
+  },
+  "productsSoldByMonth": {
+    "2024-07": 124,
+    "2024-08": 116,
+    "2024-09": 125,
+    "2024-10": 123,
+    "2024-11": 120,
+    "2024-12": 121,
+    "2025-01": 126,
+    "2025-02": 123,
+    "2025-03": 117,
+    "2025-04": 125,
+    "2025-05": 121,
+    "2025-06": 119,
+    "2025-07": 121,
+    "2025-08": 117,
+    "2025-09": 123,
+    "2025-10": 123,
+    "2025-11": 124,
+    "2025-12": 122,
+    "2026-01": 122,
+    "2026-02": 119,
+    "2026-03": 128,
+    "2026-04": 127,
+    "2026-05": 121,
+    "2026-06": 112
+  },
+  "monthlyDemandPlan": [
+    {
+      "month": "2024-07",
+      "initialDemand": 1006,
+      "normalizationFactor": 1,
+      "finalDemand": 1010
+    },
+    {
+      "month": "2024-08",
+      "initialDemand": 975,
+      "normalizationFactor": 1,
+      "finalDemand": 974
+    },
+    {
+      "month": "2024-09",
+      "initialDemand": 1102,
+      "normalizationFactor": 0.94,
+      "finalDemand": 1040
+    },
+    {
+      "month": "2024-10",
+      "initialDemand": 1047,
+      "normalizationFactor": 1,
+      "finalDemand": 1043
+    },
+    {
+      "month": "2024-11",
+      "initialDemand": 1116,
+      "normalizationFactor": 1.07,
+      "finalDemand": 1190
+    },
+    {
+      "month": "2024-12",
+      "initialDemand": 1112,
+      "normalizationFactor": 0.96,
+      "finalDemand": 1073
+    },
+    {
+      "month": "2025-01",
+      "initialDemand": 1116,
+      "normalizationFactor": 1.02,
+      "finalDemand": 1141
+    },
+    {
+      "month": "2025-02",
+      "initialDemand": 1045,
+      "normalizationFactor": 1,
+      "finalDemand": 1044
+    },
+    {
+      "month": "2025-03",
+      "initialDemand": 990,
+      "normalizationFactor": 1.03,
+      "finalDemand": 1021
+    },
+    {
+      "month": "2025-04",
+      "initialDemand": 1142,
+      "normalizationFactor": 0.99,
+      "finalDemand": 1135
+    },
+    {
+      "month": "2025-05",
+      "initialDemand": 1065,
+      "normalizationFactor": 1.07,
+      "finalDemand": 1135
+    },
+    {
+      "month": "2025-06",
+      "initialDemand": 1097,
+      "normalizationFactor": 0.99,
+      "finalDemand": 1090
+    },
+    {
+      "month": "2025-07",
+      "initialDemand": 949,
+      "normalizationFactor": 1.11,
+      "finalDemand": 1055
+    },
+    {
+      "month": "2025-08",
+      "initialDemand": 925,
+      "normalizationFactor": 1.14,
+      "finalDemand": 1054
+    },
+    {
+      "month": "2025-09",
+      "initialDemand": 1080,
+      "normalizationFactor": 1.03,
+      "finalDemand": 1108
+    },
+    {
+      "month": "2025-10",
+      "initialDemand": 992,
+      "normalizationFactor": 1.06,
+      "finalDemand": 1051
+    },
+    {
+      "month": "2025-11",
+      "initialDemand": 1203,
+      "normalizationFactor": 1,
+      "finalDemand": 1199
+    },
+    {
+      "month": "2025-12",
+      "initialDemand": 1194,
+      "normalizationFactor": 0.97,
+      "finalDemand": 1164
+    },
+    {
+      "month": "2026-01",
+      "initialDemand": 1116,
+      "normalizationFactor": 1.08,
+      "finalDemand": 1206
+    },
+    {
+      "month": "2026-02",
+      "initialDemand": 1044,
+      "normalizationFactor": 1.04,
+      "finalDemand": 1082
+    },
+    {
+      "month": "2026-03",
+      "initialDemand": 1069,
+      "normalizationFactor": 1.05,
+      "finalDemand": 1122
+    },
+    {
+      "month": "2026-04",
+      "initialDemand": 1140,
+      "normalizationFactor": 1.01,
+      "finalDemand": 1151
+    },
+    {
+      "month": "2026-05",
+      "initialDemand": 1125,
+      "normalizationFactor": 1.01,
+      "finalDemand": 1138
+    },
+    {
+      "month": "2026-06",
+      "initialDemand": 1069,
+      "normalizationFactor": 1.03,
+      "finalDemand": 1105
+    }
+  ],
+  "productDemandSegments": {
+    "high": 24,
+    "medium": 87,
+    "low": 47
+  },
+  "productTrendSegments": {
+    "growth": 64,
+    "stable": 55,
+    "decline": 39
+  },
+  "zeroSaleProductMonths": 873,
+  "zeroSaleProductMonthPercentage": 23.02,
+  "ordersByChannel": {
+    "online": 3431,
+    "reception": 2372,
+    "mobile": 1574
+  },
+  "orderItemsByQuantity": {
+    "1": 17891,
+    "2": 2984,
+    "3": 824
+  },
+  "ordersByDistinctProductCount": {
+    "1": 783,
+    "2": 1832,
+    "3": 2567,
+    "4": 1424,
+    "5": 771
+  },
+  "discountDistribution": {
+    "none": 15845,
+    "moderate_5_10": 4169,
+    "high_11_20": 1685
+  },
+  "inventoryBefore": {
+    "productsCount": 160,
+    "stockSum": 3131,
+    "inventoryMovements": 1,
+    "inventoryReservations": 14
+  },
+  "inventoryAfter": {
+    "productsCount": 160,
+    "stockSum": 3131,
+    "inventoryMovements": 1,
+    "inventoryReservations": 14
+  },
+  "validationErrors": [],
+  "warnings": [],
+  "verification": {
+    "ordersFound": 7377,
+    "orderItemsFound": 21699,
+    "unitsSold": 26331,
+    "monthsCovered": 24,
+    "firstMonth": "2024-07",
+    "lastMonth": "2026-06",
+    "minOrdersByMonth": 278,
+    "maxOrdersByMonth": 335,
+    "avgOrdersByMonth": "307.38",
+    "minProductsByMonth": 112,
+    "maxProductsByMonth": 128,
+    "uniqueProductsSold": 158,
+    "uniqueCustomersUsed": 487,
+    "ordersWithMoreThan5Products": 0,
+    "ordersWithoutProducts": 0,
+    "ordersWithRepeatedProducts": 0,
+    "itemsQuantityOutOfRange": 0,
+    "itemsWithMissingProduct": 0,
+    "ordersWithIncorrectTotal": 0,
+    "ordersBeforeUserRegistration": 0,
+    "datesOutOfPeriod": 0,
+    "duplicateOrderNumbers": 0,
+    "monthlyTable": {
+      "2024-07": {
+        "units": 1010,
+        "orders": 287,
+        "revenue": 622386.74,
+        "products": 124,
+        "customers": 143,
+        "orderItems": 828
+      },
+      "2024-08": {
+        "units": 974,
+        "orders": 278,
+        "revenue": 619370.35,
+        "products": 116,
+        "customers": 150,
+        "orderItems": 808
+      },
+      "2024-09": {
+        "units": 1040,
+        "orders": 290,
+        "revenue": 638655.74,
+        "products": 125,
+        "customers": 155,
+        "orderItems": 858
+      },
+      "2024-10": {
+        "units": 1043,
+        "orders": 300,
+        "revenue": 647410.86,
+        "products": 123,
+        "customers": 160,
+        "orderItems": 864
+      },
+      "2024-11": {
+        "units": 1190,
+        "orders": 323,
+        "revenue": 700497.33,
+        "products": 120,
+        "customers": 180,
+        "orderItems": 978
+      },
+      "2024-12": {
+        "units": 1073,
+        "orders": 299,
+        "revenue": 667821.86,
+        "products": 121,
+        "customers": 175,
+        "orderItems": 884
+      },
+      "2025-01": {
+        "units": 1141,
+        "orders": 320,
+        "revenue": 720782.87,
+        "products": 126,
+        "customers": 195,
+        "orderItems": 937
+      },
+      "2025-02": {
+        "units": 1044,
+        "orders": 297,
+        "revenue": 635000.71,
+        "products": 123,
+        "customers": 188,
+        "orderItems": 868
+      },
+      "2025-03": {
+        "units": 1021,
+        "orders": 282,
+        "revenue": 630551.82,
+        "products": 117,
+        "customers": 182,
+        "orderItems": 848
+      },
+      "2025-04": {
+        "units": 1135,
+        "orders": 309,
+        "revenue": 697756.93,
+        "products": 125,
+        "customers": 191,
+        "orderItems": 926
+      },
+      "2025-05": {
+        "units": 1135,
+        "orders": 300,
+        "revenue": 708059.92,
+        "products": 121,
+        "customers": 185,
+        "orderItems": 930
+      },
+      "2025-06": {
+        "units": 1090,
+        "orders": 327,
+        "revenue": 672396.46,
+        "products": 119,
+        "customers": 198,
+        "orderItems": 925
+      },
+      "2025-07": {
+        "units": 1055,
+        "orders": 302,
+        "revenue": 627135.45,
+        "products": 121,
+        "customers": 201,
+        "orderItems": 880
+      },
+      "2025-08": {
+        "units": 1054,
+        "orders": 292,
+        "revenue": 675446.21,
+        "products": 117,
+        "customers": 203,
+        "orderItems": 857
+      },
+      "2025-09": {
+        "units": 1108,
+        "orders": 324,
+        "revenue": 685349.88,
+        "products": 123,
+        "customers": 204,
+        "orderItems": 907
+      },
+      "2025-10": {
+        "units": 1051,
+        "orders": 292,
+        "revenue": 673386.84,
+        "products": 123,
+        "customers": 201,
+        "orderItems": 863
+      },
+      "2025-11": {
+        "units": 1199,
+        "orders": 335,
+        "revenue": 742330.96,
+        "products": 124,
+        "customers": 223,
+        "orderItems": 981
+      },
+      "2025-12": {
+        "units": 1164,
+        "orders": 321,
+        "revenue": 757641.03,
+        "products": 122,
+        "customers": 217,
+        "orderItems": 956
+      },
+      "2026-01": {
+        "units": 1206,
+        "orders": 324,
+        "revenue": 770323.74,
+        "products": 122,
+        "customers": 235,
+        "orderItems": 996
+      },
+      "2026-02": {
+        "units": 1082,
+        "orders": 314,
+        "revenue": 693789.49,
+        "products": 119,
+        "customers": 217,
+        "orderItems": 890
+      },
+      "2026-03": {
+        "units": 1122,
+        "orders": 315,
+        "revenue": 728792.2,
+        "products": 128,
+        "customers": 224,
+        "orderItems": 933
+      },
+      "2026-04": {
+        "units": 1151,
+        "orders": 324,
+        "revenue": 717821.61,
+        "products": 127,
+        "customers": 229,
+        "orderItems": 944
+      },
+      "2026-05": {
+        "units": 1138,
+        "orders": 314,
+        "revenue": 716490.21,
+        "products": 121,
+        "customers": 229,
+        "orderItems": 921
+      },
+      "2026-06": {
+        "units": 1105,
+        "orders": 308,
+        "revenue": 701105.8,
+        "products": 112,
+        "customers": 240,
+        "orderItems": 917
+      }
+    }
+  }
+}
