@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  FaChevronRight,
   FaHeart,
   FaMinus,
   FaPlus,
@@ -12,6 +13,8 @@ import {
 } from "react-icons/fa";
 import styles from "./CatalogProductDetail.module.css";
 import type { CatalogProductView } from "../../pages/visitor/catalogData";
+import type { CartProduct } from "../../context/CartContext";
+import { getCartRecommendations } from "../../data/cartRecommendations";
 
 const cx = (...names: Array<string | null | undefined | false>) =>
   names
@@ -25,6 +28,7 @@ interface CatalogProductDetailProps {
   isFavorite: boolean;
   onToggleFavorite: (productId: CatalogProductView["id"]) => void;
   onAddToCart: (product: CatalogProductView, quantity?: number) => void;
+  onAddRecommendation: (product: CartProduct) => void;
 }
 
 function formatSpecLabel(key: string) {
@@ -37,6 +41,7 @@ export default function CatalogProductDetail({
   isFavorite,
   onToggleFavorite,
   onAddToCart,
+  onAddRecommendation,
 }: CatalogProductDetailProps) {
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -55,6 +60,9 @@ export default function CatalogProductDetail({
         ((product.originalPrice! - product.price) / product.originalPrice!) * 100
       )
     : 0;
+  const [recommendedProduct] = getCartRecommendations([
+    { ...product, quantity: 1 },
+  ]);
 
   return (
     <div className={cx("productDetail")}>
@@ -232,6 +240,41 @@ export default function CatalogProductDetail({
           <p>{product.usage}</p>
         </article>
       </section>
+
+      {recommendedProduct && (
+        <section
+          className={cx("detailRecommendation")}
+          aria-labelledby="detail-recommendation-title"
+        >
+          <div className={cx("detailRecommendationHeader")}>
+            <h2 id="detail-recommendation-title">Tambien puede interesarte</h2>
+          </div>
+
+          <article className={cx("detailRecommendationCard")}>
+            <img
+              src={recommendedProduct.image}
+              alt={recommendedProduct.name}
+              className={cx("detailRecommendationImage")}
+            />
+
+            <div className={cx("detailRecommendationBody")}>
+              <span>{recommendedProduct.category}</span>
+              <strong>{recommendedProduct.name}</strong>
+              <small>${recommendedProduct.price.toFixed(2)} MXN</small>
+              <em>Complemento sugerido para esta compra</em>
+            </div>
+
+            <button
+              type="button"
+              className={cx("detailRecommendationButton")}
+              onClick={() => onAddRecommendation(recommendedProduct)}
+              aria-label={`Agregar ${recommendedProduct.name}`}
+            >
+              <FaChevronRight />
+            </button>
+          </article>
+        </section>
+      )}
     </div>
   );
 }

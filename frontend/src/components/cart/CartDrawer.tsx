@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
-import { FaShoppingCart, FaTimes } from "react-icons/fa";
+import { FaBolt, FaPlus, FaShoppingCart, FaTimes } from "react-icons/fa";
 import { useCart } from "../../context/useCart";
+import { getCartRecommendations } from "../../data/cartRecommendations";
 import "./CartDrawer.css";
 
 function formatMoney(value: number) {
@@ -17,9 +18,11 @@ export default function CartDrawer() {
     subtotal,
     isCartOpen,
     closeCart,
+    addItem,
     updateQuantity,
     removeItem,
   } = useCart();
+  const recommendations = getCartRecommendations(items);
 
   useEffect(() => {
     if (!isCartOpen) return;
@@ -116,6 +119,58 @@ export default function CartDrawer() {
                   </div>
                 </article>
               ))}
+
+              {recommendations.length > 0 && (
+                <section
+                  className="shared-cart-recommendations"
+                  aria-labelledby="shared-cart-recommendations-title"
+                >
+                  <div className="shared-cart-recommendations-header">
+                    <span className="shared-cart-recommendations-icon">
+                      <FaBolt />
+                    </span>
+                    <div>
+                      <h4 id="shared-cart-recommendations-title">
+                        Recomendado para ti
+                      </h4>
+                      <p>Simulacion con reglas de asociacion del carrito.</p>
+                    </div>
+                  </div>
+
+                  <div className="shared-cart-recommendation-list">
+                    {recommendations.map((recommendation) => (
+                      <article
+                        key={recommendation.id}
+                        className="shared-cart-recommendation"
+                      >
+                        <img
+                          src={recommendation.image}
+                          alt={recommendation.name}
+                          className="shared-cart-recommendation-image"
+                        />
+
+                        <div className="shared-cart-recommendation-body">
+                          <span className="shared-cart-recommendation-rule">
+                            {recommendation.rule}
+                          </span>
+                          <h5>{recommendation.name}</h5>
+                        </div>
+
+                        <div className="shared-cart-recommendation-action">
+                          <strong>{formatMoney(Number(recommendation.price))}</strong>
+                          <button
+                            type="button"
+                            onClick={() => addItem(recommendation)}
+                            aria-label={`Agregar recomendacion ${recommendation.name}`}
+                          >
+                            <FaPlus />
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              )}
             </div>
           )}
         </div>

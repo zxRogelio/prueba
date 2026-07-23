@@ -185,6 +185,10 @@ export default function CatalogProductPage() {
           isFavorite={favorites.has(product.id)}
           onToggleFavorite={toggleFavorite}
           onAddToCart={addToCart}
+          onAddRecommendation={(recommendedProduct) => {
+            addItem(recommendedProduct);
+            openCart();
+          }}
         />
 
         <section className={cx("detailFooterNav")}>
