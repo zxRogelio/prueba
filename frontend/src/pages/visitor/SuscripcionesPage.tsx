@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { IconType } from "react-icons";
 import {
@@ -7,40 +7,25 @@ import {
   FaChevronDown,
   FaChevronLeft,
   FaChevronRight,
-  FaCrown,
-  FaDumbbell,
-  FaFireAlt,
   FaInfinity,
   FaQuoteRight,
   FaShieldAlt,
   FaStar,
   FaTimes,
 } from "react-icons/fa";
+import {
+  buildMembershipPlanCards,
+  type MembershipPlanCardView,
+} from "./membershipPlanView";
+import {
+  getMembershipPlans,
+  type MembershipPlan,
+} from "../../services/membershipService";
 import styles from "./SuscripcionesPage.module.css";
-
-type BillingMode = "monthly" | "annual";
-type PlanTheme = "light" | "dark";
 
 type HeroBenefit = {
   label: string;
   icon: IconType;
-};
-
-type PlanFeature = {
-  label: string;
-  included: boolean;
-};
-
-type Plan = {
-  id: string;
-  name: string;
-  description: string;
-  icon: IconType;
-  theme: PlanTheme;
-  featured: boolean;
-  monthlyPrice: number;
-  annualPrice: number;
-  features: PlanFeature[];
 };
 
 type Testimonial = {
@@ -56,73 +41,17 @@ type FaqItem = {
   answer: string;
 };
 
+type MembershipPlanGroupView = {
+  id: string;
+  title: string;
+  description: string;
+  plans: MembershipPlanCardView[];
+};
+
 const heroBenefits: HeroBenefit[] = [
   { label: "Sin permanencia", icon: FaBolt },
   { label: "Garantia 30 dias", icon: FaShieldAlt },
   { label: "Acceso ilimitado", icon: FaInfinity },
-];
-
-const plans: Plan[] = [
-  {
-    id: "basic",
-    name: "Basico",
-    description: "Perfecto para comenzar tu rutina fitness con una base solida.",
-    icon: FaDumbbell,
-    theme: "light",
-    featured: false,
-    monthlyPrice: 499,
-    annualPrice: 415,
-    features: [
-      { label: "Acceso al gimnasio", included: true },
-      { label: "Horario limitado (6am - 6pm)", included: true },
-      { label: "Equipos de cardio", included: true },
-      { label: "Vestuarios y duchas", included: true },
-      { label: "App de seguimiento", included: false },
-      { label: "Clases grupales", included: false },
-      { label: "Entrenador personal", included: false },
-      { label: "Acceso 24/7", included: false },
-    ],
-  },
-  {
-    id: "premium",
-    name: "Premium",
-    description: "El plan favorito para avanzar mas rapido con una experiencia mas completa.",
-    icon: FaCrown,
-    theme: "dark",
-    featured: true,
-    monthlyPrice: 799,
-    annualPrice: 665,
-    features: [
-      { label: "Acceso al gimnasio", included: true },
-      { label: "Horario completo", included: true },
-      { label: "Todos los equipos", included: true },
-      { label: "Vestuarios y duchas", included: true },
-      { label: "App de seguimiento", included: true },
-      { label: "Clases grupales ilimitadas", included: true },
-      { label: "1 sesion de entrenador / mes", included: true },
-      { label: "Acceso 24/7", included: false },
-    ],
-  },
-  {
-    id: "elite",
-    name: "Elite",
-    description: "Pensado para quienes buscan resultados fuertes, atencion y mayor libertad.",
-    icon: FaFireAlt,
-    theme: "light",
-    featured: false,
-    monthlyPrice: 1199,
-    annualPrice: 995,
-    features: [
-      { label: "Acceso al gimnasio", included: true },
-      { label: "Horario completo", included: true },
-      { label: "Todos los equipos", included: true },
-      { label: "Vestuarios VIP", included: true },
-      { label: "App de seguimiento premium", included: true },
-      { label: "Clases grupales ilimitadas", included: true },
-      { label: "4 sesiones de entrenador / mes", included: true },
-      { label: "Acceso 24/7", included: true },
-    ],
-  },
 ];
 
 const testimonials: Testimonial[] = [
@@ -189,10 +118,6 @@ function getInitials(value: string) {
   return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
 }
 
-function getAnnualSavings(plan: Plan) {
-  return Math.round((1 - plan.annualPrice / plan.monthlyPrice) * 100);
-}
-
 const mxnPriceFormatter = new Intl.NumberFormat("es-MX", {
   style: "currency",
   currency: "MXN",
@@ -204,12 +129,32 @@ function formatPriceMXN(value: number) {
 }
 
 export default function SuscripcionesPage() {
-  const [billingMode, setBillingMode] = useState<BillingMode>("monthly");
   const [activeFaqIndex, setActiveFaqIndex] = useState(0);
   const [activeTestimonialIndex, setActiveTestimonialIndex] = useState(0);
+  const [membershipPlans, setMembershipPlans] = useState<MembershipPlan[]>([]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+
+    getMembershipPlans()
+      .then((response) => {
+        if (ignore) return;
+        setMembershipPlans(Array.isArray(response.plans) ? response.plans : []);
+      })
+      .catch((error) => {
+        if (!ignore) {
+          console.error("getMembershipPlans error:", error);
+          setMembershipPlans([]);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -225,6 +170,62 @@ export default function SuscripcionesPage() {
   }, []);
 
   const activeTestimonial = testimonials[activeTestimonialIndex];
+  const plans = useMemo<MembershipPlanCardView[]>(
+    () => buildMembershipPlanCards(membershipPlans),
+    [membershipPlans],
+  );
+  const planGroups = useMemo<MembershipPlanGroupView[]>(() => {
+    const activePlans = membershipPlans
+      .filter((plan) => plan.isActive !== false)
+      .sort((left, right) => Number(left.sortOrder ?? 0) - Number(right.sortOrder ?? 0));
+
+    if (activePlans.length === 0) {
+      return [
+        {
+          id: "principales",
+          title: "Membresias principales",
+          description: "Planes disponibles para comenzar a entrenar en Titanium.",
+          plans,
+        },
+      ];
+    }
+
+    const buildGroupPlans = (groupPlans: MembershipPlan[]) =>
+      groupPlans.length > 0 ? buildMembershipPlanCards(groupPlans) : [];
+
+    const groups = [
+      {
+        id: "individuales",
+        title: "Membresias individuales",
+        description: "Opciones para una persona, desde periodos cortos hasta planes largos.",
+        plans: buildGroupPlans(activePlans.filter((plan) => plan.type === "individual")),
+      },
+      {
+        id: "especiales",
+        title: "Pases y especiales",
+        description: "Alternativas para visitas, estudiantes o accesos con condiciones especiales.",
+        plans: buildGroupPlans(
+          activePlans.filter((plan) => plan.type === "visit" || plan.type === "student"),
+        ).map((plan) => ({
+          ...plan,
+          theme: "light" as const,
+          featured: false,
+        })),
+      },
+      {
+        id: "paquetes",
+        title: "Paquetes grupales",
+        description: "Membresias para entrenar con mas personas y mantener un mejor precio.",
+        plans: buildGroupPlans(activePlans.filter((plan) => plan.type === "group")).map((plan) => ({
+          ...plan,
+          theme: "light" as const,
+          featured: false,
+        })),
+      },
+    ];
+
+    return groups.filter((group) => group.plans.length > 0);
+  }, [membershipPlans, plans]);
 
   const goToPreviousTestimonial = () => {
     startTransition(() => {
@@ -305,116 +306,104 @@ export default function SuscripcionesPage() {
             </p>
           </div>
 
-          <div className={styles.billingToggle} role="tablist" aria-label="Facturacion">
-            <button
-              type="button"
-              className={`${styles.billingButton} ${
-                billingMode === "monthly" ? styles.billingButtonActive : ""
-              }`}
-              onClick={() => startTransition(() => setBillingMode("monthly"))}
-              aria-pressed={billingMode === "monthly"}
-            >
-              Mensual
-            </button>
-
-            <button
-              type="button"
-              className={`${styles.billingButton} ${
-                billingMode === "annual" ? styles.billingButtonActive : ""
-              }`}
-              onClick={() => startTransition(() => setBillingMode("annual"))}
-              aria-pressed={billingMode === "annual"}
-            >
-              <span>Anual</span>
-              <span className={styles.billingDiscount}>-17%</span>
-            </button>
-          </div>
-
-          <div className={styles.plansGrid}>
-            {plans.map((plan, index) => {
-              const Icon = plan.icon;
-              const price =
-                billingMode === "monthly" ? plan.monthlyPrice : plan.annualPrice;
-              const savings = getAnnualSavings(plan);
-
-              return (
-                <article
-                  key={plan.id}
-                  className={`${styles.planCard} ${
-                    plan.theme === "dark" ? styles.planCardDark : styles.planCardLight
-                  } ${plan.featured ? styles.planCardFeatured : ""}`}
-                  style={{ animationDelay: `${index * 120}ms` }}
-                >
-                  {plan.featured ? (
-                    <div className={styles.planPopularBadge}>
-                      <FaStar />
-                      <span>Mas popular</span>
-                    </div>
-                  ) : null}
-
-                  <div className={styles.planHeader}>
-                    <div className={styles.planIdentity}>
-                      <span className={styles.planIconWrap}>
-                        <Icon />
-                      </span>
-
-                      <div>
-                        <h3 className={styles.planName}>{plan.name}</h3>
-                        <p className={styles.planBlurb}>{plan.description}</p>
-                      </div>
-                    </div>
-
-                    <div className={styles.planPriceGroup}>
-                      <div className={styles.planPriceLine}>
-                        <strong className={styles.planPrice}>
-                          {formatPriceMXN(price)}
-                        </strong>
-                        <span className={styles.planPriceSuffix}>MXN / mes</span>
-                      </div>
-
-                      <p className={styles.planPriceMeta}>
-                        {billingMode === "monthly"
-                          ? "Sin ataduras y con renovacion flexible."
-                          : `Facturado anual. Ahorras ${savings}% contra el pago mensual.`}
-                      </p>
-                    </div>
+          <div className={styles.planGroups}>
+            {planGroups.map((group) => (
+              <section key={group.id} className={styles.planGroup}>
+                <div className={styles.planGroupHeader}>
+                  <div>
+                    <span className={styles.planGroupKicker}>Categoria</span>
+                    <h3 className={styles.planGroupTitle}>{group.title}</h3>
                   </div>
+                  <p className={styles.planGroupDescription}>{group.description}</p>
+                </div>
 
-                  <ul className={styles.featureList}>
-                    {plan.features.map((feature) => (
-                      <li
-                        key={feature.label}
-                        className={`${styles.featureItem} ${
-                          feature.included
-                            ? styles.featureItemIncluded
-                            : styles.featureItemDisabled
-                        }`}
+                <div className={styles.plansGrid}>
+                  {group.plans.map((plan, index) => {
+                    const Icon = plan.icon;
+
+                    return (
+                      <article
+                        key={plan.id}
+                        className={`${styles.planCard} ${
+                          plan.theme === "dark"
+                            ? styles.planCardDark
+                            : styles.planCardLight
+                        } ${plan.featured ? styles.planCardFeatured : ""}`}
+                        style={{ animationDelay: `${index * 120}ms` }}
                       >
-                        <span
-                          className={`${styles.featureIcon} ${
-                            feature.included
-                              ? styles.featureIconIncluded
-                              : styles.featureIconDisabled
+                        {plan.featured ? (
+                          <div className={styles.planPopularBadge}>
+                            <FaStar />
+                            <span>Mas popular</span>
+                          </div>
+                        ) : null}
+
+                        <div className={styles.planHeader}>
+                          <div className={styles.planIdentity}>
+                            <span className={styles.planIconWrap}>
+                              <Icon />
+                            </span>
+
+                            <div>
+                              <h3 className={styles.planName}>{plan.name}</h3>
+                              <p className={styles.planBlurb}>{plan.description}</p>
+                            </div>
+                          </div>
+
+                          <div className={styles.planPriceGroup}>
+                            <div className={styles.planPriceLine}>
+                              <strong className={styles.planPrice}>
+                                {formatPriceMXN(plan.price)}
+                              </strong>
+                              <span className={styles.planPriceSuffix}>
+                                {plan.priceSuffix}
+                              </span>
+                            </div>
+
+                            <p className={styles.planPriceMeta}>{plan.priceMeta}</p>
+                          </div>
+                        </div>
+
+                        <ul className={styles.featureList}>
+                          {plan.features.map((feature) => (
+                            <li
+                              key={feature.label}
+                              className={`${styles.featureItem} ${
+                                feature.included
+                                  ? styles.featureItemIncluded
+                                  : styles.featureItemDisabled
+                              }`}
+                            >
+                              <span
+                                className={`${styles.featureIcon} ${
+                                  feature.included
+                                    ? styles.featureIconIncluded
+                                    : styles.featureIconDisabled
+                                }`}
+                              >
+                                {feature.included ? <FaCheck /> : <FaTimes />}
+                              </span>
+                              <span>{feature.label}</span>
+                            </li>
+                          ))}
+                        </ul>
+
+                        <Link
+                          to={plan.paymentPath}
+                          className={`${styles.planButton} ${
+                            plan.featured
+                              ? styles.planButtonFeatured
+                              : styles.planButtonNeutral
                           }`}
                         >
-                          {feature.included ? <FaCheck /> : <FaTimes />}
-                        </span>
-                        <span>{feature.label}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <Link
-                    to="/payment"
-                    className={`${styles.planButton} ${
-                      plan.featured ? styles.planButtonFeatured : styles.planButtonNeutral
-                    }`}
-                  >
-                    Comenzar Ahora
-                  </Link>
-                </article>
-              );
-            })}
+                          Comenzar Ahora
+                        </Link>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
           </div>
 
           <div className={styles.trustBlock}>

@@ -18,6 +18,7 @@ import {
   SubscriptionEvent,
   SubscriptionGroup,
   SubscriptionGroupMember,
+  SubscriptionHistory,
   User,
   UserSubscription,
 } from "../models/index.js";
@@ -305,6 +306,10 @@ async function cleanup({
 
   await sequelize.transaction(async (transaction) => {
     if (subscriptionIds.length > 0) {
+      await SubscriptionHistory.destroy({
+        where: { subscriptionId: { [Op.in]: subscriptionIds } },
+        transaction,
+      });
       await SubscriptionEvent.destroy({
         where: { subscriptionId: { [Op.in]: subscriptionIds } },
         transaction,

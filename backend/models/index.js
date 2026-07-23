@@ -28,6 +28,7 @@ import { UserSubscription } from "./UserSubscription.js";
 import { Receipt } from "./Receipt.js";
 import { SubscriptionGroup } from "./SubscriptionGroup.js";
 import { SubscriptionGroupMember } from "./SubscriptionGroupMember.js";
+import { SubscriptionHistory } from "./SubscriptionHistory.js";
 import { BehaviorEvent } from "./BehaviorEvent.js";
 import { InventoryMovement } from "./InventoryMovement.js";
 import { InventoryReservation } from "./InventoryReservation.js";
@@ -649,6 +650,55 @@ UserSubscription.belongsTo(SubscriptionGroup, {
   as: "group",
 });
 
+// SUBSCRIPTION HISTORY
+User.hasMany(SubscriptionHistory, {
+  foreignKey: "userId",
+  sourceKey: "id",
+  as: "subscriptionHistory",
+});
+
+SubscriptionHistory.belongsTo(User, {
+  foreignKey: "userId",
+  targetKey: "id",
+  as: "user",
+});
+
+UserSubscription.hasOne(SubscriptionHistory, {
+  foreignKey: "subscriptionId",
+  sourceKey: "id",
+  as: "history",
+});
+
+SubscriptionHistory.belongsTo(UserSubscription, {
+  foreignKey: "subscriptionId",
+  targetKey: "id",
+  as: "subscription",
+});
+
+MembershipPlan.hasMany(SubscriptionHistory, {
+  foreignKey: "planId",
+  sourceKey: "id",
+  as: "subscriptionHistory",
+});
+
+SubscriptionHistory.belongsTo(MembershipPlan, {
+  foreignKey: "planId",
+  targetKey: "id",
+  as: "plan",
+});
+
+Payment.hasMany(SubscriptionHistory, {
+  foreignKey: "paymentId",
+  sourceKey: "id",
+  as: "subscriptionHistory",
+});
+
+SubscriptionHistory.belongsTo(Payment, {
+  foreignKey: "paymentId",
+  targetKey: "id",
+  as: "payment",
+});
+
 // USER / SESSION -> BEHAVIOR EVENTS
 User.hasMany(BehaviorEvent, {
   foreignKey: "userId",
@@ -906,6 +956,7 @@ export {
   Receipt,
   SubscriptionGroup,
   SubscriptionGroupMember,
+  SubscriptionHistory,
   BehaviorEvent,
   InventoryMovement,
   InventoryReservation,

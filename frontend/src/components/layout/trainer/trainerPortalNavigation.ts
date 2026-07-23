@@ -70,7 +70,7 @@ export const trainerPortalSections: TrainerPortalSection[] = [
       },
       {
         to: "/entrenador/perfil",
-        label: "Perfil",
+        label: "Informacion personal",
         description:
           "Administra tu informacion profesional y los datos visibles dentro del portal.",
         heading: "Perfil del entrenador",

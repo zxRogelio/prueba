@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import styles from "../Navbar/Navbar.module.css";
 import headerStyles from "./Header.module.css";
@@ -18,7 +18,6 @@ import {
   FaUserCircle,
   FaChevronDown,
   FaSignOutAlt,
-  FaCogs,
 } from "react-icons/fa";
 
 import { useAuth } from "../../../context/AuthContext";
@@ -50,14 +49,41 @@ export default function Header() {
   const role = normalizeAppRole(user?.rol);
 
   const [scrolled, setScrolled] = useState(false);
+  const [headerHidden, setHeaderHidden] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const lastScrollYRef = useRef(0);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
+    let ticking = false;
+
+    const handleScroll = () => {
+      if (ticking) return;
+      ticking = true;
+
+      window.requestAnimationFrame(() => {
+        const currentScrollY = window.scrollY;
+        const lastScrollY = lastScrollYRef.current;
+        const scrollDelta = currentScrollY - lastScrollY;
+
+        setScrolled(currentScrollY > 20);
+
+        if (currentScrollY <= 24 || mobileMenuOpen || userMenuOpen) {
+          setHeaderHidden(false);
+        } else if (scrollDelta > 8 && currentScrollY > 120) {
+          setHeaderHidden(true);
+        } else if (scrollDelta < -8) {
+          setHeaderHidden(false);
+        }
+
+        lastScrollYRef.current = Math.max(currentScrollY, 0);
+        ticking = false;
+      });
+    };
+
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  }, [mobileMenuOpen, userMenuOpen]);
 
   useEffect(() => {
     const onDocClick = () => setUserMenuOpen(false);
@@ -68,6 +94,7 @@ export default function Header() {
   useEffect(() => {
     setMobileMenuOpen(false);
     setUserMenuOpen(false);
+    setHeaderHidden(false);
   }, [location.pathname]);
 
   useEffect(() => {
@@ -100,7 +127,7 @@ export default function Header() {
 
     return [
       { to: "/", label: "INICIO", icon: FaHome, end: true },
-      { to: "/admin", label: "ADMIN", icon: FaCogs },
+      { to: "/admin", label: "ADMIN", icon: FaInfoCircle },
       { to: "/admin/products", label: "PRODUCTOS", icon: FaDumbbell },
       { to: "/admin/suscripciones", label: "SUSCRIPCIONES", icon: FaIdCard },
     ];
@@ -126,6 +153,8 @@ export default function Header() {
     <>
       <header
         className={`${styles.header} ${scrolled ? styles.headerScrolled : ""} ${
+          headerHidden ? styles.headerHidden : ""
+        } ${
           isTransparentHomeHeader ? styles.headerTransparent : ""
         }`}
       >
@@ -187,10 +216,12 @@ export default function Header() {
               {!user ? (
                 <>
                   <Link to="/register" className={styles.btnOutline}>
-                    <FaUserPlus /> SUSCRIBETE
+                    <FaUserPlus />
+                    SUSCRIBETE
                   </Link>
                   <Link to="/login" className={styles.btnSolid}>
-                    <FaSignInAlt /> INICIA SESION
+                    <FaSignInAlt />
+                    INICIA SESION
                   </Link>
                 </>
               ) : (

@@ -14,6 +14,7 @@ import {
   recordMembershipActivationEvents,
   recordSubscriptionCancellation,
 } from "./subscriptionEventService.js";
+import { createOrUpdateSubscriptionHistory } from "./subscriptionHistoryService.js";
 
 function serviceError(message, statusCode = 400) {
   const error = new Error(message);
@@ -313,6 +314,10 @@ export async function createOrRenewUserSubscription({
       });
 
       if (existingByOrderItem) {
+        await createOrUpdateSubscriptionHistory(existingByOrderItem.id, {
+          transaction: t,
+        });
+
         return {
           subscription: existingByOrderItem,
           created: false,
@@ -332,6 +337,10 @@ export async function createOrRenewUserSubscription({
       });
 
       if (existingGroupSubscription) {
+        await createOrUpdateSubscriptionHistory(existingGroupSubscription.id, {
+          transaction: t,
+        });
+
         return {
           subscription: existingGroupSubscription,
           created: false,
@@ -399,6 +408,9 @@ export async function createOrRenewUserSubscription({
         orderItemId,
         groupId,
       },
+      transaction: t,
+    });
+    await createOrUpdateSubscriptionHistory(subscription.id, {
       transaction: t,
     });
 

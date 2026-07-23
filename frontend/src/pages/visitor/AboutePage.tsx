@@ -160,6 +160,9 @@ const DEFAULT_ABOUT_CONTENT: Partial<AboutPageDTO> = {
   ctaSecondaryButtonLink: "/servicios",
 };
 
+const TITANIUM_MAP_QUERY =
+  "Titanium Sport Gym, C. Corona del Rosal 15, 5 de Mayo, Huejutla de Reyes, Hidalgo, Mexico";
+
 function splitTitle(title?: string | null, highlight?: string | null) {
   const safeTitle = title?.trim() || "";
   const safeHighlight = highlight?.trim() || "";
@@ -398,6 +401,9 @@ export default function AboutUs() {
   }, []);
 
   const content = useMemo(() => buildResolvedAbout(about), [about]);
+  const mapAddress = content.ctaAddress || DEFAULT_ABOUT_CONTENT.ctaAddress || "";
+  const encodedMapQuery = encodeURIComponent(TITANIUM_MAP_QUERY);
+  const mapEmbedUrl = `https://www.google.com/maps?q=${encodedMapQuery}&z=19&output=embed`;
 
   const heroTitleParts = useMemo(
     () => splitTitle(content.heroTitle, content.heroHighlight),
@@ -1270,33 +1276,19 @@ export default function AboutUs() {
                   ) : null}
                 </div>
               </div>
-              <div className={cx("cta-button-stack")}>
-                <a
-                  href={content.ctaPrimaryButtonLink || "/contacto"}
-                  className={cx("about-primary-button", "cta-button-wide")}
-                >
-                  {content.ctaPrimaryButtonText || "Contactanos"}
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    className={cx("button-arrow")}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M14 5l7 7m0 0l-7 7m7-7H3"
+              <div className={cx("cta-map-column")}>
+                {mapAddress ? (
+                  <div className={cx("cta-map-panel")}>
+                    <iframe
+                      title="Mapa de ubicacion Titanium Sport Gym"
+                      src={mapEmbedUrl}
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      allowFullScreen
                     />
-                  </svg>
-                </a>
-                <a
-                  href={content.ctaSecondaryButtonLink || "/servicios"}
-                  className={cx("about-secondary-button", "cta-button-wide")}
-                >
-                  {content.ctaSecondaryButtonText || "Ver Servicios"}
-                </a>
+                  </div>
+                ) : null}
+
               </div>
             </div>
           </section>

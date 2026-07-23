@@ -1,0 +1,155 @@
+{
+  "generatedAt": "2026-07-22T15:13:29.032Z",
+  "seedName": "renewal-classification-monthly-v2",
+  "usersExpected": 500,
+  "usersFound": 500,
+  "usersIncluded": 400,
+  "usersExcluded": 100,
+  "excludedUsersByReason": {
+    "only_pending_histories": 85,
+    "no_subscription": 15
+  },
+  "totalHistoriesFound": 1107,
+  "rowsExported": 759,
+  "renewedTrue": 367,
+  "renewedFalse": 392,
+  "truePercentage": 48.35,
+  "falsePercentage": 51.65,
+  "uniqueCustomers": 400,
+  "rowsByPlanName": {
+    "Regular mensual": 549,
+    "Estudiante mensual": 210
+  },
+  "rowsByPaymentMethod": {
+    "card_terminal": 143,
+    "online_checkout": 222,
+    "cash": 231,
+    "transfer": 163
+  },
+  "rowsWithPreviousSubscriptions": 359,
+  "rowsWithPreviousPurchases": 586,
+  "rowsWithoutPreviousPurchases": 173,
+  "nullValuesByColumn": {
+    "planName": 0,
+    "amountPaid": 0,
+    "paymentMethod": 0,
+    "source": 0,
+    "autoRenew": 0,
+    "previousSubscriptionsCount": 0,
+    "previousRenewalsCount": 0,
+    "previousRenewalRate": 0,
+    "daysAsCustomer": 0,
+    "daysSincePreviousSubscription": 0,
+    "changedPlan": 0,
+    "previousAmountPaidAvg": 0,
+    "amountPaidChange": 0,
+    "paidOrdersCount": 0,
+    "productsPurchasedCount": 0,
+    "totalProductSpend": 0,
+    "averageOrderValue": 0,
+    "daysSinceLastPurchase": 0,
+    "successfulPaymentsCount": 0,
+    "failedPaymentsCount": 0,
+    "refundedPaymentsCount": 0,
+    "renewedNextPeriod": 0
+  },
+  "duplicateFeatureRows": 118,
+  "contradictoryDuplicateFeatureRows": 90,
+  "contradictoryDuplicateFeatureCombinations": 12,
+  "rowsWithPurchaseOnEndDate": 22,
+  "purchasesAfterEndsAtCutoff": 0,
+  "paymentsAfterEndsAtCutoff": 0,
+  "subscriptionsBeforeUserRegistration": 0,
+  "invalidMainPayments": 0,
+  "previousOutcomeTemporalErrors": 0,
+  "nonMonthlyDurations": 0,
+  "overlaps": 0,
+  "historicalCalculationErrors": 0,
+  "trueWithoutNextSubscription": 0,
+  "falseWithNextSubscriptionWithinWindow": 0,
+  "renewalRatesByPreviousSubscriptionsCount": {
+    "0": {
+      "total": 400,
+      "renewedTrue": 163,
+      "renewedFalse": 237,
+      "renewalRate": 40.75
+    },
+    "1": {
+      "total": 247,
+      "renewedTrue": 136,
+      "renewedFalse": 111,
+      "renewalRate": 55.06
+    },
+    "2": {
+      "total": 96,
+      "renewedTrue": 61,
+      "renewedFalse": 35,
+      "renewalRate": 63.54
+    },
+    "3": {
+      "total": 15,
+      "renewedTrue": 7,
+      "renewedFalse": 8,
+      "renewalRate": 46.67
+    },
+    "4": {
+      "total": 1,
+      "renewedTrue": 0,
+      "renewedFalse": 1,
+      "renewalRate": 0
+    }
+  },
+  "renewalRatesByCycleNumber": {
+    "1": {
+      "total": 400,
+      "renewedTrue": 163,
+      "renewedFalse": 237,
+      "renewalRate": 40.75
+    },
+    "2": {
+      "total": 247,
+      "renewedTrue": 136,
+      "renewedFalse": 111,
+      "renewalRate": 55.06
+    },
+    "3": {
+      "total": 96,
+      "renewedTrue": 61,
+      "renewedFalse": 35,
+      "renewalRate": 63.54
+    },
+    "4": {
+      "total": 15,
+      "renewedTrue": 7,
+      "renewedFalse": 8,
+      "renewalRate": 46.67
+    },
+    "5": {
+      "total": 1,
+      "renewedTrue": 0,
+      "renewedFalse": 1,
+      "renewalRate": 0
+    }
+  },
+  "categoricalValues": {
+    "planName": {
+      "Regular mensual": 549,
+      "Estudiante mensual": 210
+    },
+    "paymentMethod": {
+      "card_terminal": 143,
+      "online_checkout": 222,
+      "cash": 231,
+      "transfer": 163
+    },
+    "source": {
+      "admin_manual": 537,
+      "online_checkout": 222
+    }
+  },
+  "dbSnapshotUnchanged": true,
+  "validationErrors": [],
+  "warnings": [
+    "Identificacion usada: control-file."
+  ]
+}

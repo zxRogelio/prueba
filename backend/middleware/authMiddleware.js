@@ -60,6 +60,43 @@ export const requireAuth = async (req, res, next) => {
   }
 };
 
+// Autenticacion opcional para rutas publicas con analitica.
+export const optionalAuth = async (req, res, next) => {
+  const header = req.headers.authorization || "";
+  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : null;
+
+  if (!token) {
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const session = await Session.findOne({ where: { token } });
+
+    if (session) {
+      const now = new Date();
+      const sameUser = String(session.userId) === String(decoded.id);
+
+      if (!sameUser || session.revoked || session.expiresAt < now) {
+        return next();
+      }
+
+      req.authSession = session;
+    }
+
+    const user = await User.findByPk(decoded.id);
+    if (!user) {
+      return next();
+    }
+
+    req.loginMethod = decoded.loginMethod || "local";
+    req.user = user;
+    return next();
+  } catch {
+    return next();
+  }
+};
+
 // ✅ Autorización por rol
 export const authorizeRole = (...roles) => {
   return (req, res, next) => {

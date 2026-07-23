@@ -27,6 +27,33 @@ const cx = (...names: Array<string | null | undefined | false>) =>
     .filter(Boolean)
     .join(" ");
 
+const PAGINATION_DOTS = "dots";
+
+function getVisibleCatalogPages(currentPage: number, totalPages: number) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const pages: Array<number | typeof PAGINATION_DOTS> = [1];
+  const start = Math.max(2, currentPage - 1);
+  const end = Math.min(totalPages - 1, currentPage + 1);
+
+  if (start > 2) {
+    pages.push(PAGINATION_DOTS);
+  }
+
+  for (let page = start; page <= end; page += 1) {
+    pages.push(page);
+  }
+
+  if (end < totalPages - 1) {
+    pages.push(PAGINATION_DOTS);
+  }
+
+  pages.push(totalPages);
+  return pages;
+}
+
 export default function CatalogoPage() {
   const { addItem, openCart } = useCart();
   const [products, setProducts] = useState<CatalogProductView[]>([]);
@@ -146,6 +173,7 @@ export default function CatalogoPage() {
     indexOfLastProduct,
   );
   const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
+  const visiblePages = getVisibleCatalogPages(currentPageNumber, totalPages);
 
   const selectedContext =
     selectedCategory !== "TODOS"
@@ -177,24 +205,12 @@ export default function CatalogoPage() {
       <div className={cx("catalogShell")}>
         <section className={cx("catalogTopbar")}>
           <div className={cx("catalogIntro")}>
-            <div>
-              <span className={cx("catalogKicker")}>Titanium Shop</span>
-              <h1 className={cx("catalogTitle")}>Productos</h1>
+            <div className={cx("catalogIntroCopy")}>
+              <h1 className={cx("catalogTitle")}>Catalogo de productos</h1>
               <p className={cx("catalogDescription")}>
-                Seleccion premium de suplementos, ropa y accesorios con una
-                presentacion mas limpia y enfocada en compra.
+                Suplementos, ropa y accesorios seleccionados para entrenar,
+                comparar y comprar sin complicaciones.
               </p>
-            </div>
-
-            <div className={cx("catalogStats")}>
-              <div className={cx("catalogStat")}>
-                <strong>{products.length}</strong>
-                <span>Productos</span>
-              </div>
-              <div className={cx("catalogStat")}>
-                <strong>{catalogCategories.length - 1}</strong>
-                <span>Categorias</span>
-              </div>
             </div>
           </div>
         </section>
@@ -386,6 +402,7 @@ export default function CatalogoPage() {
                             <Link
                               to={getCatalogProductPath(product.id)}
                               className={cx("catalogQuickViewButton")}
+                              viewTransition
                             >
                               Ver detalles
                             </Link>
@@ -418,9 +435,12 @@ export default function CatalogoPage() {
                           </div>
 
                           <div className={cx("catalogProductPriceRow")}>
-                            <strong className={cx("catalogProductPrice")}>
-                              ${product.price.toFixed(2)}
-                            </strong>
+                          <strong className={cx("catalogProductPrice")}>
+                            ${product.price.toFixed(2)}{" "}
+                            <span className={cx("catalogProductCurrency")}>
+                              MXN
+                            </span>
+                          </strong>
                             {hasDiscount && (
                               <span className={cx("catalogProductOldPrice")}>
                                 ${product.originalPrice!.toFixed(2)}
@@ -443,6 +463,7 @@ export default function CatalogoPage() {
                             <Link
                               to={getCatalogProductPath(product.id)}
                               className={cx("catalogDetailsButton")}
+                              viewTransition
                             >
                               Ver detalles
                             </Link>
@@ -475,23 +496,35 @@ export default function CatalogoPage() {
                     </button>
 
                     <div className={cx("catalogPaginationNumbers")}>
-                      {Array.from(
-                        { length: totalPages },
-                        (_, index) => index + 1,
-                      ).map((pageNumber) => (
-                        <button
-                          key={pageNumber}
-                          type="button"
-                          className={cx(
-                            "catalogPaginationNumber",
-                            currentPageNumber === pageNumber &&
-                              "catalogPaginationNumberActive",
-                          )}
-                          onClick={() => setCurrentPageNumber(pageNumber)}
-                        >
-                          {pageNumber}
-                        </button>
-                      ))}
+                      {visiblePages.map((pageNumber, index) =>
+                        pageNumber === PAGINATION_DOTS ? (
+                          <span
+                            key={`pagination-dots-${index}`}
+                            className={cx("catalogPaginationDots")}
+                          >
+                            ...
+                          </span>
+                        ) : (
+                          <button
+                            key={pageNumber}
+                            type="button"
+                            className={cx(
+                              "catalogPaginationNumber",
+                              currentPageNumber === pageNumber &&
+                                "catalogPaginationNumberActive",
+                            )}
+                            onClick={() => setCurrentPageNumber(pageNumber)}
+                            aria-current={
+                              currentPageNumber === pageNumber
+                                ? "page"
+                                : undefined
+                            }
+                            aria-label={`Ir a pagina ${pageNumber}`}
+                          >
+                            {pageNumber}
+                          </button>
+                        ),
+                      )}
                     </div>
 
                     <button
