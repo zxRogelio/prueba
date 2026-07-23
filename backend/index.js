@@ -32,6 +32,7 @@ import orderRoutes from "./routes/orderRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import clientRoutineRoutes from "./routes/client/routineRoutes.js";
 import adminRoutineRoutes from "./routes/admin/routineRoutes.js";
+import behaviorEventRoutes from "./routes/behaviorEventRoutes.js";
 dotenv.config();
 
 const app = express();
@@ -62,6 +63,7 @@ app.use("/api/trainer/clients", trainerClientRoutes);
 app.use("/api/trainer/agenda", trainerAgendaRoutes);
 app.use("/api/trainer/profile", trainerProfileRoutes);
 app.use("/api/memberships", membershipRoutes);
+app.use("/api/behavior-events", behaviorEventRoutes);
 app.use("/api", checkoutRoutes);
 app.use("/api", orderRoutes);
 app.use("/api", paymentRoutes);
