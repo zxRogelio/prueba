@@ -265,10 +265,6 @@ export default function CatalogProductDetail({
                   <span>{recommendedProduct.category}</span>
                   <strong>{recommendedProduct.name}</strong>
                   <small>${recommendedProduct.price.toFixed(2)} MXN</small>
-                  <em>
-                    Coincidencia{" "}
-                    {Math.round((recommendedProduct.similarityScore ?? 0) * 100)}%
-                  </em>
                 </div>
 
                 <button
