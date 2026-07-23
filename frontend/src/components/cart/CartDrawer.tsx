@@ -48,7 +48,12 @@ export default function CartDrawer() {
   }, [closeCart, isCartOpen]);
 
   useEffect(() => {
-    if (!isCartOpen || itemIds.length === 0) {
+    const currentItemIds = itemIdsKey
+      .split("|")
+      .map((itemId) => itemId.trim())
+      .filter(Boolean);
+
+    if (!isCartOpen || currentItemIds.length === 0) {
       setRecommendations([]);
       setIsLoadingRecommendations(false);
       return;
@@ -57,11 +62,11 @@ export default function CartDrawer() {
     let ignore = false;
     setIsLoadingRecommendations(true);
 
-    fetchCartProductRecommendations(itemIds, 2)
+    fetchCartProductRecommendations(currentItemIds, 2)
       .then((nextRecommendations) => {
         if (ignore) return;
 
-        const idsInCart = new Set(itemIds.map(String));
+        const idsInCart = new Set(currentItemIds);
         setRecommendations(
           nextRecommendations.filter(
             (recommendation) => !idsInCart.has(String(recommendation.id)),
@@ -196,10 +201,6 @@ export default function CartDrawer() {
                         />
 
                         <div className="shared-cart-recommendation-body">
-                          <span className="shared-cart-recommendation-rule">
-                            {Math.round((recommendation.similarityScore ?? 0) * 100)}
-                            % de coincidencia
-                          </span>
                           <h5>{recommendation.name}</h5>
                         </div>
 
