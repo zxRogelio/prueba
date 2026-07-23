@@ -1,0 +1,38 @@
+{
+  "seedName": "renewal-classification-monthly-v2",
+  "referenceDate": "2026-07-21",
+  "usersFound": 500,
+  "usersUsed": 485,
+  "usersExcluded": 15,
+  "subscriptionsCreated": 1107,
+  "paymentsCreated": 1627,
+  "historiesCreated": 1107,
+  "renewedTrue": 367,
+  "renewedFalse": 392,
+  "renewedNull": 348,
+  "truePercentage": 48.35,
+  "falsePercentage": 51.65,
+  "subscriptionsByPlanName": {
+    "Estudiante mensual": 325,
+    "Regular mensual": 782
+  },
+  "paymentsByStatus": {
+    "paid": 1107,
+    "failed": 370,
+    "cancelled": 90,
+    "refunded": 35,
+    "charged_back": 15,
+    "pending": 10
+  },
+  "paymentsByMethod": {
+    "card_terminal": 319,
+    "cash": 476,
+    "online_checkout": 480,
+    "transfer": 352
+  },
+  "validationErrors": [],
+  "warnings": [
+    "Volumen solicitado 2200-2800; maximo teorico factible con fechas reales y planes de 30 dias: 1604. Se planearon 1107 ciclos para preservar pausas, renovaciones true/false y sin solapamientos.",
+    "Historiales definitivos 759; el minimo solicitado 1800 no es factible con el volumen mensual disponible."
+  ]
+}

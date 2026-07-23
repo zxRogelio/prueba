@@ -1,8 +1,19 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { FaShoppingCart, FaTimes } from "react-icons/fa";
-import { useCart } from "../../context/CartContext";
+import { FaBolt, FaPlus, FaShoppingCart, FaTimes } from "react-icons/fa";
+import { useCart } from "../../context/useCart";
+import {
+  fetchCartProductRecommendations,
+  type CatalogProductView,
+} from "../../pages/visitor/catalogData";
 import "./CartDrawer.css";
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+  }).format(value);
+}
 
 export default function CartDrawer() {
   const {
@@ -10,9 +21,14 @@ export default function CartDrawer() {
     subtotal,
     isCartOpen,
     closeCart,
+    addItem,
     updateQuantity,
     removeItem,
   } = useCart();
+  const [recommendations, setRecommendations] = useState<CatalogProductView[]>([]);
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
+  const itemIds = useMemo(() => items.map((item) => item.id), [items]);
+  const itemIdsKey = useMemo(() => itemIds.map(String).sort().join("|"), [itemIds]);
 
   useEffect(() => {
     if (!isCartOpen) return;
@@ -30,6 +46,41 @@ export default function CartDrawer() {
       window.removeEventListener("keydown", handleEscape);
     };
   }, [closeCart, isCartOpen]);
+
+  useEffect(() => {
+    if (!isCartOpen || itemIds.length === 0) {
+      setRecommendations([]);
+      setIsLoadingRecommendations(false);
+      return;
+    }
+
+    let ignore = false;
+    setIsLoadingRecommendations(true);
+
+    fetchCartProductRecommendations(itemIds, 2)
+      .then((nextRecommendations) => {
+        if (ignore) return;
+
+        const idsInCart = new Set(itemIds.map(String));
+        setRecommendations(
+          nextRecommendations.filter(
+            (recommendation) => !idsInCart.has(String(recommendation.id)),
+          ),
+        );
+      })
+      .catch((error: unknown) => {
+        if (ignore) return;
+        console.warn("fetchCartProductRecommendations error:", error);
+        setRecommendations([]);
+      })
+      .finally(() => {
+        if (!ignore) setIsLoadingRecommendations(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [isCartOpen, itemIdsKey]);
 
   if (!isCartOpen) return null;
 
@@ -76,7 +127,7 @@ export default function CartDrawer() {
                       <p className="shared-cart-item-category">{item.category}</p>
                     )}
                     <p className="shared-cart-item-price">
-                      ${item.price}.00 MXN
+                      {formatMoney(Number(item.price))}
                     </p>
 
                     <div className="shared-cart-item-controls">
@@ -109,6 +160,65 @@ export default function CartDrawer() {
                   </div>
                 </article>
               ))}
+
+              {(isLoadingRecommendations || recommendations.length > 0) && (
+                <section
+                  className="shared-cart-recommendations"
+                  aria-labelledby="shared-cart-recommendations-title"
+                >
+                  <div className="shared-cart-recommendations-header">
+                    <span className="shared-cart-recommendations-icon">
+                      <FaBolt />
+                    </span>
+                    <div>
+                      <h4 id="shared-cart-recommendations-title">
+                        Recomendado para ti
+                      </h4>
+                      <p>Productos similares a los que agregaste.</p>
+                    </div>
+                  </div>
+
+                  {isLoadingRecommendations ? (
+                    <div className="shared-cart-recommendation-loading">
+                      Buscando recomendaciones...
+                    </div>
+                  ) : (
+                    <div className="shared-cart-recommendation-list">
+                      {recommendations.map((recommendation) => (
+                      <article
+                        key={recommendation.id}
+                        className="shared-cart-recommendation"
+                      >
+                        <img
+                          src={recommendation.image}
+                          alt={recommendation.name}
+                          className="shared-cart-recommendation-image"
+                        />
+
+                        <div className="shared-cart-recommendation-body">
+                          <span className="shared-cart-recommendation-rule">
+                            {Math.round((recommendation.similarityScore ?? 0) * 100)}
+                            % de coincidencia
+                          </span>
+                          <h5>{recommendation.name}</h5>
+                        </div>
+
+                        <div className="shared-cart-recommendation-action">
+                          <strong>{formatMoney(Number(recommendation.price))}</strong>
+                          <button
+                            type="button"
+                            onClick={() => addItem(recommendation)}
+                            aria-label={`Agregar recomendacion ${recommendation.name}`}
+                          >
+                            <FaPlus />
+                          </button>
+                        </div>
+                      </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )}
             </div>
           )}
         </div>
@@ -116,16 +226,26 @@ export default function CartDrawer() {
         <div className="shared-cart-footer">
           <div className="shared-cart-total">
             <span>Total</span>
-            <strong>${subtotal}.00 MXN</strong>
+            <strong>{formatMoney(subtotal)}</strong>
           </div>
 
-          <Link
-            to="/checkout"
-            className="shared-cart-checkout"
-            onClick={closeCart}
-          >
-            Proceder al pago
-          </Link>
+          {items.length > 0 ? (
+            <Link
+              to="/checkout"
+              className="shared-cart-checkout"
+              onClick={closeCart}
+            >
+              Proceder al pago
+            </Link>
+          ) : (
+            <Link
+              to="/catalogue"
+              className="shared-cart-checkout"
+              onClick={closeCart}
+            >
+              Ver catalogo
+            </Link>
+          )}
         </div>
       </aside>
     </div>

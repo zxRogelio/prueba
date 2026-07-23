@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import {
   FaCheckCircle,
@@ -35,6 +35,11 @@ type AdminUser = {
 };
 
 type PaymentMethod = "cash" | "transfer" | "card_terminal";
+type PaymentProvider = "none" | "bank_transfer" | "mercadopago_terminal";
+type ManualPaymentAttempt = {
+  signature: string;
+  idempotencyKey: string;
+};
 
 type PendingGroupMember = {
   id: string;
@@ -111,9 +116,9 @@ function getPlanLabel(plan: MembershipPlan) {
   return "Individual";
 }
 
-function getMethodProvider(method: PaymentMethod) {
+function getMethodProvider(method: PaymentMethod): PaymentProvider {
   if (method === "card_terminal") {
-    return "mercadopago_point";
+    return "mercadopago_terminal";
   }
 
   if (method === "transfer") {
@@ -121,6 +126,28 @@ function getMethodProvider(method: PaymentMethod) {
   }
 
   return "none";
+}
+
+function createOperationIdempotencyKey() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function getAttemptIdempotencyKey(
+  ref: { current: ManualPaymentAttempt | null },
+  signature: string
+) {
+  if (!ref.current || ref.current.signature !== signature) {
+    ref.current = {
+      signature,
+      idempotencyKey: createOperationIdempotencyKey(),
+    };
+  }
+
+  return ref.current.idempotencyKey;
 }
 
 export default function AdminSuscripcionesPage() {
@@ -131,6 +158,8 @@ export default function AdminSuscripcionesPage() {
   const [savingIndividual, setSavingIndividual] = useState(false);
   const [savingGroup, setSavingGroup] = useState(false);
   const [approvingGroupId, setApprovingGroupId] = useState<string | null>(null);
+  const individualPaymentAttemptRef = useRef<ManualPaymentAttempt | null>(null);
+  const groupPaymentAttemptRef = useRef<ManualPaymentAttempt | null>(null);
 
   const [query, setQuery] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
@@ -242,11 +271,26 @@ export default function AdminSuscripcionesPage() {
       return;
     }
 
+    const provider = getMethodProvider(individualMethod);
+    const idempotencySignature = JSON.stringify({
+      userId: selectedUserId,
+      planId: selectedIndividualPlanId,
+      method: individualMethod,
+      provider,
+      reference: individualReference,
+      notes: individualNotes,
+      startsAt: individualStartsAt || null,
+    });
+    const idempotencyKey = getAttemptIdempotencyKey(
+      individualPaymentAttemptRef,
+      idempotencySignature
+    );
     const payload: ManualPaymentPayload = {
       userId: selectedUserId,
       planId: selectedIndividualPlanId,
       method: individualMethod,
-      provider: getMethodProvider(individualMethod),
+      provider,
+      idempotencyKey,
       reference: individualReference,
       notes: individualNotes,
       startsAt: individualStartsAt || undefined,
@@ -262,6 +306,7 @@ export default function AdminSuscripcionesPage() {
         "El pago fue registrado y la membresía individual quedó activa."
       );
 
+      individualPaymentAttemptRef.current = null;
       setIndividualReference("");
       setIndividualNotes("");
       setIndividualStartsAt("");
@@ -308,11 +353,27 @@ export default function AdminSuscripcionesPage() {
       return;
     }
 
+    const provider = getMethodProvider(groupMethod);
+    const idempotencySignature = JSON.stringify({
+      ownerUserId,
+      planId: selectedGroupPlanId,
+      method: groupMethod,
+      provider,
+      reference: groupReference,
+      notes: groupNotes,
+      startsAt: groupStartsAt || null,
+      memberEmails,
+    });
+    const idempotencyKey = getAttemptIdempotencyKey(
+      groupPaymentAttemptRef,
+      idempotencySignature
+    );
     const payload: ManualGroupPaymentPayload = {
       ownerUserId,
       planId: selectedGroupPlanId,
       method: groupMethod,
-      provider: getMethodProvider(groupMethod),
+      provider,
+      idempotencyKey,
       reference: groupReference,
       notes: groupNotes,
       startsAt: groupStartsAt || undefined,
@@ -329,6 +390,7 @@ export default function AdminSuscripcionesPage() {
         "El pago quedó registrado y el paquete quedó pendiente de aceptación/aprobación."
       );
 
+      groupPaymentAttemptRef.current = null;
       setGroupReference("");
       setGroupNotes("");
       setGroupStartsAt("");

@@ -1,5 +1,10 @@
-import { useNavigate } from "react-router-dom";
-import { FaBars, FaHome, FaSignOutAlt } from "react-icons/fa";
+import {
+  FaBars,
+  FaBell,
+  FaQuestionCircle,
+  FaSearch,
+  FaSignOutAlt,
+} from "react-icons/fa";
 import Logo from "../../../../assets/LogoP.png";
 import { useAuth } from "../../../../context/AuthContext";
 import styles from "./TrainerTopbar.module.css";
@@ -12,12 +17,9 @@ interface TrainerTopbarProps {
 }
 
 export default function TrainerTopbar({
-  title,
   breadcrumb,
-  description,
   onToggleSidebar,
 }: TrainerTopbarProps) {
-  const navigate = useNavigate();
   const { user, requestLogout } = useAuth();
 
   return (
@@ -36,26 +38,36 @@ export default function TrainerTopbar({
           <img src={Logo} alt="Titanium" className={styles.brandLogo} />
         </div>
 
-        <div className={styles.copy}>
-          <div className={styles.breadcrumbs}>
-            <span className={styles.crumb}>PORTAL ENTRENADOR</span>
-            <span className={styles.sep}>/</span>
-            <span className={styles.crumbActive}>{breadcrumb}</span>
-          </div>
-          <h1 className={styles.title}>{title}</h1>
-          <p className={styles.description}>{description}</p>
+        <div className={styles.breadcrumbs}>
+          <span className={styles.crumb}>HOME</span>
+          <span className={styles.sep}>&gt;</span>
+          <span className={styles.crumbActive}>{breadcrumb}</span>
         </div>
       </div>
 
       <div className={styles.right}>
+        <div className={styles.search}>
+          <FaSearch className={styles.searchIcon} />
+          <input className={styles.searchInput} placeholder="Buscar..." />
+        </div>
+
         <button
           type="button"
           className={styles.iconBtn}
-          onClick={() => navigate("/")}
-          aria-label="Ir al sitio"
-          title="Ir al sitio"
+          aria-label="Notificaciones"
+          title="Notificaciones"
         >
-          <FaHome />
+          <FaBell />
+          <span className={styles.badge} />
+        </button>
+
+        <button
+          type="button"
+          className={styles.iconBtn}
+          aria-label="Ayuda"
+          title="Ayuda"
+        >
+          <FaQuestionCircle />
         </button>
 
         <div className={styles.profile}>

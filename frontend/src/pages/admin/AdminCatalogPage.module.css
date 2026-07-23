@@ -511,8 +511,54 @@
 .actions {
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
+}
+
+.iconActionBtn {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #fff;
+  color: #1f2937;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 42px;
+  font: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.iconActionBtn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(15, 23, 42, 0.22);
+  background: rgba(248, 250, 252, 0.95);
+}
+
+.statusActionBtn {
+  color: #334155;
+}
+
+.statusActionBtn:hover {
+  color: #b45309;
+  border-color: rgba(245, 158, 11, 0.28);
+  background: rgba(255, 251, 235, 0.95);
+}
+
+.dangerActionBtn {
+  color: #b91c1c;
+  border-color: rgba(239, 68, 68, 0.18);
+  background: rgba(254, 242, 242, 0.95);
+}
+
+.dangerActionBtn:hover {
+  color: #991b1b;
+  border-color: rgba(239, 68, 68, 0.34);
+  background: rgba(254, 226, 226, 0.95);
 }
 
 .emptyRow {

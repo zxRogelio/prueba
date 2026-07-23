@@ -1,0 +1,178 @@
+{
+  "planName": {
+    "name": "planName",
+    "type": "categorical",
+    "description": "Nombre del plan mensual vigente en el historial.",
+    "source": "SubscriptionHistories.planName",
+    "calculation": "Valor directo del historial mensual actual.",
+    "missingValue": "Se exporta vacio y se registra advertencia."
+  },
+  "amountPaid": {
+    "name": "amountPaid",
+    "type": "numeric",
+    "description": "Importe pagado por la membresia actual.",
+    "source": "SubscriptionHistories.amountPaid",
+    "calculation": "Valor directo redondeado a dos decimales.",
+    "missingValue": "No aplica; el modelo lo requiere."
+  },
+  "paymentMethod": {
+    "name": "paymentMethod",
+    "type": "categorical",
+    "description": "Metodo de pago de la membresia actual.",
+    "source": "SubscriptionHistories.paymentMethod",
+    "calculation": "Valor directo conservado como texto.",
+    "missingValue": "Se exporta vacio y se registra advertencia."
+  },
+  "source": {
+    "name": "source",
+    "type": "categorical",
+    "description": "Canal u origen de la suscripcion actual.",
+    "source": "SubscriptionHistories.source",
+    "calculation": "Valor directo conservado como texto.",
+    "missingValue": "Se exporta vacio y se registra advertencia."
+  },
+  "autoRenew": {
+    "name": "autoRenew",
+    "type": "binary",
+    "description": "Indica si la membresia actual tenia renovacion automatica activa.",
+    "source": "SubscriptionHistories.autoRenew",
+    "calculation": "true se exporta como 1; false como 0.",
+    "missingValue": "0 cuando el historial indica false."
+  },
+  "previousSubscriptionsCount": {
+    "name": "previousSubscriptionsCount",
+    "type": "numeric",
+    "description": "Cantidad de membresias anteriores del mismo cliente.",
+    "source": "SubscriptionHistories",
+    "calculation": "Cuenta historiales del mismo usuario con startsAt menor al actual.",
+    "missingValue": "0 si no existen membresias anteriores."
+  },
+  "previousRenewalsCount": {
+    "name": "previousRenewalsCount",
+    "type": "numeric",
+    "description": "Renovaciones previas conocidas antes del cierre de la membresia actual.",
+    "source": "SubscriptionHistories.renewedNextPeriod",
+    "calculation": "Cuenta historiales anteriores con renewedNextPeriod=true y endsAt+30 dias <= endsAt actual.",
+    "missingValue": "0 si no existen renovaciones previas conocidas."
+  },
+  "previousRenewalRate": {
+    "name": "previousRenewalRate",
+    "type": "numeric",
+    "description": "Tasa historica de renovacion conocida del cliente.",
+    "source": "SubscriptionHistories",
+    "calculation": "previousRenewalsCount dividido entre previousSubscriptionsCount, redondeado a seis decimales.",
+    "missingValue": "0 si previousSubscriptionsCount es 0."
+  },
+  "daysAsCustomer": {
+    "name": "daysAsCustomer",
+    "type": "numeric",
+    "description": "Dias desde la primera membresia del cliente hasta el cierre actual.",
+    "source": "SubscriptionHistories.startsAt, SubscriptionHistories.endsAt",
+    "calculation": "Diferencia en dias entre el primer startsAt y el endsAt actual.",
+    "missingValue": "No aplica; minimo 0."
+  },
+  "daysSincePreviousSubscription": {
+    "name": "daysSincePreviousSubscription",
+    "type": "numeric",
+    "description": "Dias entre la membresia anterior y la actual.",
+    "source": "SubscriptionHistories.startsAt, SubscriptionHistories.endsAt",
+    "calculation": "Diferencia entre startsAt actual y endsAt anterior.",
+    "missingValue": "-1 si es la primera membresia."
+  },
+  "changedPlan": {
+    "name": "changedPlan",
+    "type": "binary",
+    "description": "Indica si el plan actual cambio respecto al plan anterior.",
+    "source": "SubscriptionHistories.planName",
+    "calculation": "1 si planName actual difiere del anterior; 0 en otro caso.",
+    "missingValue": "0 si no existe membresia anterior."
+  },
+  "previousAmountPaidAvg": {
+    "name": "previousAmountPaidAvg",
+    "type": "numeric",
+    "description": "Promedio pagado en membresias anteriores.",
+    "source": "SubscriptionHistories.amountPaid",
+    "calculation": "Promedio de amountPaid de historiales anteriores, a dos decimales.",
+    "missingValue": "0 si no existen membresias anteriores."
+  },
+  "amountPaidChange": {
+    "name": "amountPaidChange",
+    "type": "numeric",
+    "description": "Cambio del importe actual contra el promedio historico del cliente.",
+    "source": "SubscriptionHistories.amountPaid",
+    "calculation": "amountPaid actual menos previousAmountPaidAvg.",
+    "missingValue": "0 si no existen membresias anteriores."
+  },
+  "paidOrdersCount": {
+    "name": "paidOrdersCount",
+    "type": "numeric",
+    "description": "Cantidad de ordenes pagadas de productos antes del cierre actual.",
+    "source": "Orders",
+    "calculation": "Cuenta ordenes status=paid del seed association-rules-v1 con fecha de pago o creacion <= endsAt.",
+    "missingValue": "0 si no hay compras previas."
+  },
+  "productsPurchasedCount": {
+    "name": "productsPurchasedCount",
+    "type": "numeric",
+    "description": "Cantidad total de productos comprados antes del cierre actual.",
+    "source": "Orders, OrderItems",
+    "calculation": "Suma OrderItems.quantity para itemType=product en ordenes validas.",
+    "missingValue": "0 si no hay productos previos."
+  },
+  "totalProductSpend": {
+    "name": "totalProductSpend",
+    "type": "numeric",
+    "description": "Gasto total en productos antes del cierre actual.",
+    "source": "OrderItems.subtotal",
+    "calculation": "Suma subtotales de items de producto en ordenes validas.",
+    "missingValue": "0 si no hay compras previas."
+  },
+  "averageOrderValue": {
+    "name": "averageOrderValue",
+    "type": "numeric",
+    "description": "Ticket promedio de productos antes del cierre actual.",
+    "source": "Orders, OrderItems",
+    "calculation": "totalProductSpend dividido entre paidOrdersCount.",
+    "missingValue": "0 si paidOrdersCount es 0."
+  },
+  "daysSinceLastPurchase": {
+    "name": "daysSinceLastPurchase",
+    "type": "numeric",
+    "description": "Dias desde la ultima compra de productos hasta el cierre actual.",
+    "source": "Orders.paidAt, Orders.createdAt",
+    "calculation": "Diferencia entre la ultima compra valida y endsAt.",
+    "missingValue": "-1 si no hay compras previas."
+  },
+  "successfulPaymentsCount": {
+    "name": "successfulPaymentsCount",
+    "type": "numeric",
+    "description": "Pagos de membresia exitosos antes del cierre actual.",
+    "source": "Payments.status, Payments.createdAt",
+    "calculation": "Cuenta Payments membership con status=paid y createdAt <= endsAt.",
+    "missingValue": "0 si no hay pagos exitosos previos."
+  },
+  "failedPaymentsCount": {
+    "name": "failedPaymentsCount",
+    "type": "numeric",
+    "description": "Intentos fallidos de pago de membresia antes del cierre actual.",
+    "source": "Payments.status, Payments.createdAt",
+    "calculation": "Cuenta Payments membership con status=failed y createdAt <= endsAt.",
+    "missingValue": "0 si no hay fallos previos."
+  },
+  "refundedPaymentsCount": {
+    "name": "refundedPaymentsCount",
+    "type": "numeric",
+    "description": "Pagos reembolsados de membresia antes del cierre actual.",
+    "source": "Payments.status, Payments.createdAt",
+    "calculation": "Cuenta Payments membership con status=refunded y createdAt <= endsAt.",
+    "missingValue": "0 si no hay reembolsos previos."
+  },
+  "renewedNextPeriod": {
+    "name": "renewedNextPeriod",
+    "type": "binary target",
+    "description": "Variable objetivo: renovacion dentro de los 30 dias posteriores.",
+    "source": "SubscriptionHistories.renewedNextPeriod",
+    "calculation": "true se exporta como 1; false como 0; null se excluye.",
+    "missingValue": "Los registros null no se exportan."
+  }
+}

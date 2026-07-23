@@ -14,7 +14,6 @@ import {
   FaUserCircle,
   FaChevronDown,
   FaSignOutAlt,
-  FaCogs,
 } from "react-icons/fa";
 
 import { useAuth } from "../../../context/AuthContext";
@@ -56,7 +55,7 @@ const Navbar = ({ scrolled, onToggleMobile }: Props) => {
 
     return [
       { to: "/", label: "INICIO", icon: FaHome, end: true },
-      { to: "/admin", label: "ADMIN", icon: FaCogs },
+      { to: "/admin", label: "ADMIN", icon: FaInfoCircle },
       { to: "/admin/products", label: "PRODUCTOS", icon: FaDumbbell },
       { to: "/admin/suscripciones", label: "SUSCRIPCIONES", icon: FaIdCard },
     ];
@@ -105,10 +104,12 @@ const Navbar = ({ scrolled, onToggleMobile }: Props) => {
             {!user ? (
               <>
                 <Link to="/register" className={styles.btnOutline}>
-                  <FaUserPlus /> SUSCRIBETE
+                  <FaUserPlus />
+                  SUSCRIBETE
                 </Link>
                 <Link to="/login" className={styles.btnSolid}>
-                  <FaSignInAlt /> INICIA SESION
+                  <FaSignInAlt />
+                  INICIA SESION
                 </Link>
               </>
             ) : (

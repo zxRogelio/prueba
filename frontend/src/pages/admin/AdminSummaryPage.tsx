@@ -18,6 +18,11 @@ const modules = [
     description: "Revisa y administra planes y pagos recurrentes.",
     path: "/admin/suscripciones",
   },
+  {
+    title: "Pagos e ingresos",
+    description: "Consulta pagos, reembolsos, ingresos y operaciones pendientes.",
+    path: "/admin/pagos",
+  },
 ];
 
 export default function AdminSummaryPage() {

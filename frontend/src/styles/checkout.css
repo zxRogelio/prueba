@@ -248,6 +248,13 @@
   transform: translateY(0);
 }
 
+.checkout-submit-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+  box-shadow: none;
+}
+
 /* Resumen del Pedido */
 .order-summary-section {
   position: sticky;

@@ -1,0 +1,37 @@
+{
+  "seedName": "renewal-classification-v1",
+  "referenceDate": "2026-07-21",
+  "usersFound": 500,
+  "usersUsed": 500,
+  "usersExcluded": 0,
+  "subscriptionsCreated": 2000,
+  "paymentsCreated": 2520,
+  "historiesCreated": 2000,
+  "renewedTrue": 1035,
+  "renewedFalse": 850,
+  "renewedNull": 115,
+  "truePercentage": 54.91,
+  "falsePercentage": 45.09,
+  "usersWithPurchaseHistory": 434,
+  "subscriptionsWithPurchaseHistory": 1282,
+  "subscriptionsWithoutPurchaseHistory": 718,
+  "subscriptionsByPlanType": {
+    "individual": 1985,
+    "student": 15
+  },
+  "paymentsByStatus": {
+    "paid": 2000,
+    "failed": 370,
+    "cancelled": 90,
+    "refunded": 35,
+    "charged_back": 15,
+    "pending": 10
+  },
+  "paymentsByMethod": {
+    "card_terminal": 525,
+    "cash": 734,
+    "online_checkout": 724,
+    "transfer": 537
+  },
+  "validationErrors": []
+}
