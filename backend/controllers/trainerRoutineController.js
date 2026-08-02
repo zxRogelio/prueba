@@ -612,7 +612,10 @@ export const createTrainerRoutine = async (req, res) => {
 
     if (!title) {
       await transaction.rollback();
-      return res.status(400).json({ error: "El nombre de la rutina es obligatorio" });
+
+      return res.status(400).json({
+        error: "El nombre de la rutina es obligatorio",
+      });
     }
 
     const level = allowedLevels.includes(req.body.level)
@@ -634,14 +637,26 @@ export const createTrainerRoutine = async (req, res) => {
         description: normalizeText(req.body.description),
         level,
         category,
-        durationWeeks: toMinimumInteger(req.body.durationWeeks, 4, 1),
-        daysPerWeek: toMinimumInteger(req.body.daysPerWeek, 3, 1),
-        estimatedMinutes: toMinimumInteger(req.body.estimatedMinutes, 45, 1),
+        durationWeeks: toMinimumInteger(
+          req.body.durationWeeks,
+          4,
+          1
+        ),
+        daysPerWeek: toMinimumInteger(
+          req.body.daysPerWeek,
+          3,
+          1
+        ),
+        estimatedMinutes: toMinimumInteger(
+          req.body.estimatedMinutes,
+          45,
+          1
+        ),
 
         imageUrl: media.imageUrl || null,
         imagePublicId: media.imagePublicId || null,
 
-        // Legacy routine-level video fields are intentionally left empty.
+        // Campos heredados del video general.
         videoUrl: null,
         videoPublicId: null,
         videoType: "none",
@@ -654,9 +669,14 @@ export const createTrainerRoutine = async (req, res) => {
     const exercises = parseExercises(req.body.exercises);
 
     for (const exercise of exercises) {
+      // No enviar id en ejercicios nuevos.
+      // Sequelize generará automáticamente el UUID.
+      const exerciseFields = { ...exercise };
+      delete exerciseFields.id;
+
       await RoutineExercise.create(
         {
-          ...exercise,
+          ...exerciseFields,
           routineId: routine.id,
           videoUrl: null,
           videoPublicId: null,
@@ -675,13 +695,21 @@ export const createTrainerRoutine = async (req, res) => {
 
     return res.status(201).json({
       message: "Rutina creada correctamente",
-      routine: serializeRoutine(fullRoutine, { includeExercisePublicId: true }),
+      routine: serializeRoutine(fullRoutine, {
+        includeExercisePublicId: true,
+      }),
     });
   } catch (error) {
     await transaction.rollback();
     await cleanupCloudinaryImages([newImagePublicId]);
+
     console.error("createTrainerRoutine error:", error);
-    return sendHttpError(res, error, "No se pudo crear la rutina");
+
+    return sendHttpError(
+      res,
+      error,
+      "No se pudo crear la rutina"
+    );
   }
 };
 
