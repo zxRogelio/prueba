@@ -1,7 +1,13 @@
 import { API } from "../../api/api";
 
-export type RoutineStatus = "draft" | "published" | "archived";
+export type RoutineStatus =
+  | "draft"
+  | "pending_review"
+  | "published"
+  | "archived"
+  | "rejected";
 export type RoutineLevel = "principiante" | "intermedio" | "avanzado";
+export type ExerciseVideoType = "none" | "upload" | "youtube" | "external";
 export type RoutineCategory =
   | "fuerza"
   | "hipertrofia"
@@ -21,6 +27,10 @@ export interface RoutineExerciseDTO {
   restSeconds?: number | null;
   notes?: string | null;
   order: number;
+  videoUrl?: string | null;
+  videoPublicId?: string | null;
+  videoType: ExerciseVideoType;
+  hasVideo: boolean;
 }
 
 export interface TrainerRoutineDTO {
@@ -36,9 +46,6 @@ export interface TrainerRoutineDTO {
   estimatedMinutes: number;
   imageUrl?: string | null;
   imagePublicId?: string | null;
-  videoUrl?: string | null;
-  videoPublicId?: string | null;
-  videoType: "none" | "upload" | "youtube" | "drive" | "external";
   status: RoutineStatus;
   createdAt: string;
   updatedAt: string;
@@ -56,11 +63,8 @@ export interface RoutinePayload {
   daysPerWeek: number;
   estimatedMinutes: number;
   status: RoutineStatus;
-  videoUrl?: string;
-  removeVideo?: boolean;
   exercises: RoutineExerciseDTO[];
   imageFile?: File | null;
-  videoFile?: File | null;
 }
 
 const buildRoutineFormData = (payload: RoutinePayload) => {
@@ -75,16 +79,10 @@ const buildRoutineFormData = (payload: RoutinePayload) => {
   formData.append("daysPerWeek", String(payload.daysPerWeek));
   formData.append("estimatedMinutes", String(payload.estimatedMinutes));
   formData.append("status", payload.status);
-  formData.append("videoUrl", payload.videoUrl || "");
-  formData.append("removeVideo", payload.removeVideo ? "true" : "false");
   formData.append("exercises", JSON.stringify(payload.exercises || []));
 
   if (payload.imageFile) {
     formData.append("image", payload.imageFile);
-  }
-
-  if (payload.videoFile) {
-    formData.append("video", payload.videoFile);
   }
 
   return formData;
@@ -156,6 +154,51 @@ export const publishTrainerRoutine = async (id: string) => {
 export const archiveTrainerRoutine = async (id: string) => {
   const { data } = await API.patch<{ routine: TrainerRoutineDTO }>(
     `/trainer/routines/${id}/archive`,
+  );
+
+  return data.routine;
+};
+
+export const uploadExerciseVideo = async (
+  routineId: string,
+  exerciseId: string,
+  videoFile: File,
+) => {
+  const formData = new FormData();
+  formData.append("video", videoFile);
+
+  const { data } = await API.post<{ routine: TrainerRoutineDTO }>(
+    `/trainer/routines/${routineId}/exercises/${exerciseId}/video`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    },
+  );
+
+  return data.routine;
+};
+
+export const setExerciseVideoUrl = async (
+  routineId: string,
+  exerciseId: string,
+  videoUrl: string,
+) => {
+  const { data } = await API.patch<{ routine: TrainerRoutineDTO }>(
+    `/trainer/routines/${routineId}/exercises/${exerciseId}/video-url`,
+    { videoUrl },
+  );
+
+  return data.routine;
+};
+
+export const deleteExerciseVideo = async (
+  routineId: string,
+  exerciseId: string,
+) => {
+  const { data } = await API.delete<{ routine: TrainerRoutineDTO }>(
+    `/trainer/routines/${routineId}/exercises/${exerciseId}/video`,
   );
 
   return data.routine;

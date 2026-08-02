@@ -479,7 +479,11 @@
   transform: translateY(-1px);
 }
 
-.primaryBtn:disabled {
+.primaryBtn:disabled,
+.secondaryBtn:disabled,
+.dangerBtn:disabled,
+.primarySmallBtn:disabled,
+.dangerLightBtn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -555,6 +559,116 @@
   height: 10px;
   border-radius: 999px;
   background: #ef4444;
+}
+
+.videoReviewNotice {
+  padding: 14px 16px;
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  border-radius: 18px;
+  background: rgba(239, 68, 68, 0.08);
+  color: #991b1b;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.exerciseVideoSection {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  background: #f8fafc;
+}
+
+.exerciseVideoHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.exerciseVideoHeader span {
+  display: block;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.exerciseVideoHeader strong {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  margin-top: 6px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.videoReady {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+}
+
+.videoPending {
+  background: rgba(239, 68, 68, 0.1);
+  color: #b91c1c;
+}
+
+.videoPreview {
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #020817;
+}
+
+.videoPreview video,
+.videoPreview iframe {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  background: #020817;
+}
+
+.videoPreview a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  color: #ffffff;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.videoPlaceholder {
+  padding: 14px;
+  border: 1px dashed rgba(15, 23, 42, 0.14);
+  border-radius: 14px;
+  background: #ffffff;
+  color: #64748b;
+  font-weight: 800;
+}
+
+.exerciseVideoActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.exerciseVideoActions button {
+  gap: 8px;
+}
+
+.videoUrlRow {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  gap: 10px;
+  flex: 1 1 360px;
+  min-width: min(100%, 360px);
 }
 
 .filters {
@@ -635,6 +749,16 @@
 .archived {
   background: #e2e8f0;
   color: #475569;
+}
+
+.pending_review {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.rejected {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .level {
@@ -834,8 +958,20 @@
     flex-direction: column;
   }
 
+  .exerciseVideoActions,
+  .videoUrlRow {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .exerciseVideoActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .cardActions button,
-  .formActions button {
+  .formActions button,
+  .exerciseVideoActions button {
     width: 100%;
   }
 }

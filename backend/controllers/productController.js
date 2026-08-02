@@ -1,6 +1,10 @@
 import { sequelize } from "../config/sequelize.js";
 import { Brand, Category, Product, ProductImage } from "../models/index.js";
 import { validateProductPayload } from "../utils/productValidation.js";
+import {
+  cleanProductFieldsForKind,
+  deriveProductTypeFromKind,
+} from "../utils/productKind.js";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
 import { getNextId } from "../utils/nextBusinessId.js";
 import {
@@ -25,7 +29,7 @@ const parseJsonArray = (raw) => {
 
 const productIncludes = [
   { model: Brand, attributes: ["id_marca", "name"] },
-  { model: Category, attributes: ["id_categoria", "name"] },
+  { model: Category, attributes: ["id_categoria", "name", "productKind"] },
   {
     model: ProductImage,
     as: "images",
@@ -60,13 +64,70 @@ const normalizeStockInput = (value) => {
 const normalizePriceInput = (value) => {
   const normalized = Number(value ?? 0);
 
-  if (!Number.isFinite(normalized) || normalized < 0) {
+  if (!Number.isFinite(normalized) || normalized <= 0) {
     const error = new Error("Precio invalido");
     error.statusCode = 400;
     throw error;
   }
 
   return normalized;
+};
+
+const normalizeBusinessId = (value, fieldName) => {
+  const normalized = Number(value);
+
+  if (!Number.isInteger(normalized) || normalized <= 0) {
+    const error = new Error(`${fieldName} invalido`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return normalized;
+};
+
+const findActiveCatalogReferences = async ({
+  brandId,
+  categoryId,
+  transaction,
+}) => {
+  const [brand, category] = await Promise.all([
+    Brand.findOne({
+      where: { id_marca: brandId },
+      transaction,
+      lock: transaction.LOCK.KEY_SHARE,
+    }),
+    Category.findOne({
+      where: { id_categoria: categoryId },
+      transaction,
+      lock: transaction.LOCK.KEY_SHARE,
+    }),
+  ]);
+
+  if (!category || !category.active) {
+    const error = new Error("Categoría inválida o inactiva");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!category.productKind) {
+    const error = new Error("La categoría no tiene productKind configurado");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!brand || !brand.active) {
+    const error = new Error("Marca inválida o inactiva");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (Number(brand.categoryId) !== Number(category.id_categoria)) {
+    const error = new Error("La marca no pertenece a la categoría seleccionada");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return { brand, category };
 };
 
 const statusFromError = (error) => {
@@ -196,33 +257,28 @@ export const getPublicCartProductRecommendations = async (req, res) => {
 export const createProduct = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const { ok, errors } = validateProductPayload(req.body);
+    const brandId = normalizeBusinessId(req.body.brandId, "brandId");
+    const categoryId = normalizeBusinessId(req.body.categoryId, "categoryId");
+
+    const { category } = await findActiveCatalogReferences({
+      brandId,
+      categoryId,
+      transaction: t,
+    });
+    const productType = deriveProductTypeFromKind(category.productKind);
+    const productData = {
+      ...req.body,
+      brandId,
+      categoryId,
+      productType,
+    };
+
+    const { ok, errors } = validateProductPayload(productData, {
+      productKind: category.productKind,
+    });
     if (!ok) {
       await t.rollback();
       return res.status(400).json({ error: "Validación", details: errors });
-    }
-
-    const brandId = Number(req.body.brandId);
-    const categoryId = Number(req.body.categoryId);
-
-    const brand = await Brand.findOne({
-      where: { id_marca: brandId },
-      transaction: t,
-      lock: t.LOCK.KEY_SHARE,
-    });
-    if (!brand || !brand.active) {
-      await t.rollback();
-      return res.status(400).json({ error: "Marca inválida o inactiva" });
-    }
-
-    const category = await Category.findOne({
-      where: { id_categoria: categoryId },
-      transaction: t,
-      lock: t.LOCK.KEY_SHARE,
-    });
-    if (!category || !category.active) {
-      await t.rollback();
-      return res.status(400).json({ error: "Categoría inválida o inactiva" });
     }
 
     const description = String(req.body?.description || "").trim() || null;
@@ -248,6 +304,7 @@ export const createProduct = async (req, res) => {
     const id_producto = await getNextId(Product, "id_producto", t);
     const initialStock = normalizeStockInput(req.body.stock);
     const initialPrice = normalizePriceInput(req.body.price);
+    const kindFields = cleanProductFieldsForKind(req.body, category.productKind);
 
     const created = await Product.create(
       {
@@ -259,17 +316,10 @@ export const createProduct = async (req, res) => {
         stock: 0,
         status: req.body.status || "Activo",
         imageUrl,
-        productType: req.body.productType,
+        productType,
         description,
         features,
-
-        supplementFlavor: req.body.supplementFlavor || null,
-        supplementPresentation: req.body.supplementPresentation || null,
-        supplementServings: req.body.supplementServings || null,
-
-        apparelSize: req.body.apparelSize || null,
-        apparelColor: req.body.apparelColor || null,
-        apparelMaterial: req.body.apparelMaterial || null,
+        ...kindFields,
       },
       { transaction: t }
     );
@@ -303,25 +353,10 @@ export const createProduct = async (req, res) => {
 
     const full = await Product.findOne({
       where: { id_producto: created.id_producto },
-      include: [
-        {
-          model: ProductImage,
-          as: "images",
-          attributes: ["id", "url", "order"],
-          where: { active: true },
-          required: false,
-          separate: true,
-          order: [["order", "ASC"]],
-        },
-      ],
+      include: productIncludes,
     });
 
-    const json = full.toJSON();
-    return res.status(201).json({
-      ...json,
-      features: parseJsonArray(json.features),
-      imageUrl: json.imageUrl || (json.images?.[0]?.url ?? null),
-    });
+    return res.status(201).json(serializeProduct(full));
   } catch (err) {
     await t.rollback();
     console.error("createProduct error:", err);
@@ -347,32 +382,47 @@ export const updateProduct = async (req, res) => {
       return res.status(404).json({ error: "Producto no encontrado" });
     }
 
-    if (req.body.brandId) {
-      const brand = await Brand.findOne({
-        where: { id_marca: Number(req.body.brandId) },
-        transaction: t,
-        lock: t.LOCK.KEY_SHARE,
-      });
-      if (!brand || !brand.active) {
-        await t.rollback();
-        return res.status(400).json({ error: "Marca inválida o inactiva" });
-      }
-      req.body.brandId = Number(req.body.brandId);
+    const brandId = hasOwn(req.body, "brandId")
+      ? normalizeBusinessId(req.body.brandId, "brandId")
+      : Number(product.brandId);
+    const categoryId = hasOwn(req.body, "categoryId")
+      ? normalizeBusinessId(req.body.categoryId, "categoryId")
+      : Number(product.categoryId);
+    const { category } = await findActiveCatalogReferences({
+      brandId,
+      categoryId,
+      transaction: t,
+    });
+    const productType = deriveProductTypeFromKind(category.productKind);
+    const completeBody = {
+      ...product.get({ plain: true }),
+      ...req.body,
+      brandId,
+      categoryId,
+      productType,
+    };
+    const requiresSpecificFieldValidation = [
+      "name",
+      "brandId",
+      "categoryId",
+      "price",
+      "description",
+      "features",
+      "supplementFlavor",
+      "supplementPresentation",
+      "supplementServings",
+      "apparelSize",
+      "apparelColor",
+      "apparelMaterial",
+    ].some((key) => hasOwn(req.body, key));
+    const { ok, errors } = validateProductPayload(completeBody, {
+      productKind: category.productKind,
+      requireSpecificFields: requiresSpecificFieldValidation,
+    });
+    if (!ok) {
+      await t.rollback();
+      return res.status(400).json({ error: "Validación", details: errors });
     }
-
-    if (req.body.categoryId) {
-      const category = await Category.findOne({
-        where: { id_categoria: Number(req.body.categoryId) },
-        transaction: t,
-        lock: t.LOCK.KEY_SHARE,
-      });
-      if (!category || !category.active) {
-        await t.rollback();
-        return res.status(400).json({ error: "Categoría inválida o inactiva" });
-      }
-      req.body.categoryId = Number(req.body.categoryId);
-    }
-
     const updatePayload = { ...req.body };
     const stockProvided = hasOwn(updatePayload, "stock");
     const nextStock = stockProvided ? normalizeStockInput(updatePayload.stock) : null;
@@ -391,12 +441,17 @@ export const updateProduct = async (req, res) => {
       updatePayload.price = normalizePriceInput(updatePayload.price);
     }
 
+    if (hasOwn(updatePayload, "name")) {
+      updatePayload.name = String(updatePayload.name).trim();
+    }
+
     delete updatePayload.stock;
     delete updatePayload.stockChangeReason;
     delete updatePayload.stockReason;
     delete updatePayload.priceChangeReason;
     delete updatePayload.priceReason;
     delete updatePayload.reason;
+    delete updatePayload.productType;
 
     if (updatePayload.description != null) {
       updatePayload.description = String(updatePayload.description).trim() || null;
@@ -439,6 +494,14 @@ export const updateProduct = async (req, res) => {
       }
     }
 
+    updatePayload.brandId = brandId;
+    updatePayload.categoryId = categoryId;
+    updatePayload.productType = productType;
+    Object.assign(
+      updatePayload,
+      cleanProductFieldsForKind(completeBody, category.productKind)
+    );
+
     await updateProductWithCentralizedPrice({
       product,
       updates: updatePayload,
@@ -462,25 +525,10 @@ export const updateProduct = async (req, res) => {
 
     const full = await Product.findOne({
       where: { id_producto },
-      include: [
-        {
-          model: ProductImage,
-          as: "images",
-          attributes: ["id", "url", "order"],
-          where: { active: true },
-          required: false,
-          separate: true,
-          order: [["order", "ASC"]],
-        },
-      ],
+      include: productIncludes,
     });
 
-    const json = full.toJSON();
-    return res.json({
-      ...json,
-      features: parseJsonArray(json.features),
-      imageUrl: json.imageUrl || (json.images?.[0]?.url ?? null),
-    });
+    return res.json(serializeProduct(full));
   } catch (err) {
     await t.rollback();
     console.error("updateProduct error:", err);

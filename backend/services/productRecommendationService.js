@@ -6,7 +6,7 @@ const ML_API_URL = (process.env.ML_RECOMMENDATION_API_URL || "http://localhost:5
 
 const productIncludes = [
   { model: Brand, attributes: ["id_marca", "name"] },
-  { model: Category, attributes: ["id_categoria", "name"] },
+  { model: Category, attributes: ["id_categoria", "name", "productKind"] },
   {
     model: ProductImage,
     as: "images",

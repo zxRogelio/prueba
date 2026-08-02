@@ -73,17 +73,20 @@ export const Routine = sequelize.define(
     videoUrl: {
       type: DataTypes.TEXT,
       allowNull: true,
+      comment: "Legacy routine-level video URL. Use RoutineExercise.videoUrl.",
     },
 
     videoPublicId: {
       type: DataTypes.STRING,
       allowNull: true,
+      comment: "Legacy routine-level Cloudinary video public ID. Use RoutineExercise.videoPublicId.",
     },
 
     videoType: {
       type: DataTypes.STRING(20),
       allowNull: false,
       defaultValue: "none",
+      comment: "Legacy routine-level video type. Use RoutineExercise.videoType.",
     },
 
     status: {

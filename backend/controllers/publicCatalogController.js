@@ -16,7 +16,7 @@ export const listPublicCatalogProducts = async (req, res) => {
       where: { status: "Activo" },
       include: [
         { model: Brand, attributes: ["id_marca", "name"] },
-        { model: Category, attributes: ["id_categoria", "name"] },
+        { model: Category, attributes: ["id_categoria", "name", "productKind"] },
         {
           model: ProductImage,
           as: "images",

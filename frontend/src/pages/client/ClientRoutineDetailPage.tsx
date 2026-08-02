@@ -8,14 +8,13 @@ import {
   FaLayerGroup,
   FaListOl,
   FaLock,
-  FaPlay,
   FaRedo,
-  FaTimes,
   FaUserShield,
 } from "react-icons/fa";
 import {
   getClientRoutineById,
   type ClientRoutine,
+  type RoutineExercise,
 } from "../../services/clientRoutineService";
 import styles from "./ClientPages.module.css";
 
@@ -110,31 +109,74 @@ function getVimeoEmbedUrl(url: string) {
   }
 }
 
-function getVideoSource(routine: ClientRoutine) {
-  if (!routine.videoUrl) return null;
+function getVideoSource(exercise: RoutineExercise) {
+  if (!exercise.videoUrl || exercise.videoType === "none") return null;
 
-  const youtubeUrl = getYouTubeEmbedUrl(routine.videoUrl);
+  const youtubeUrl = getYouTubeEmbedUrl(exercise.videoUrl);
   if (youtubeUrl) return { type: "embed" as const, url: youtubeUrl };
 
-  const vimeoUrl = getVimeoEmbedUrl(routine.videoUrl);
+  const vimeoUrl = getVimeoEmbedUrl(exercise.videoUrl);
   if (vimeoUrl) return { type: "embed" as const, url: vimeoUrl };
 
   const isUpload =
-    routine.videoType === "upload" ||
-    routine.videoUrl.includes("/video/upload/") ||
-    /\.(mp4|webm|ogg)(\?|$)/i.test(routine.videoUrl);
+    exercise.videoType === "upload" ||
+    exercise.videoUrl.includes("/video/upload/") ||
+    /\.(mp4|webm|ogg)(\?|$)/i.test(exercise.videoUrl);
 
   return {
-    type: isUpload ? ("video" as const) : ("embed" as const),
-    url: routine.videoUrl,
+    type: isUpload ? ("video" as const) : ("link" as const),
+    url: exercise.videoUrl,
   };
+}
+
+function ExerciseVideoBlock({ exercise }: { exercise: RoutineExercise }) {
+  const videoSource = getVideoSource(exercise);
+
+  if (!videoSource) {
+    return (
+      <div className={styles.routineExerciseVideoPending}>
+        Video del ejercicio pendiente de actualizacion.
+      </div>
+    );
+  }
+
+  if (videoSource.type === "video") {
+    return (
+      <div className={styles.routineExerciseVideoFrame}>
+        <video src={videoSource.url} controls />
+      </div>
+    );
+  }
+
+  if (videoSource.type === "embed") {
+    return (
+      <div className={styles.routineExerciseVideoFrame}>
+        <iframe
+          src={videoSource.url}
+          title={`Video de ${exercise.name}`}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+
+  return (
+    <a
+      className={styles.routineExerciseVideoLink}
+      href={videoSource.url}
+      target="_blank"
+      rel="noreferrer"
+    >
+      Ver video del ejercicio
+    </a>
+  );
 }
 
 export default function ClientRoutineDetailPage() {
   const { id } = useParams();
   const [routine, setRoutine] = useState<ClientRoutine | null>(null);
   const [loading, setLoading] = useState(true);
-  const [videoOpen, setVideoOpen] = useState(false);
   const [blocked, setBlocked] = useState<MembershipBlockedState>({
     blocked: false,
     message: "",
@@ -181,22 +223,6 @@ export default function ClientRoutineDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  useEffect(() => {
-    if (!videoOpen) return;
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setVideoOpen(false);
-    };
-
-    document.addEventListener("keydown", onKeyDown);
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = "";
-    };
-  }, [videoOpen]);
-
   const exercisesByDay = useMemo(() => {
     const grouped: Record<string, NonNullable<ClientRoutine["exercises"]>> = {};
 
@@ -219,8 +245,6 @@ export default function ClientRoutineDetailPage() {
         ),
       }));
   }, [routine]);
-
-  const videoSource = routine ? getVideoSource(routine) : null;
 
   if (blocked.blocked) {
     return (
@@ -310,16 +334,6 @@ export default function ClientRoutineDetailPage() {
               Volver
             </Link>
 
-            {videoSource ? (
-              <button
-                type="button"
-                className={styles.routineVideoBtn}
-                onClick={() => setVideoOpen(true)}
-              >
-                <FaPlay />
-                Ver video
-              </button>
-            ) : null}
           </div>
         </div>
 
@@ -393,24 +407,6 @@ export default function ClientRoutineDetailPage() {
           </div>
         </section>
 
-        {videoSource ? (
-          <section className={styles.routineVideoPanel}>
-            <div>
-              <span>Video de apoyo</span>
-              <h2>Material complementario</h2>
-              <p>Reproduce el video dentro del portal sin salir del sitio.</p>
-            </div>
-
-            <button
-              type="button"
-              className={styles.routineVideoBtn}
-              onClick={() => setVideoOpen(true)}
-            >
-              <FaPlay />
-              Reproducir
-            </button>
-          </section>
-        ) : null}
       </div>
 
       <section className={styles.routineExercisesPanel}>
@@ -451,6 +447,8 @@ export default function ClientRoutineDetailPage() {
                           {exercise.notes}
                         </p>
                       ) : null}
+
+                      <ExerciseVideoBlock exercise={exercise} />
                     </div>
                   ))}
                 </div>
@@ -464,47 +462,6 @@ export default function ClientRoutineDetailPage() {
         )}
       </section>
 
-      {videoOpen && videoSource ? (
-        <div
-          className={styles.routineVideoOverlay}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Video de rutina"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setVideoOpen(false);
-          }}
-        >
-          <div className={styles.routineVideoModal}>
-            <div className={styles.routineVideoModalHeader}>
-              <div>
-                <span>Video de apoyo</span>
-                <h2>{routine.title}</h2>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setVideoOpen(false)}
-                aria-label="Cerrar video"
-              >
-                <FaTimes />
-              </button>
-            </div>
-
-            <div className={styles.routineVideoFrame}>
-              {videoSource.type === "video" ? (
-                <video src={videoSource.url} controls autoPlay />
-              ) : (
-                <iframe
-                  src={videoSource.url}
-                  title={`Video de ${routine.title}`}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 }

@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { API } from "../../api/api";
+import { isProductKind, type ProductKind } from "../../types/productKind";
 
-export type ProductType = "Suplementación" | "Ropa";
+export type ProductType = "Suplementación" | "Accesorios" | "Ropa";
 export type ProductStatus = "Activo" | "Inactivo";
 
 export type ProductImageDTO = {
@@ -21,6 +22,7 @@ export type ProductDTO = {
 
   imageUrl?: string | null;
   productType: ProductType;
+  categoryProductKind?: ProductKind | null;
 
   description?: string | null;
   features?: string[] | string | null;
@@ -51,6 +53,11 @@ const mapProduct = (p: ProductApi): ProductDTO => ({
   status: p.status,
   imageUrl: p.imageUrl ?? null,
   productType: p.productType,
+  categoryProductKind: isProductKind(p.Category?.productKind)
+    ? p.Category.productKind
+    : isProductKind(p.productKind)
+      ? p.productKind
+      : null,
   description: p.description ?? null,
   features: p.features ?? [],
   images: Array.isArray(p.images)

@@ -56,6 +56,25 @@ export const RoutineExercise = sequelize.define(
       allowNull: false,
       defaultValue: 0,
     },
+
+    videoUrl: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+
+    videoPublicId: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+
+    videoType: {
+      type: DataTypes.STRING(20),
+      allowNull: false,
+      defaultValue: "none",
+      validate: {
+        isIn: [["none", "upload", "youtube", "external"]],
+      },
+    },
   },
   {
     tableName: "RoutineExercises",

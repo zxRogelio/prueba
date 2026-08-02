@@ -6,11 +6,17 @@ import {
   FaTag,
   FaTimes,
 } from "react-icons/fa";
+import {
+  PRODUCT_KIND_OPTIONS,
+  isProductKind,
+  type ProductKind,
+} from "../../../../types/productKind";
 import styles from "../CatalogModal.module.css";
 
 export type CategoryFormData = {
   name: string;
   active: boolean;
+  productKind: ProductKind;
 };
 
 interface Props {
@@ -24,6 +30,7 @@ interface Props {
 const defaultData: CategoryFormData = {
   name: "",
   active: true,
+  productKind: "supplement",
 };
 
 export default function CategoryModal({
@@ -40,7 +47,10 @@ export default function CategoryModal({
     setData({ ...defaultData, ...initial });
   }, [open, initial]);
 
-  const canSave = useMemo(() => data.name.trim().length >= 2, [data.name]);
+  const canSave = useMemo(
+    () => data.name.trim().length >= 2 && isProductKind(data.productKind),
+    [data.name, data.productKind],
+  );
 
   useEffect(() => {
     const onEsc = (event: KeyboardEvent) => event.key === "Escape" && onClose();
@@ -102,7 +112,7 @@ export default function CategoryModal({
               <div>
                 <h3 className={styles.sectionTitle}>Datos de la categoria</h3>
                 <p className={styles.sectionSubtitle}>
-                  Define el nombre comercial y su disponibilidad.
+                  Define el nombre comercial, grupo del producto y disponibilidad.
                 </p>
               </div>
             </div>
@@ -121,6 +131,29 @@ export default function CategoryModal({
                   }
                   placeholder="Ej. Ropa, Zapatos, Accesorios"
                 />
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>
+                  <FaLayerGroup className={styles.fieldLabelIcon} />
+                  Grupo del producto
+                </span>
+                <select
+                  className={styles.select}
+                  value={data.productKind}
+                  onChange={(event) =>
+                    setData((previous) => ({
+                      ...previous,
+                      productKind: event.target.value as ProductKind,
+                    }))
+                  }
+                >
+                  {PRODUCT_KIND_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </label>
 
               <label className={styles.field}>
@@ -153,7 +186,14 @@ export default function CategoryModal({
           <button
             type="button"
             className={styles.btnPrimary}
-            onClick={() => canSave && onSave({ name: data.name.trim(), active: data.active })}
+            onClick={() =>
+              canSave &&
+              onSave({
+                name: data.name.trim(),
+                active: data.active,
+                productKind: data.productKind,
+              })
+            }
             disabled={!canSave}
           >
             Guardar categoria

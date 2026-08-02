@@ -10,12 +10,17 @@ import axios from "axios";
 import {
   Archive,
   CheckCircle2,
+  ExternalLink,
   FileText,
   Image,
+  Link as LinkIcon,
   ListChecks,
   Plus,
+  Send,
   Trash2,
+  UploadCloud,
   Video,
+  XCircle,
 } from "lucide-react";
 import {
   createTrainerRoutine,
@@ -24,6 +29,9 @@ import {
   publishTrainerRoutine,
   archiveTrainerRoutine,
   getTrainerRoutines,
+  uploadExerciseVideo,
+  setExerciseVideoUrl,
+  deleteExerciseVideo,
   type RoutineCategory,
   type RoutineExerciseDTO,
   type RoutineLevel,
@@ -33,6 +41,7 @@ import {
 import styles from "./TrainerRoutinesPage.module.css";
 
 const emptyExercise = (order: number): RoutineExerciseDTO => ({
+  id: undefined,
   name: "",
   description: "",
   dayNumber: 1,
@@ -41,9 +50,26 @@ const emptyExercise = (order: number): RoutineExerciseDTO => ({
   restSeconds: 60,
   notes: "",
   order,
+  videoUrl: null,
+  videoPublicId: null,
+  videoType: "none",
+  hasVideo: false,
 });
 
-const defaultForm = {
+type RoutineFormState = {
+  title: string;
+  objective: string;
+  description: string;
+  level: RoutineLevel;
+  category: RoutineCategory;
+  durationWeeks: number;
+  daysPerWeek: number;
+  estimatedMinutes: number;
+  status: RoutineStatus;
+  exercises: RoutineExerciseDTO[];
+};
+
+const createDefaultForm = (): RoutineFormState => ({
   title: "",
   objective: "",
   description: "",
@@ -53,15 +79,15 @@ const defaultForm = {
   daysPerWeek: 3,
   estimatedMinutes: 45,
   status: "draft" as RoutineStatus,
-  videoUrl: "",
-  removeVideo: false,
   exercises: [emptyExercise(0)] as RoutineExerciseDTO[],
-};
+});
 
 const statusLabels: Record<RoutineStatus, string> = {
   draft: "Borrador",
+  pending_review: "En revision",
   published: "Publicada",
   archived: "Archivada",
+  rejected: "Rechazada",
 };
 
 const levelLabels: Record<RoutineLevel, string> = {
@@ -79,14 +105,74 @@ const categoryLabels: Record<RoutineCategory, string> = {
   general: "General",
 };
 
+type VideoSource = {
+  type: "video" | "embed" | "link";
+  url: string;
+};
+
+const getYouTubeEmbedUrl = (url: string) => {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace("www.", "");
+
+    if (host === "youtu.be") {
+      return `https://www.youtube.com/embed/${parsed.pathname.slice(1)}`;
+    }
+
+    if (host.includes("youtube.com")) {
+      const videoId = parsed.searchParams.get("v");
+      if (videoId) return `https://www.youtube.com/embed/${videoId}`;
+      if (parsed.pathname.startsWith("/embed/")) return url;
+      if (parsed.pathname.startsWith("/shorts/")) {
+        return `https://www.youtube.com/embed/${parsed.pathname.split("/")[2]}`;
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+};
+
+const getExerciseVideoSource = (
+  exercise: Pick<RoutineExerciseDTO, "videoUrl" | "videoType">,
+): VideoSource | null => {
+  if (!exercise.videoUrl || exercise.videoType === "none") return null;
+
+  const youtubeUrl = getYouTubeEmbedUrl(exercise.videoUrl);
+  if (youtubeUrl) return { type: "embed", url: youtubeUrl };
+
+  const isDirectVideo =
+    exercise.videoType === "upload" ||
+    exercise.videoUrl.includes("/video/upload/") ||
+    /\.(mp4|webm|ogg)(\?|$)/i.test(exercise.videoUrl);
+
+  return {
+    type: isDirectVideo ? "video" : "link",
+    url: exercise.videoUrl,
+  };
+};
+
+const routineHasMissingExerciseVideos = (routine: TrainerRoutineDTO) => {
+  const exercises = routine.exercises ?? [];
+
+  return (
+    exercises.length === 0 ||
+    exercises.some((exercise) => !exercise.hasVideo || !exercise.videoUrl)
+  );
+};
+
 export default function TrainerRoutinesPage() {
   const [routines, setRoutines] = useState<TrainerRoutineDTO[]>([]);
   const [selectedRoutine, setSelectedRoutine] = useState<TrainerRoutineDTO | null>(null);
   const [editingRoutine, setEditingRoutine] = useState<TrainerRoutineDTO | null>(null);
 
-  const [form, setForm] = useState(defaultForm);
+  const [form, setForm] = useState<RoutineFormState>(() => createDefaultForm());
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [exerciseVideoUrls, setExerciseVideoUrls] = useState<Record<string, string>>({});
+  const [videoWorkingByExercise, setVideoWorkingByExercise] = useState<
+    Record<string, string>
+  >({});
 
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"todos" | RoutineStatus>("todos");
@@ -98,6 +184,25 @@ export default function TrainerRoutinesPage() {
   const [successMessage, setSuccessMessage] = useState("");
 
   const isEditing = Boolean(editingRoutine);
+  const hasVideoInProgress = Object.keys(videoWorkingByExercise).length > 0;
+
+  const exercisesWithoutVideo = useMemo(
+    () =>
+      form.exercises.filter(
+        (exercise) => exercise.name.trim() && (!exercise.hasVideo || !exercise.videoUrl),
+      ),
+    [form.exercises],
+  );
+
+  const canSubmitToReview = Boolean(
+    editingRoutine &&
+      editingRoutine.status !== "pending_review" &&
+      editingRoutine.status !== "published" &&
+      form.exercises.some((exercise) => exercise.name.trim()) &&
+      exercisesWithoutVideo.length === 0 &&
+      !hasVideoInProgress &&
+      !saving,
+  );
 
   const loadRoutines = async () => {
     setLoading(true);
@@ -146,45 +251,80 @@ export default function TrainerRoutinesPage() {
 
   const resetForm = () => {
     setEditingRoutine(null);
-    setForm(defaultForm);
+    setForm(createDefaultForm());
     setImageFile(null);
-    setVideoFile(null);
+    setExerciseVideoUrls({});
+    setVideoWorkingByExercise({});
     setErrorMessage("");
     setSuccessMessage("");
   };
 
-  const fillFormForEdit = (routine: TrainerRoutineDTO) => {
+  const buildRoutineForm = (routine: TrainerRoutineDTO): RoutineFormState => ({
+    title: routine.title || "",
+    objective: routine.objective || "",
+    description: routine.description || "",
+    level: routine.level,
+    category: routine.category,
+    durationWeeks: routine.durationWeeks || 4,
+    daysPerWeek: routine.daysPerWeek || 3,
+    estimatedMinutes: routine.estimatedMinutes || 45,
+    status: routine.status,
+    exercises: routine.exercises?.length
+      ? routine.exercises.map((exercise, index) => ({
+          id: exercise.id,
+          routineId: exercise.routineId,
+          name: exercise.name || "",
+          description: exercise.description || "",
+          dayNumber: exercise.dayNumber || 1,
+          sets: exercise.sets ?? 4,
+          reps: exercise.reps || "10",
+          restSeconds: exercise.restSeconds ?? 60,
+          notes: exercise.notes || "",
+          order: exercise.order ?? index,
+          videoUrl: exercise.videoUrl ?? null,
+          videoPublicId: exercise.videoPublicId ?? null,
+          videoType: exercise.videoType ?? "none",
+          hasVideo: Boolean(exercise.hasVideo),
+        }))
+      : [emptyExercise(0)],
+  });
+
+  const buildExerciseVideoUrlInputs = (routine: TrainerRoutineDTO) =>
+    Object.fromEntries(
+      (routine.exercises ?? [])
+        .filter((exercise) => exercise.id)
+        .map((exercise) => [
+          exercise.id as string,
+          exercise.videoType === "upload" ? "" : exercise.videoUrl || "",
+        ]),
+    );
+
+  const applyRoutineToEditor = (routine: TrainerRoutineDTO) => {
     setEditingRoutine(routine);
     setSelectedRoutine(null);
     setImageFile(null);
-    setVideoFile(null);
+    setForm(buildRoutineForm(routine));
+    setExerciseVideoUrls(buildExerciseVideoUrlInputs(routine));
+  };
 
-    setForm({
-      title: routine.title || "",
-      objective: routine.objective || "",
-      description: routine.description || "",
-      level: routine.level,
-      category: routine.category,
-      durationWeeks: routine.durationWeeks || 4,
-      daysPerWeek: routine.daysPerWeek || 3,
-      estimatedMinutes: routine.estimatedMinutes || 45,
-      status: routine.status,
-      videoUrl: routine.videoType === "upload" ? "" : routine.videoUrl || "",
-      removeVideo: false,
-      exercises: routine.exercises?.length
-        ? routine.exercises.map((exercise, index) => ({
-            name: exercise.name || "",
-            description: exercise.description || "",
-            dayNumber: exercise.dayNumber || 1,
-            sets: exercise.sets ?? 4,
-            reps: exercise.reps || "10",
-            restSeconds: exercise.restSeconds ?? 60,
-            notes: exercise.notes || "",
-            order: exercise.order ?? index,
-          }))
-        : [emptyExercise(0)],
-    });
+  const mergeUpdatedRoutine = (routine: TrainerRoutineDTO) => {
+    setRoutines((current) =>
+      current.some((item) => item.id === routine.id)
+        ? current.map((item) => (item.id === routine.id ? routine : item))
+        : [routine, ...current],
+    );
 
+    if (editingRoutine?.id === routine.id) {
+      applyRoutineToEditor(routine);
+    }
+
+    if (selectedRoutine?.id === routine.id) {
+      setSelectedRoutine(routine);
+    }
+  };
+
+  const fillFormForEdit = (routine: TrainerRoutineDTO) => {
+    applyRoutineToEditor(routine);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -219,29 +359,19 @@ export default function TrainerRoutinesPage() {
     setImageFile(event.target.files?.[0] || null);
   };
 
-  const handleVideoChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setVideoFile(event.target.files?.[0] || null);
-  };
-
   const handleFileDrop = (
     event: DragEvent<HTMLDivElement>,
-    kind: "image" | "video",
+    kind: "image",
   ) => {
     event.preventDefault();
 
     const droppedFile = Array.from(event.dataTransfer.files).find((file) =>
-      kind === "image"
-        ? file.type.startsWith("image/")
-        : file.type.startsWith("video/"),
+      kind === "image" ? file.type.startsWith("image/") : false,
     );
 
     if (!droppedFile) return;
 
-    if (kind === "image") {
-      setImageFile(droppedFile);
-    } else {
-      setVideoFile(droppedFile);
-    }
+    setImageFile(droppedFile);
   };
 
   const updateExercise = (
@@ -289,6 +419,16 @@ export default function TrainerRoutinesPage() {
   };
 
   const removeExercise = (index: number) => {
+    const exercise = form.exercises[index];
+
+    if (exercise?.hasVideo) {
+      const confirmed = window.confirm(
+        "Este ejercicio tiene video. Al guardar cambios tambien se eliminara su video.",
+      );
+
+      if (!confirmed) return;
+    }
+
     setForm((current) => {
       const nextExercises = current.exercises.filter((_, itemIndex) => itemIndex !== index);
 
@@ -297,6 +437,134 @@ export default function TrainerRoutinesPage() {
         exercises: nextExercises.length ? nextExercises : [emptyExercise(0)],
       };
     });
+  };
+
+  const setExerciseWorking = (exerciseId: string, label: string | null) => {
+    setVideoWorkingByExercise((current) => {
+      if (!label) {
+        const next = { ...current };
+        delete next[exerciseId];
+        return next;
+      }
+
+      return {
+        ...current,
+        [exerciseId]: label,
+      };
+    });
+  };
+
+  const ensureEditableExercise = (exercise: RoutineExerciseDTO) => {
+    if (!editingRoutine?.id || !exercise.id) {
+      setErrorMessage("Guarda el borrador para obtener el ID del ejercicio antes de subir video.");
+      return null;
+    }
+
+    return {
+      routineId: editingRoutine.id,
+      exerciseId: exercise.id,
+    };
+  };
+
+  const handleExerciseVideoFileChange = async (
+    exercise: RoutineExerciseDTO,
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0] || null;
+    event.target.value = "";
+
+    if (!file) return;
+
+    const target = ensureEditableExercise(exercise);
+    if (!target) return;
+
+    setErrorMessage("");
+    setSuccessMessage("");
+    setExerciseWorking(target.exerciseId, "Subiendo");
+
+    try {
+      const updatedRoutine = await uploadExerciseVideo(
+        target.routineId,
+        target.exerciseId,
+        file,
+      );
+      mergeUpdatedRoutine(updatedRoutine);
+      setSuccessMessage("Video del ejercicio guardado correctamente.");
+    } catch (error: unknown) {
+      console.error("UPLOAD EXERCISE VIDEO ERROR:", error);
+      setErrorMessage(
+        axios.isAxiosError(error)
+          ? String(error.response?.data?.error || "No se pudo subir el video.")
+          : "No se pudo subir el video.",
+      );
+    } finally {
+      setExerciseWorking(target.exerciseId, null);
+    }
+  };
+
+  const handleExerciseVideoUrlSubmit = async (exercise: RoutineExerciseDTO) => {
+    const target = ensureEditableExercise(exercise);
+    if (!target) return;
+
+    const videoUrl = (exerciseVideoUrls[target.exerciseId] || "").trim();
+
+    if (!videoUrl) {
+      setErrorMessage("Agrega una URL HTTPS para el video del ejercicio.");
+      return;
+    }
+
+    setErrorMessage("");
+    setSuccessMessage("");
+    setExerciseWorking(target.exerciseId, "Guardando URL");
+
+    try {
+      const updatedRoutine = await setExerciseVideoUrl(
+        target.routineId,
+        target.exerciseId,
+        videoUrl,
+      );
+      mergeUpdatedRoutine(updatedRoutine);
+      setSuccessMessage("URL del video guardada correctamente.");
+    } catch (error: unknown) {
+      console.error("SET EXERCISE VIDEO URL ERROR:", error);
+      setErrorMessage(
+        axios.isAxiosError(error)
+          ? String(error.response?.data?.error || "No se pudo guardar la URL.")
+          : "No se pudo guardar la URL.",
+      );
+    } finally {
+      setExerciseWorking(target.exerciseId, null);
+    }
+  };
+
+  const handleDeleteExerciseVideo = async (exercise: RoutineExerciseDTO) => {
+    const target = ensureEditableExercise(exercise);
+    if (!target) return;
+
+    const confirmed = window.confirm("Eliminar el video de este ejercicio?");
+    if (!confirmed) return;
+
+    setErrorMessage("");
+    setSuccessMessage("");
+    setExerciseWorking(target.exerciseId, "Eliminando");
+
+    try {
+      const updatedRoutine = await deleteExerciseVideo(
+        target.routineId,
+        target.exerciseId,
+      );
+      mergeUpdatedRoutine(updatedRoutine);
+      setSuccessMessage("Video del ejercicio eliminado.");
+    } catch (error: unknown) {
+      console.error("DELETE EXERCISE VIDEO ERROR:", error);
+      setErrorMessage(
+        axios.isAxiosError(error)
+          ? String(error.response?.data?.error || "No se pudo eliminar el video.")
+          : "No se pudo eliminar el video.",
+      );
+    } finally {
+      setExerciseWorking(target.exerciseId, null);
+    }
   };
 
   const validateForm = () => {
@@ -347,6 +615,7 @@ export default function TrainerRoutinesPage() {
           .filter((exercise) => exercise.name.trim())
           .map((exercise, index) => ({
             ...exercise,
+            id: exercise.id,
             name: exercise.name.trim(),
             description: exercise.description || "",
             notes: exercise.notes || "",
@@ -359,18 +628,19 @@ export default function TrainerRoutinesPage() {
             dayNumber: Number(exercise.dayNumber),
           })),
         imageFile,
-        videoFile,
       };
 
       if (editingRoutine) {
-        await updateTrainerRoutine(editingRoutine.id, payload);
+        const updatedRoutine = await updateTrainerRoutine(editingRoutine.id, payload);
+        mergeUpdatedRoutine(updatedRoutine);
         setSuccessMessage("Rutina actualizada correctamente.");
       } else {
-        await createTrainerRoutine(payload);
-        setSuccessMessage("Rutina creada correctamente.");
+        const createdRoutine = await createTrainerRoutine(payload);
+        mergeUpdatedRoutine(createdRoutine);
+        applyRoutineToEditor(createdRoutine);
+        setSuccessMessage("Borrador creado. Ya puedes subir el video de cada ejercicio.");
       }
 
-      resetForm();
       await loadRoutines();
     } catch (error: unknown) {
       console.error("SAVE ROUTINE ERROR:", error);
@@ -407,13 +677,27 @@ export default function TrainerRoutinesPage() {
 
   const handlePublish = async (routine: TrainerRoutineDTO) => {
     try {
-      await publishTrainerRoutine(routine.id);
-      setSuccessMessage("Rutina publicada correctamente.");
+      const updatedRoutine = await publishTrainerRoutine(routine.id);
+      mergeUpdatedRoutine(updatedRoutine);
+      setSuccessMessage("Rutina enviada a revision correctamente.");
       await loadRoutines();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("PUBLISH ROUTINE ERROR:", error);
-      setErrorMessage("No se pudo publicar la rutina.");
+      setErrorMessage(
+        axios.isAxiosError(error)
+          ? String(
+              error.response?.data?.error ||
+                "No se pudo enviar la rutina a revision.",
+            )
+          : "No se pudo enviar la rutina a revision.",
+      );
     }
+  };
+
+  const handleSubmitCurrentToReview = async () => {
+    if (!editingRoutine) return;
+
+    await handlePublish(editingRoutine);
   };
 
   const handleArchive = async (routine: TrainerRoutineDTO) => {
@@ -427,6 +711,114 @@ export default function TrainerRoutinesPage() {
     }
   };
 
+  const renderExerciseVideoControls = (exercise: RoutineExerciseDTO) => {
+    const exerciseId = exercise.id;
+    const busyLabel = exerciseId ? videoWorkingByExercise[exerciseId] : "";
+    const videoSource = getExerciseVideoSource(exercise);
+    const fileInputId = exerciseId ? `exercise-video-file-${exerciseId}` : "";
+
+    return (
+      <section className={styles.exerciseVideoSection}>
+        <div className={styles.exerciseVideoHeader}>
+          <div>
+            <span>Video del ejercicio</span>
+            <strong className={exercise.hasVideo ? styles.videoReady : styles.videoPending}>
+              {exercise.hasVideo
+                ? exercise.videoType === "youtube"
+                  ? "YouTube"
+                  : exercise.videoType === "upload"
+                    ? "Archivo subido"
+                    : "URL externa"
+                : "Video pendiente"}
+            </strong>
+          </div>
+          <Video size={18} />
+        </div>
+
+        {videoSource ? (
+          <div className={styles.videoPreview}>
+            {videoSource.type === "video" ? (
+              <video src={videoSource.url} controls />
+            ) : videoSource.type === "embed" ? (
+              <iframe
+                src={videoSource.url}
+                title={`Video de ${exercise.name || "ejercicio"}`}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            ) : (
+              <a href={videoSource.url} target="_blank" rel="noreferrer">
+                <ExternalLink size={16} />
+                Ver video actual
+              </a>
+            )}
+          </div>
+        ) : (
+          <div className={styles.videoPlaceholder}>
+            Video del ejercicio pendiente de actualizacion.
+          </div>
+        )}
+
+        {!exerciseId ? (
+          <small>Guarda el borrador para subir video a este ejercicio.</small>
+        ) : (
+          <div className={styles.exerciseVideoActions}>
+            <input
+              className={styles.fileInputNative}
+              id={fileInputId}
+              type="file"
+              accept="video/mp4,video/webm,video/quicktime"
+              onChange={(event) => void handleExerciseVideoFileChange(exercise, event)}
+            />
+
+            <button
+              type="button"
+              className={styles.secondaryBtn}
+              disabled={Boolean(busyLabel)}
+              onClick={() => document.getElementById(fileInputId)?.click()}
+            >
+              <UploadCloud size={16} />
+              {busyLabel || "Subir archivo"}
+            </button>
+
+            <div className={styles.videoUrlRow}>
+              <input
+                type="url"
+                value={exerciseVideoUrls[exerciseId] || ""}
+                onChange={(event) =>
+                  setExerciseVideoUrls((current) => ({
+                    ...current,
+                    [exerciseId]: event.target.value,
+                  }))
+                }
+                placeholder="https://youtube.com/..."
+              />
+              <button
+                type="button"
+                className={styles.primarySmallBtn}
+                disabled={Boolean(busyLabel)}
+                onClick={() => void handleExerciseVideoUrlSubmit(exercise)}
+              >
+                <LinkIcon size={15} />
+                Guardar URL
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className={styles.dangerLightBtn}
+              disabled={!exercise.hasVideo || Boolean(busyLabel)}
+              onClick={() => void handleDeleteExerciseVideo(exercise)}
+            >
+              <XCircle size={15} />
+              Eliminar video
+            </button>
+          </div>
+        )}
+      </section>
+    );
+  };
+
   return (
     <section className={styles.page}>
       <header className={styles.hero}>
@@ -434,8 +826,8 @@ export default function TrainerRoutinesPage() {
           <span className={styles.eyebrow}>Panel de entrenador</span>
           <h1>Rutinas y planes</h1>
           <p>
-            Crea rutinas con imagen, video, link externo y ejercicios por día.
-            Las rutinas publicadas después podrán aparecer para los clientes con suscripción.
+            Crea rutinas con imagen de portada y videos especificos para cada
+            ejercicio antes de enviarlas a revision.
           </p>
         </div>
       </header>
@@ -500,11 +892,11 @@ export default function TrainerRoutinesPage() {
           </article>
           <article>
             <strong>2</strong>
-            <span>Imagen, video o enlace</span>
+            <span>Imagen de portada</span>
           </article>
           <article>
             <strong>3</strong>
-            <span>Ejercicios por dia</span>
+            <span>Videos por ejercicio</span>
           </article>
         </div>
 
@@ -639,14 +1031,6 @@ export default function TrainerRoutinesPage() {
               </div>
             </label>
 
-            <label>
-              <span>Estado</span>
-              <select name="status" value={form.status} onChange={handleInputChange}>
-                <option value="draft">Borrador</option>
-                <option value="published">Publicada</option>
-                <option value="archived">Archivada</option>
-              </select>
-            </label>
           </div>
 
           <label>
@@ -693,66 +1077,12 @@ export default function TrainerRoutinesPage() {
               ) : null}
             </label>
 
-            <label>
-              <span>Video de la rutina</span>
-              <input
-                className={styles.fileInputNative}
-                id="routine-video-file"
-                type="file"
-                accept="video/mp4,video/webm,video/quicktime"
-                onChange={handleVideoChange}
-              />
-              <div
-                className={styles.uploadDropzone}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => handleFileDrop(event, "video")}
-                onClick={() =>
-                  document.getElementById("routine-video-file")?.click()
-                }
-              >
-                <span className={styles.uploadIcon}>
-                  <Video size={22} />
-                </span>
-                <strong>{videoFile?.name || "Arrastra el video aqui"}</strong>
-                <small>
-                  {videoFile
-                    ? "Video listo para guardar."
-                    : "o haz clic para seleccionar MP4, WEBM o MOV."}
-                </small>
-              </div>
-              {editingRoutine?.videoType === "upload" ? (
-                <small>Si subes otro video, reemplazará el actual.</small>
-              ) : null}
-            </label>
           </div>
 
-          <label>
-            <span>Link de video</span>
-            <input
-              name="videoUrl"
-              value={form.videoUrl}
-              onChange={handleInputChange}
-              placeholder="YouTube, Google Drive o link externo"
-            />
-            <small>
-              Puedes subir un video o pegar un link. Si subes archivo, el archivo tiene prioridad.
-            </small>
-          </label>
-
-          {editingRoutine?.videoUrl ? (
-            <label className={styles.checkboxRow}>
-              <input
-                type="checkbox"
-                checked={form.removeVideo}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    removeVideo: event.target.checked,
-                  }))
-                }
-              />
-              <span>Eliminar video actual</span>
-            </label>
+          {exercisesWithoutVideo.length ? (
+            <div className={styles.videoReviewNotice}>
+              Agrega un video especifico a cada ejercicio antes de enviar la rutina a revision.
+            </div>
           ) : null}
 
           <section className={styles.exercisePanel}>
@@ -770,7 +1100,10 @@ export default function TrainerRoutinesPage() {
 
             <div className={styles.exerciseList}>
               {form.exercises.map((exercise, index) => (
-                <article className={styles.exerciseCard} key={`${index}-${exercise.order}`}>
+                <article
+                  className={styles.exerciseCard}
+                  key={exercise.id || `${index}-${exercise.order}`}
+                >
                   <div className={styles.exerciseHeader}>
                     <strong>Ejercicio {index + 1}</strong>
 
@@ -929,6 +1262,8 @@ export default function TrainerRoutinesPage() {
                       placeholder="Notas adicionales, peso sugerido o recomendaciones"
                     />
                   </label>
+
+                  {renderExerciseVideoControls(exercise)}
                 </article>
               ))}
             </div>
@@ -940,8 +1275,20 @@ export default function TrainerRoutinesPage() {
                 ? "Guardando..."
                 : isEditing
                   ? "Guardar cambios"
-                  : "Crear rutina"}
+                  : "Guardar borrador"}
             </button>
+
+            {isEditing ? (
+              <button
+                type="button"
+                className={styles.primaryBtn}
+                disabled={!canSubmitToReview}
+                onClick={() => void handleSubmitCurrentToReview()}
+              >
+                <Send size={17} />
+                Enviar a revision
+              </button>
+            ) : null}
 
             <button type="button" className={styles.secondaryBtn} onClick={resetForm}>
               Limpiar
@@ -972,8 +1319,10 @@ export default function TrainerRoutinesPage() {
             >
               <option value="todos">Todos</option>
               <option value="draft">Borradores</option>
+              <option value="pending_review">En revision</option>
               <option value="published">Publicadas</option>
               <option value="archived">Archivadas</option>
+              <option value="rejected">Rechazadas</option>
             </select>
           </div>
         </div>
@@ -1027,21 +1376,26 @@ export default function TrainerRoutinesPage() {
                       Editar
                     </button>
 
-                    {routine.status !== "published" ? (
-                      <button
-                        type="button"
-                        className={styles.primarySmallBtn}
-                        onClick={() => void handlePublish(routine)}
-                      >
-                        Publicar
-                      </button>
-                    ) : (
+                    {routine.status === "published" ? (
                       <button
                         type="button"
                         className={styles.secondaryBtn}
                         onClick={() => void handleArchive(routine)}
                       >
                         Archivar
+                      </button>
+                    ) : routine.status === "pending_review" ? (
+                      <button type="button" className={styles.secondaryBtn} disabled>
+                        En revision
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={styles.primarySmallBtn}
+                        disabled={routineHasMissingExerciseVideos(routine)}
+                        onClick={() => void handlePublish(routine)}
+                      >
+                        Enviar a revision
                       </button>
                     )}
 
@@ -1091,17 +1445,6 @@ export default function TrainerRoutinesPage() {
               />
             ) : null}
 
-            {selectedRoutine.videoUrl ? (
-              <a
-                className={styles.videoLink}
-                href={selectedRoutine.videoUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Abrir video de la rutina
-              </a>
-            ) : null}
-
             <div className={styles.metaGridModal}>
               <span>Nivel: {levelLabels[selectedRoutine.level]}</span>
               <span>Categoría: {categoryLabels[selectedRoutine.category]}</span>
@@ -1114,20 +1457,48 @@ export default function TrainerRoutinesPage() {
               <h3>Ejercicios</h3>
 
               {selectedRoutine.exercises?.length ? (
-                selectedRoutine.exercises.map((exercise, index) => (
-                  <div className={styles.modalExercise} key={exercise.id || index}>
-                    <strong>
-                      Día {exercise.dayNumber} · {exercise.name}
-                    </strong>
-                    <p>
-                      {exercise.sets ? `${exercise.sets} series` : "Series libres"} ·{" "}
-                      {exercise.reps || "Reps libres"} · Descanso{" "}
-                      {exercise.restSeconds ?? 0}s
-                    </p>
-                    {exercise.description ? <p>{exercise.description}</p> : null}
-                    {exercise.notes ? <small>{exercise.notes}</small> : null}
-                  </div>
-                ))
+                selectedRoutine.exercises.map((exercise, index) => {
+                  const videoSource = getExerciseVideoSource(exercise);
+
+                  return (
+                    <div className={styles.modalExercise} key={exercise.id || index}>
+                      <strong>
+                        Dia {exercise.dayNumber} - {exercise.name}
+                      </strong>
+                      <p>
+                        {exercise.sets ? `${exercise.sets} series` : "Series libres"} -{" "}
+                        {exercise.reps || "Reps libres"} - Descanso{" "}
+                        {exercise.restSeconds ?? 0}s
+                      </p>
+                      {exercise.description ? <p>{exercise.description}</p> : null}
+                      {exercise.notes ? <small>{exercise.notes}</small> : null}
+
+                      {videoSource ? (
+                        <div className={styles.videoPreview}>
+                          {videoSource.type === "video" ? (
+                            <video src={videoSource.url} controls />
+                          ) : videoSource.type === "embed" ? (
+                            <iframe
+                              src={videoSource.url}
+                              title={`Video de ${exercise.name}`}
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                            />
+                          ) : (
+                            <a href={videoSource.url} target="_blank" rel="noreferrer">
+                              <ExternalLink size={16} />
+                              Ver video
+                            </a>
+                          )}
+                        </div>
+                      ) : (
+                        <div className={styles.videoPlaceholder}>
+                          Video del ejercicio pendiente de actualizacion.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
               ) : (
                 <p>Sin ejercicios registrados.</p>
               )}

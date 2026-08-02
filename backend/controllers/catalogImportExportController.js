@@ -3,6 +3,8 @@ import { parse } from "csv-parse/sync";
 import { Parser } from "json2csv";
 import crypto from "crypto";
 
+// productType se conserva en CSV por compatibilidad; el valor guardado se deriva
+// siempre desde Categories.productKind.
 const EXPORTABLE_FIELDS = [
   "id_producto",
   "name",
@@ -10,6 +12,7 @@ const EXPORTABLE_FIELDS = [
   "brandName",
   "categoryId",
   "categoryName",
+  "productKind",
   "price",
   "stock",
   "status",
@@ -33,6 +36,7 @@ const TEMPLATE_FIELDS = [
   "brandName",
   "categoryId",
   "categoryName",
+  "productKind",
   "price",
   "stock",
   "status",
@@ -75,6 +79,7 @@ export const exportProductsCsv = async (req, res) => {
         b.name AS "brandName",
         p."categoryId",
         c.name AS "categoryName",
+        c."productKind",
         p.price,
         p.stock,
         p.status,
@@ -136,6 +141,7 @@ export const exportProductsImportTemplateCsv = async (req, res) => {
         b.name AS "brandName",
         p."categoryId",
         c.name AS "categoryName",
+        c."productKind",
         p.price,
         p.stock,
         p.status,
@@ -389,17 +395,6 @@ export const validateProductsImport = async (req, res) => {
       { replacements: { batchId } }
     );
 
-    await sequelizeImporter.query(
-      `
-      INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
-      SELECT batch_id, row_num, 'productType', 'Tipo de producto obligatorio'
-      FROM staging.products_import
-      WHERE batch_id = :batchId
-        AND "productType" IS NULL;
-      `,
-      { replacements: { batchId } }
-    );
-
     // rangos
     await sequelizeImporter.query(
       `
@@ -407,7 +402,7 @@ export const validateProductsImport = async (req, res) => {
       SELECT batch_id, row_num, 'price', 'Precio inválido'
       FROM staging.products_import
       WHERE batch_id = :batchId
-        AND price < 0;
+        AND price <= 0;
       `,
       { replacements: { batchId } }
     );
@@ -441,7 +436,8 @@ export const validateProductsImport = async (req, res) => {
       SELECT batch_id, row_num, 'productType', 'Tipo de producto inválido'
       FROM staging.products_import
       WHERE batch_id = :batchId
-        AND "productType" NOT IN ('Suplementación', 'Ropa');
+        AND "productType" IS NOT NULL
+        AND "productType" NOT IN ('Suplementación', 'Accesorios', 'Ropa');
       `,
       { replacements: { batchId } }
     );
@@ -542,6 +538,148 @@ export const validateProductsImport = async (req, res) => {
       WHERE p.batch_id = :batchId
         AND p."categoryId" IS NOT NULL
         AND c.id_categoria IS NULL;
+      `,
+      { replacements: { batchId } }
+    );
+
+    await sequelizeImporter.query(
+      `
+      INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
+      SELECT p.batch_id, p.row_num, 'categoryId', 'Categoría sin productKind'
+      FROM staging.products_import p
+      INNER JOIN core."Categories" c
+        ON p."categoryId" = c.id_categoria
+      WHERE p.batch_id = :batchId
+        AND c."productKind" IS NULL;
+      `,
+      { replacements: { batchId } }
+    );
+
+    await sequelizeImporter.query(
+      `
+      INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
+      SELECT p.batch_id, p.row_num, 'categoryId', 'Categoría inactiva'
+      FROM staging.products_import p
+      INNER JOIN core."Categories" c
+        ON p."categoryId" = c.id_categoria
+      WHERE p.batch_id = :batchId
+        AND c.active IS NOT TRUE;
+      `,
+      { replacements: { batchId } }
+    );
+
+    await sequelizeImporter.query(
+      `
+      INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
+      SELECT p.batch_id, p.row_num, 'brandId', 'Marca inactiva'
+      FROM staging.products_import p
+      INNER JOIN core."Brands" b
+        ON p."brandId" = b.id_marca
+      WHERE p.batch_id = :batchId
+        AND b.active IS NOT TRUE;
+      `,
+      { replacements: { batchId } }
+    );
+
+    await sequelizeImporter.query(
+      `
+      INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
+      SELECT p.batch_id, p.row_num, 'brandId', 'La marca no pertenece a la categoría'
+      FROM staging.products_import p
+      INNER JOIN core."Brands" b
+        ON p."brandId" = b.id_marca
+      INNER JOIN core."Categories" c
+        ON p."categoryId" = c.id_categoria
+      WHERE p.batch_id = :batchId
+        AND b."categoryId" IS DISTINCT FROM c.id_categoria;
+      `,
+      { replacements: { batchId } }
+    );
+
+    await sequelizeImporter.query(
+      `
+      INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
+      SELECT p.batch_id, p.row_num, 'productType', 'productType contradice la categoría'
+      FROM staging.products_import p
+      INNER JOIN core."Categories" c
+        ON p."categoryId" = c.id_categoria
+      WHERE p.batch_id = :batchId
+        AND p."productType" IS NOT NULL
+        AND p."productType" <> CASE c."productKind"::text
+          WHEN 'supplement' THEN 'Suplementación'
+          WHEN 'accessory' THEN 'Accesorios'
+          WHEN 'apparel' THEN 'Ropa'
+        END;
+      `,
+      { replacements: { batchId } }
+    );
+
+    await sequelizeImporter.query(
+      `
+      INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
+      SELECT p.batch_id, p.row_num, 'supplementPresentation', 'Presentación requerida para suplementos'
+      FROM staging.products_import p
+      INNER JOIN core."Categories" c
+        ON p."categoryId" = c.id_categoria
+      WHERE p.batch_id = :batchId
+        AND c."productKind"::text = 'supplement'
+        AND (p."supplementPresentation" IS NULL OR btrim(p."supplementPresentation") = '');
+      `,
+      { replacements: { batchId } }
+    );
+
+    await sequelizeImporter.query(
+      `
+      INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
+      SELECT p.batch_id, p.row_num, 'supplementFlavor', 'Sabor requerido para suplementos'
+      FROM staging.products_import p
+      INNER JOIN core."Categories" c
+        ON p."categoryId" = c.id_categoria
+      WHERE p.batch_id = :batchId
+        AND c."productKind"::text = 'supplement'
+        AND (p."supplementFlavor" IS NULL OR btrim(p."supplementFlavor") = '');
+      `,
+      { replacements: { batchId } }
+    );
+
+    await sequelizeImporter.query(
+      `
+      INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
+      SELECT p.batch_id, p.row_num, 'supplementServings', 'Porciones requeridas para suplementos'
+      FROM staging.products_import p
+      INNER JOIN core."Categories" c
+        ON p."categoryId" = c.id_categoria
+      WHERE p.batch_id = :batchId
+        AND c."productKind"::text = 'supplement'
+        AND (p."supplementServings" IS NULL OR btrim(p."supplementServings") = '');
+      `,
+      { replacements: { batchId } }
+    );
+
+    await sequelizeImporter.query(
+      `
+      INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
+      SELECT p.batch_id, p.row_num, 'apparelSize', 'Talla requerida para ropa'
+      FROM staging.products_import p
+      INNER JOIN core."Categories" c
+        ON p."categoryId" = c.id_categoria
+      WHERE p.batch_id = :batchId
+        AND c."productKind"::text = 'apparel'
+        AND (p."apparelSize" IS NULL OR btrim(p."apparelSize") = '');
+      `,
+      { replacements: { batchId } }
+    );
+
+    await sequelizeImporter.query(
+      `
+      INSERT INTO staging.import_errors (batch_id, row_num, field_name, error_message)
+      SELECT p.batch_id, p.row_num, 'apparelColor', 'Color requerido para ropa'
+      FROM staging.products_import p
+      INNER JOIN core."Categories" c
+        ON p."categoryId" = c.id_categoria
+      WHERE p.batch_id = :batchId
+        AND c."productKind"::text = 'apparel'
+        AND (p."apparelColor" IS NULL OR btrim(p."apparelColor") = '');
       `,
       { replacements: { batchId } }
     );
@@ -652,10 +790,16 @@ export const previewProductsImport = async (req, res) => {
         b.name AS "brandName",
         s."categoryId",
         c.name AS "categoryName",
+        c."productKind",
         s.price,
         s.stock,
         s.status,
-        s."productType",
+        s."productType" AS "csvProductType",
+        CASE c."productKind"::text
+          WHEN 'supplement' THEN 'Suplementación'
+          WHEN 'accessory' THEN 'Accesorios'
+          WHEN 'apparel' THEN 'Ropa'
+        END AS "productType",
         coreById.id_producto AS core_id_match,
         coreByLogic.id_producto AS core_logic_match,
         coreByLogic.name AS core_logic_name,
@@ -808,19 +952,27 @@ export const commitProductsImport = async (req, res) => {
         s.price,
         s.stock,
         COALESCE(s.status, 'Activo')::public."enum_Products_status",
-        s."productType"::public."enum_Products_productType",
+        (
+          CASE c."productKind"::text
+            WHEN 'supplement' THEN 'Suplementación'
+            WHEN 'accessory' THEN 'Accesorios'
+            WHEN 'apparel' THEN 'Ropa'
+          END
+        )::public."enum_Products_productType",
         s."imageUrl",
         s.description,
         COALESCE(s.features, '[]')::text,
-        s."supplementFlavor",
-        s."supplementPresentation",
-        s."supplementServings",
-        s."apparelSize",
-        s."apparelColor",
-        s."apparelMaterial",
+        CASE WHEN c."productKind"::text = 'supplement' THEN s."supplementFlavor" ELSE NULL END,
+        CASE WHEN c."productKind"::text = 'supplement' THEN s."supplementPresentation" ELSE NULL END,
+        CASE WHEN c."productKind"::text = 'supplement' THEN s."supplementServings" ELSE NULL END,
+        CASE WHEN c."productKind"::text = 'apparel' THEN s."apparelSize" ELSE NULL END,
+        CASE WHEN c."productKind"::text = 'apparel' THEN s."apparelColor" ELSE NULL END,
+        CASE WHEN c."productKind"::text = 'apparel' THEN s."apparelMaterial" ELSE NULL END,
         NOW(),
         NOW()
       FROM staging.products_import s
+      INNER JOIN core."Categories" c
+        ON s."categoryId" = c.id_categoria
       WHERE s.batch_id = :batchId
       ON CONFLICT (id_producto)
       DO UPDATE SET

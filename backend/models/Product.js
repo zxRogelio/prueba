@@ -32,7 +32,7 @@ export const Product = sequelize.define(
     imageUrl: { type: DataTypes.STRING(500), allowNull: true },
 
     productType: {
-      type: DataTypes.ENUM("Suplementación", "Ropa"),
+      type: DataTypes.ENUM("Suplementación", "Accesorios", "Ropa"),
       allowNull: false,
     },
 

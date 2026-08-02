@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import axios from "axios";
 import {
   FaArchive,
   FaCheckCircle,
@@ -14,8 +15,117 @@ import {
   getAdminRoutines,
   rejectAdminRoutine,
   type AdminRoutine,
+  type RoutineExercise,
 } from "../../services/admin/adminRoutineService";
 import styles from "./AdminSuscripcionesPage.module.css";
+
+type VideoSource = {
+  type: "video" | "embed" | "link";
+  url: string;
+};
+
+function getYouTubeEmbedUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace("www.", "");
+
+    if (host === "youtu.be") {
+      return `https://www.youtube.com/embed/${parsed.pathname.slice(1)}`;
+    }
+
+    if (host.includes("youtube.com")) {
+      const videoId = parsed.searchParams.get("v");
+      if (videoId) return `https://www.youtube.com/embed/${videoId}`;
+      if (parsed.pathname.startsWith("/embed/")) return url;
+      if (parsed.pathname.startsWith("/shorts/")) {
+        return `https://www.youtube.com/embed/${parsed.pathname.split("/")[2]}`;
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function getExerciseVideoSource(exercise: RoutineExercise): VideoSource | null {
+  if (!exercise.videoUrl || exercise.videoType === "none") return null;
+
+  const youtubeUrl = getYouTubeEmbedUrl(exercise.videoUrl);
+  if (youtubeUrl) return { type: "embed", url: youtubeUrl };
+
+  const isDirectVideo =
+    exercise.videoType === "upload" ||
+    exercise.videoUrl.includes("/video/upload/") ||
+    /\.(mp4|webm|ogg)(\?|$)/i.test(exercise.videoUrl);
+
+  return {
+    type: isDirectVideo ? "video" : "link",
+    url: exercise.videoUrl,
+  };
+}
+
+function groupExercisesByDay(exercises: RoutineExercise[] = []) {
+  const groups = new Map<number, RoutineExercise[]>();
+
+  exercises.forEach((exercise) => {
+    const day = Number(exercise.dayNumber || 1);
+    groups.set(day, [...(groups.get(day) || []), exercise]);
+  });
+
+  return [...groups.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([day, dayExercises]) => ({
+      day,
+      exercises: dayExercises.sort(
+        (left, right) => Number(left.order ?? 0) - Number(right.order ?? 0),
+      ),
+    }));
+}
+
+function routineHasMissingExerciseVideos(routine: AdminRoutine) {
+  const exercises = routine.exercises ?? [];
+
+  return (
+    exercises.length === 0 ||
+    exercises.some((exercise) => !exercise.hasVideo || !exercise.videoUrl)
+  );
+}
+
+function ExerciseVideoPreview({ exercise }: { exercise: RoutineExercise }) {
+  const videoSource = getExerciseVideoSource(exercise);
+
+  if (!videoSource) {
+    return <div className={styles.videoPlaceholder}>Video pendiente</div>;
+  }
+
+  if (videoSource.type === "video") {
+    return (
+      <div className={styles.videoFrame}>
+        <video src={videoSource.url} controls />
+      </div>
+    );
+  }
+
+  if (videoSource.type === "embed") {
+    return (
+      <div className={styles.videoFrame}>
+        <iframe
+          src={videoSource.url}
+          title={`Video de ${exercise.name}`}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+
+  return (
+    <a className={styles.inlinePrimaryBtn} href={videoSource.url} target="_blank" rel="noreferrer">
+      Ver video
+    </a>
+  );
+}
 
 function getStatusLabel(status: string) {
   switch (status) {
@@ -119,9 +229,13 @@ export default function AdminRoutinesPage() {
       await approveAdminRoutine(id);
       window.alert("Rutina aprobada correctamente.");
       await loadRoutines();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("APPROVE ROUTINE ERROR:", error);
-      window.alert("No se pudo aprobar la rutina.");
+      window.alert(
+        axios.isAxiosError(error)
+          ? String(error.response?.data?.error || "No se pudo aprobar la rutina.")
+          : "No se pudo aprobar la rutina.",
+      );
     } finally {
       setWorkingId(null);
     }
@@ -307,7 +421,10 @@ export default function AdminRoutinesPage() {
                         <button
                           type="button"
                           className={styles.inlinePrimaryBtn}
-                          disabled={workingId === routine.id}
+                          disabled={
+                            workingId === routine.id ||
+                            routineHasMissingExerciseVideos(routine)
+                          }
                           onClick={() => void handleApprove(routine.id)}
                         >
                           <FaCheckCircle />
@@ -379,16 +496,27 @@ export default function AdminRoutinesPage() {
                 </div>
 
                 {routine.exercises && routine.exercises.length > 0 ? (
-                  <div className={styles.memberList}>
-                    {routine.exercises.slice(0, 6).map((exercise) => (
-                      <div key={exercise.id} className={styles.memberItem}>
-                        <span>
-                          Día {exercise.dayNumber}: {exercise.name}
-                        </span>
-                        <strong>
-                          {exercise.sets ?? "-"} x {exercise.reps ?? "-"}
-                        </strong>
-                      </div>
+                  <div className={styles.routineReviewDays}>
+                    {groupExercisesByDay(routine.exercises).map((group) => (
+                      <section key={group.day} className={styles.routineReviewDay}>
+                        <h4>Dia {group.day}</h4>
+
+                        {group.exercises.map((exercise) => (
+                          <article key={exercise.id} className={styles.routineReviewExercise}>
+                            <div className={styles.routineReviewExerciseText}>
+                              <strong>{exercise.name}</strong>
+                              <span>
+                                {exercise.sets ?? "-"} x {exercise.reps ?? "-"} - Descanso{" "}
+                                {exercise.restSeconds ?? 0}s
+                              </span>
+                              {exercise.description ? <p>{exercise.description}</p> : null}
+                              {exercise.notes ? <small>{exercise.notes}</small> : null}
+                            </div>
+
+                            <ExerciseVideoPreview exercise={exercise} />
+                          </article>
+                        ))}
+                      </section>
                     ))}
                   </div>
                 ) : (

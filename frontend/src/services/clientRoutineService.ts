@@ -1,23 +1,10 @@
-import axios from "axios";
+import { API } from "../api/api";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-
-function getToken() {
-  return localStorage.getItem("token");
-}
-
-function authHeaders() {
-  const token = getToken();
-
-  return {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  };
-}
+export type ExerciseVideoType = "none" | "upload" | "youtube" | "external";
 
 export type RoutineExercise = {
   id: string;
+  routineId?: string;
   name: string;
   description?: string | null;
   dayNumber: number;
@@ -26,6 +13,9 @@ export type RoutineExercise = {
   restSeconds?: number | null;
   notes?: string | null;
   order: number;
+  videoUrl?: string | null;
+  videoType: ExerciseVideoType;
+  hasVideo: boolean;
 };
 
 export type ClientRoutine = {
@@ -40,8 +30,6 @@ export type ClientRoutine = {
   daysPerWeek?: number;
   estimatedMinutes?: number;
   imageUrl?: string | null;
-  videoUrl?: string | null;
-  videoType?: string;
   status?: string;
   trainerEmail?: string | null;
   trainer?: {
@@ -55,13 +43,24 @@ export type ClientRoutine = {
   updatedAt?: string;
 };
 
+type ClientRoutinesResponse = {
+  ok: boolean;
+  routines: ClientRoutine[];
+  activeSubscription?: unknown;
+};
+
+type ClientRoutineResponse = {
+  ok: boolean;
+  routine: ClientRoutine;
+  activeSubscription?: unknown;
+};
+
 export async function getClientRoutines(params?: {
   search?: string;
   category?: string;
   level?: string;
 }) {
-  const response = await axios.get(`${API_URL}/client/routines`, {
-    ...authHeaders(),
+  const response = await API.get<ClientRoutinesResponse>("/client/routines", {
     params,
   });
 
@@ -69,10 +68,7 @@ export async function getClientRoutines(params?: {
 }
 
 export async function getClientRoutineById(id: string) {
-  const response = await axios.get(
-    `${API_URL}/client/routines/${id}`,
-    authHeaders()
-  );
+  const response = await API.get<ClientRoutineResponse>(`/client/routines/${id}`);
 
   return response.data;
 }

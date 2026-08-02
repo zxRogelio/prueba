@@ -1144,7 +1144,7 @@
 
 .routineDetailGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.42fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   align-items: stretch;
 }
@@ -1318,6 +1318,49 @@
   background: rgba(219, 36, 28, 0.06);
   color: #7f1d1d !important;
   font-weight: 700;
+}
+
+.routineExerciseVideoFrame,
+.routineExerciseVideoPending,
+.routineExerciseVideoLink {
+  grid-column: 1 / -1;
+}
+
+.routineExerciseVideoFrame {
+  overflow: hidden;
+  border-radius: 14px;
+  background: #000000;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+}
+
+.routineExerciseVideoFrame video,
+.routineExerciseVideoFrame iframe {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+}
+
+.routineExerciseVideoPending {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px dashed rgba(219, 36, 28, 0.28);
+  background: rgba(219, 36, 28, 0.06);
+  color: #7f1d1d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.routineExerciseVideoLink {
+  display: inline-flex;
+  width: fit-content;
+  padding: 10px 12px;
+  border-radius: 999px;
+  background: #111111;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
 }
 
 .routineVideoOverlay {

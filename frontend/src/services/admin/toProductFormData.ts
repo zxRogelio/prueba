@@ -11,8 +11,6 @@ export function toProductFormData(payload: ProductFormData): FormData {
   form.append("stock", String(payload.stock));
   form.append("status", payload.status);
 
-  form.append("productType", payload.productType);
-
   //nuevos campos
   form.append("description", payload.description ?? "");
   form.append("features", JSON.stringify(payload.features ?? []));
@@ -22,20 +20,17 @@ export function toProductFormData(payload: ProductFormData): FormData {
     form.append("images", file);
   }
 
-  // campos por tipo
+  // Campos especificos. El backend decide cuales conserva segun la categoria.
   const opt = (k: string, v?: string) => {
     if (v && v.trim()) form.append(k, v.trim());
   };
 
-  if (payload.productType === "Suplementación") {
-    opt("supplementFlavor", payload.supplementFlavor);
-    opt("supplementPresentation", payload.supplementPresentation);
-    opt("supplementServings", payload.supplementServings);
-  } else {
-    opt("apparelSize", payload.apparelSize);
-    opt("apparelColor", payload.apparelColor);
-    opt("apparelMaterial", payload.apparelMaterial);
-  }
+  opt("supplementFlavor", payload.supplementFlavor);
+  opt("supplementPresentation", payload.supplementPresentation);
+  opt("supplementServings", payload.supplementServings);
+  opt("apparelSize", payload.apparelSize);
+  opt("apparelColor", payload.apparelColor);
+  opt("apparelMaterial", payload.apparelMaterial);
 
   return form;
 }

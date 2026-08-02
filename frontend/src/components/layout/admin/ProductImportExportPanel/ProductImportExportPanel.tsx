@@ -28,10 +28,12 @@ type PreviewRow = {
   brandName: string | null;
   categoryId: number | null;
   categoryName: string | null;
+  productKind: string | null;
   price: number | null;
   stock: number | null;
   status: string | null;
   productType: string | null;
+  csvProductType?: string | null;
   core_id_match: number | null;
   core_logic_match: number | null;
   core_logic_name: string | null;
@@ -56,6 +58,7 @@ const DEFAULT_EXPORT_FIELDS: ExportField[] = [
   "name",
   "brandName",
   "categoryName",
+  "productKind",
   "price",
   "stock",
   "status",
@@ -397,6 +400,8 @@ const handleCommit = async () => {
                   <th className={styles.th}>Nombre</th>
                   <th className={styles.th}>Marca</th>
                   <th className={styles.th}>Categoría</th>
+                  <th className={styles.th}>Grupo</th>
+                  <th className={styles.th}>Tipo derivado</th>
                   <th className={styles.th}>Precio</th>
                   <th className={styles.th}>Stock</th>
                   <th className={styles.th}>Acción</th>
@@ -411,6 +416,8 @@ const handleCommit = async () => {
                     <td className={styles.td}>{row.name}</td>
                     <td className={styles.td}>{row.brandName ?? row.brandId ?? "—"}</td>
                     <td className={styles.td}>{row.categoryName ?? row.categoryId ?? "—"}</td>
+                    <td className={styles.td}>{row.productKind ?? "—"}</td>
+                    <td className={styles.td}>{row.productType ?? row.csvProductType ?? "—"}</td>
                     <td className={styles.td}>{row.price ?? "—"}</td>
                     <td className={styles.td}>{row.stock ?? "—"}</td>
                     <td className={styles.td}>{getActionLabel(row.action)}</td>

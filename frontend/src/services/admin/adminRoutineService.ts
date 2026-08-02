@@ -1,23 +1,10 @@
-import axios from "axios";
+import { API } from "../../api/api";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-
-function getToken() {
-  return localStorage.getItem("token");
-}
-
-function authHeaders() {
-  const token = getToken();
-
-  return {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  };
-}
+export type ExerciseVideoType = "none" | "upload" | "youtube" | "external";
 
 export type RoutineExercise = {
   id: string;
+  routineId?: string;
   name: string;
   description?: string | null;
   dayNumber: number;
@@ -26,6 +13,9 @@ export type RoutineExercise = {
   restSeconds?: number | null;
   notes?: string | null;
   order: number;
+  videoUrl?: string | null;
+  videoType: ExerciseVideoType;
+  hasVideo: boolean;
 };
 
 export type AdminRoutine = {
@@ -40,8 +30,6 @@ export type AdminRoutine = {
   daysPerWeek: number;
   estimatedMinutes: number;
   imageUrl?: string | null;
-  videoUrl?: string | null;
-  videoType?: string;
   status: string;
   trainerEmail?: string | null;
   trainer?: {
@@ -54,14 +42,24 @@ export type AdminRoutine = {
   updatedAt?: string;
 };
 
+type AdminRoutinesResponse = {
+  ok: boolean;
+  routines: AdminRoutine[];
+};
+
+type AdminRoutineActionResponse = {
+  ok: boolean;
+  message?: string;
+  routine?: AdminRoutine;
+};
+
 export async function getAdminRoutines(params?: {
   status?: string;
   search?: string;
   category?: string;
   level?: string;
 }) {
-  const response = await axios.get(`${API_URL}/admin/routines`, {
-    ...authHeaders(),
+  const response = await API.get<AdminRoutinesResponse>("/admin/routines", {
     params,
   });
 
@@ -69,30 +67,27 @@ export async function getAdminRoutines(params?: {
 }
 
 export async function approveAdminRoutine(id: string) {
-  const response = await axios.patch(
-    `${API_URL}/admin/routines/${id}/approve`,
+  const response = await API.patch<AdminRoutineActionResponse>(
+    `/admin/routines/${id}/approve`,
     {},
-    authHeaders()
   );
 
   return response.data;
 }
 
 export async function rejectAdminRoutine(id: string) {
-  const response = await axios.patch(
-    `${API_URL}/admin/routines/${id}/reject`,
+  const response = await API.patch<AdminRoutineActionResponse>(
+    `/admin/routines/${id}/reject`,
     {},
-    authHeaders()
   );
 
   return response.data;
 }
 
 export async function archiveAdminRoutine(id: string) {
-  const response = await axios.patch(
-    `${API_URL}/admin/routines/${id}/archive`,
+  const response = await API.patch<AdminRoutineActionResponse>(
+    `/admin/routines/${id}/archive`,
     {},
-    authHeaders()
   );
 
   return response.data;

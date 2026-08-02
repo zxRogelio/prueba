@@ -100,7 +100,10 @@ export default function AdminProductsPage() {
     [brands],
   );
   const activeCategories = useMemo(
-    () => categories.filter((category) => isActive((category as any).active)),
+    () =>
+      categories.filter(
+        (category) => isActive((category as any).active) && category.productKind,
+      ),
     [categories],
   );
 
@@ -225,58 +228,10 @@ export default function AdminProductsPage() {
   const onToggleStatus = async (product: ProductDTO) => {
     try {
       const formData = new FormData();
-      const isSupplement = String(product.productType)
-        .toLowerCase()
-        .includes("suplement");
-
-      formData.append("name", product.name);
-      formData.append("brandId", product.brandId);
-      formData.append("categoryId", product.categoryId);
-      formData.append("price", String(product.price));
-      formData.append("stock", String(product.stock));
-      formData.append("productType", product.productType);
       formData.append(
         "status",
         product.status === "Activo" ? "Inactivo" : "Activo",
       );
-      formData.append("description", String((product as any).description ?? ""));
-
-      const rawFeatures = (product as any).features;
-      formData.append(
-        "features",
-        typeof rawFeatures === "string"
-          ? rawFeatures
-          : JSON.stringify(rawFeatures ?? []),
-      );
-
-      if (isSupplement) {
-        if ((product as any).supplementFlavor) {
-          formData.append("supplementFlavor", (product as any).supplementFlavor);
-        }
-
-        if ((product as any).supplementPresentation) {
-          formData.append(
-            "supplementPresentation",
-            (product as any).supplementPresentation,
-          );
-        }
-
-        if ((product as any).supplementServings) {
-          formData.append("supplementServings", (product as any).supplementServings);
-        }
-      } else {
-        if ((product as any).apparelSize) {
-          formData.append("apparelSize", (product as any).apparelSize);
-        }
-
-        if ((product as any).apparelColor) {
-          formData.append("apparelColor", (product as any).apparelColor);
-        }
-
-        if ((product as any).apparelMaterial) {
-          formData.append("apparelMaterial", (product as any).apparelMaterial);
-        }
-      }
 
       const updated = await updateProduct(product.id, formData);
       setProducts((previous) =>
@@ -693,7 +648,7 @@ export default function AdminProductsPage() {
         open={openModal}
         title={editing ? "Editar producto" : "Nuevo producto"}
         brands={activeBrands}
-        categories={activeCategories as any}
+        categories={activeCategories}
         productId={editing?.id}
         existingImages={existingImages}
         onDeleteExistingImage={async (imageId) => {
@@ -751,7 +706,6 @@ export default function AdminProductsPage() {
                 price: Number(editing.price),
                 stock: Number(editing.stock),
                 status: editing.status,
-                productType: editing.productType,
                 images: [],
                 description: String((editing as any).description ?? ""),
                 features: normalizeFeatures((editing as any).features),

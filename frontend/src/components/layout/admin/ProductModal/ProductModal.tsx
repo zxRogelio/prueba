@@ -16,6 +16,7 @@ import {
   FaTrash,
   FaUpload,
 } from "react-icons/fa";
+import type { ProductKind } from "../../../../types/productKind";
 import styles from "../CatalogModal.module.css";
 
 type IdLike = string | number;
@@ -26,10 +27,14 @@ export type BrandLike = {
   active: boolean;
   categoryId: IdLike;
 };
-export type CategoryLike = { id: IdLike; name: string; active: boolean };
+export type CategoryLike = {
+  id: IdLike;
+  name: string;
+  active: boolean;
+  productKind: ProductKind | null;
+};
 
 export type ProductStatus = "Activo" | "Inactivo";
-export type ProductType = "Suplementación" | "Ropa";
 
 export type ExistingImage = { id: IdLike; url: string; order: number };
 
@@ -40,7 +45,6 @@ export type ProductFormData = {
   price: number;
   stock: number;
   status: ProductStatus;
-  productType: ProductType;
   description: string;
   features: string[];
   images: File[];
@@ -66,9 +70,6 @@ interface Props {
   onReorderExistingImages?: (newOrderIds: string[]) => Promise<void>;
 }
 
-const SUPPLEMENT_TYPE: ProductType = "Suplementaci\u00f3n";
-const APPAREL_TYPE: ProductType = "Ropa";
-
 const defaultData: ProductFormData = {
   name: "",
   brandId: "",
@@ -76,7 +77,6 @@ const defaultData: ProductFormData = {
   price: 0,
   stock: 0,
   status: "Activo",
-  productType: SUPPLEMENT_TYPE,
   description: "",
   features: [],
   images: [],
@@ -84,6 +84,22 @@ const defaultData: ProductFormData = {
 
 const asStr = (value: unknown) => (value == null ? "" : String(value));
 const trimStr = (value: unknown) => asStr(value).trim();
+
+const cleanFieldsForKind = (
+  values: Partial<ProductFormData>,
+  productKind?: ProductKind | null,
+) => ({
+  supplementFlavor:
+    productKind === "supplement" ? values.supplementFlavor ?? "" : "",
+  supplementPresentation:
+    productKind === "supplement" ? values.supplementPresentation ?? "" : "",
+  supplementServings:
+    productKind === "supplement" ? values.supplementServings ?? "" : "",
+  apparelSize: productKind === "apparel" ? values.apparelSize ?? "" : "",
+  apparelColor: productKind === "apparel" ? values.apparelColor ?? "" : "",
+  apparelMaterial:
+    productKind === "apparel" ? values.apparelMaterial ?? "" : "",
+});
 
 export default function ProductModal({
   open,
@@ -120,6 +136,18 @@ export default function ProductModal({
     );
   }, [activeBrandsAll, data.categoryId]);
 
+  const selectedCategory = useMemo(
+    () =>
+      activeCategories.find(
+        (category) => trimStr(category.id) === trimStr(data.categoryId),
+      ),
+    [activeCategories, data.categoryId],
+  );
+  const selectedProductKind = selectedCategory?.productKind ?? null;
+  const isSupplement = selectedProductKind === "supplement";
+  const isApparel = selectedProductKind === "apparel";
+  const isAccessory = selectedProductKind === "accessory";
+
   useEffect(() => {
     if (!open) return;
 
@@ -155,6 +183,11 @@ export default function ProductModal({
     merged.features = merged.features ?? [];
     merged.images = merged.images ?? [];
 
+    const initialCategory = activeCategories.find(
+      (category) => trimStr(category.id) === trimStr(merged.categoryId),
+    );
+    Object.assign(merged, cleanFieldsForKind(merged, initialCategory?.productKind));
+
     setData(merged);
     setFeatureInput("");
     setGallery(
@@ -178,9 +211,18 @@ export default function ProductModal({
 
   const noBrandOrCategory =
     activeBrandsAll.length === 0 || activeCategories.length === 0;
-  const isSupplement = data.productType === SUPPLEMENT_TYPE;
 
   const canSave = useMemo(() => {
+    const hasBaseData =
+      trimStr(data.name).length >= 3 &&
+      trimStr(data.brandId).length > 0 &&
+      trimStr(data.categoryId).length > 0 &&
+      Number.isFinite(data.price) &&
+      data.price > 0 &&
+      Number.isFinite(data.stock) &&
+      data.stock >= 0 &&
+      Boolean(selectedProductKind);
+
     const hasSupplementDetails =
       trimStr(data.supplementPresentation) &&
       trimStr(data.supplementFlavor) &&
@@ -189,17 +231,16 @@ export default function ProductModal({
     const hasApparelDetails =
       trimStr(data.apparelSize) && trimStr(data.apparelColor);
 
-    return (
-      trimStr(data.name).length >= 3 &&
-      trimStr(data.brandId).length > 0 &&
-      trimStr(data.categoryId).length > 0 &&
-      Number.isFinite(data.price) &&
-      data.price > 0 &&
-      Number.isFinite(data.stock) &&
-      data.stock >= 0 &&
-      (isSupplement ? Boolean(hasSupplementDetails) : Boolean(hasApparelDetails))
-    );
-  }, [data, isSupplement]);
+    const hasAccessoryDetails =
+      trimStr(data.description).length > 0 ||
+      (data.features ?? []).some((feature) => trimStr(feature).length > 0);
+
+    if (isSupplement) return hasBaseData && Boolean(hasSupplementDetails);
+    if (isApparel) return hasBaseData && Boolean(hasApparelDetails);
+    if (isAccessory) return hasBaseData && hasAccessoryDetails;
+
+    return false;
+  }, [data, isAccessory, isApparel, isSupplement, selectedProductKind]);
 
   useEffect(() => {
     const onEsc = (event: KeyboardEvent) => event.key === "Escape" && onClose();
@@ -329,56 +370,12 @@ export default function ProductModal({
               <div>
                 <h3 className={styles.sectionTitle}>Base comercial</h3>
                 <p className={styles.sectionSubtitle}>
-                  Define tipo, nombre, categoria, marca, precio, stock y estado.
+                  Define nombre, categoria, marca, precio, stock y estado.
                 </p>
               </div>
             </div>
 
             <div className={styles.grid}>
-              <label className={styles.field}>
-                <span className={styles.fieldLabel}>
-                  <FaLayerGroup className={styles.fieldLabelIcon} />
-                  Tipo de producto
-                </span>
-                <select
-                  className={styles.select}
-                  value={data.productType}
-                  onChange={(event) =>
-                    setData((previous) => ({
-                      ...previous,
-                      productType: event.target.value as ProductType,
-                      supplementFlavor:
-                        event.target.value === SUPPLEMENT_TYPE
-                          ? previous.supplementFlavor
-                          : "",
-                      supplementPresentation:
-                        event.target.value === SUPPLEMENT_TYPE
-                          ? previous.supplementPresentation
-                          : "",
-                      supplementServings:
-                        event.target.value === SUPPLEMENT_TYPE
-                          ? previous.supplementServings
-                          : "",
-                      apparelSize:
-                        event.target.value === APPAREL_TYPE
-                          ? previous.apparelSize
-                          : "",
-                      apparelColor:
-                        event.target.value === APPAREL_TYPE
-                          ? previous.apparelColor
-                          : "",
-                      apparelMaterial:
-                        event.target.value === APPAREL_TYPE
-                          ? previous.apparelMaterial
-                          : "",
-                    }))
-                  }
-                >
-                  <option value={SUPPLEMENT_TYPE}>Suplementacion</option>
-                  <option value={APPAREL_TYPE}>Ropa</option>
-                </select>
-              </label>
-
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>
                   <FaTag className={styles.fieldLabelIcon} />
@@ -404,6 +401,9 @@ export default function ProductModal({
                   value={data.categoryId}
                   onChange={(event) => {
                     const nextCategoryId = event.target.value;
+                    const nextCategory = activeCategories.find(
+                      (category) => trimStr(category.id) === trimStr(nextCategoryId),
+                    );
 
                     setData((previous) => {
                       const validBrands = activeBrandsAll.filter(
@@ -415,6 +415,7 @@ export default function ProductModal({
                         categoryId: nextCategoryId,
                         brandId:
                           validBrands[0]?.id != null ? String(validBrands[0].id) : "",
+                        ...cleanFieldsForKind(previous, nextCategory?.productKind),
                       };
                     });
                   }}
@@ -532,7 +533,7 @@ export default function ProductModal({
               <div>
                 <h3 className={styles.sectionTitle}>Contenido del producto</h3>
                 <p className={styles.sectionSubtitle}>
-                  Agrega descripcion, caracteristicas y datos segun el tipo.
+                  Agrega descripcion, caracteristicas y datos segun la categoria seleccionada.
                 </p>
               </div>
             </div>
@@ -658,7 +659,7 @@ export default function ProductModal({
                     />
                   </label>
                 </>
-              ) : (
+              ) : isApparel ? (
                 <>
                   <label className={styles.field}>
                     <span className={styles.fieldLabel}>
@@ -714,7 +715,7 @@ export default function ProductModal({
                     />
                   </label>
                 </>
-              )}
+              ) : null}
             </div>
           </section>
 

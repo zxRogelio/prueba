@@ -11,6 +11,9 @@ import {
   deleteTrainerRoutine,
   publishTrainerRoutine,
   archiveTrainerRoutine,
+  uploadTrainerExerciseVideo,
+  setTrainerExerciseVideoUrl,
+  deleteTrainerExerciseVideo,
 } from "../../controllers/trainerRoutineController.js";
 
 const router = Router();
@@ -25,7 +28,6 @@ router.post(
   "/",
   upload.fields([
     { name: "image", maxCount: 1 },
-    { name: "video", maxCount: 1 },
   ]),
   createTrainerRoutine
 );
@@ -34,9 +36,24 @@ router.put(
   "/:id",
   upload.fields([
     { name: "image", maxCount: 1 },
-    { name: "video", maxCount: 1 },
   ]),
   updateTrainerRoutine
+);
+
+router.post(
+  "/:routineId/exercises/:exerciseId/video",
+  upload.single("video"),
+  uploadTrainerExerciseVideo
+);
+
+router.patch(
+  "/:routineId/exercises/:exerciseId/video-url",
+  setTrainerExerciseVideoUrl
+);
+
+router.delete(
+  "/:routineId/exercises/:exerciseId/video",
+  deleteTrainerExerciseVideo
 );
 
 router.delete("/:id", deleteTrainerRoutine);

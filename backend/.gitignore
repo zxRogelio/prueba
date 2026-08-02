@@ -37,3 +37,5 @@ scripts/regression-data/output/*
 # Backups locales de PostgreSQL
 storage/backups/*
 !storage/backups/.gitkeep
+!backend/scripts/queries/
+!backend/scripts/queries/*.sql

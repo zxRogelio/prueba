@@ -149,6 +149,10 @@ function getProductSku(category: string, productId: string | number) {
 function getProductUsage(product: CatalogProductApi, category: string) {
   const productType = String(product.productType || "").toLowerCase();
 
+  if (productType.includes("accesorio") || category === "ACCESORIOS") {
+    return "Usalo como apoyo para tus entrenamientos y revisa sus materiales, medidas o capacidad antes de comprar.";
+  }
+
   if (productType.includes("ropa") || category === "ROPA") {
     return "Usalo en entrenamiento, cardio o como parte de tu look Titanium antes y despues de cada sesion.";
   }

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { API } from "../api/api";
 
-export type ProductType = "Suplementación" | "Ropa";
+export type ProductType = "Suplementación" | "Accesorios" | "Ropa";
 export type ProductStatus = "Activo" | "Inactivo";
 
 export type ProductImageDTO = {

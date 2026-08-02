@@ -28,6 +28,11 @@ export const Category = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: true,
     },
+
+    productKind: {
+      type: DataTypes.ENUM("supplement", "accessory", "apparel"),
+      allowNull: false,
+    },
   },
   {
     tableName: "Categories",

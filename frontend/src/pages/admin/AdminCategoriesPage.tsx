@@ -25,6 +25,7 @@ import {
 } from "../../services/admin/categoryService";
 import { getProducts, type ProductDTO } from "../../services/admin/productService";
 import { usePagination } from "../../hooks/usePagination";
+import { getProductKindLabel } from "../../types/productKind";
 import styles from "./AdminCatalogPage.module.css";
 
 export default function AdminCategoriesPage() {
@@ -178,6 +179,7 @@ export default function AdminCategoriesPage() {
       const updated = await updateCategory(id, {
         name: current.name,
         active: !current.active,
+        ...(current.productKind ? { productKind: current.productKind } : {}),
       });
 
       setCategories((previous) =>
@@ -319,6 +321,7 @@ export default function AdminCategoriesPage() {
             <thead>
               <tr>
                 <th>Categoria</th>
+                <th>Grupo</th>
                 <th>Estado</th>
                 <th>Marcas</th>
                 <th>Productos</th>
@@ -329,7 +332,7 @@ export default function AdminCategoriesPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} className={styles.emptyRow}>
+                  <td colSpan={6} className={styles.emptyRow}>
                     Cargando categorias...
                   </td>
                 </tr>
@@ -341,6 +344,12 @@ export default function AdminCategoriesPage() {
                         <span className={styles.primaryText}>{category.name}</span>
                         <span className={styles.secondaryText}>ID {category.id}</span>
                       </div>
+                    </td>
+
+                    <td>
+                      <span className={`${styles.badge} ${styles.neutralBadge}`}>
+                        {getProductKindLabel(category.productKind)}
+                      </span>
                     </td>
 
                     <td>
@@ -397,7 +406,7 @@ export default function AdminCategoriesPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className={styles.emptyRow}>
+                  <td colSpan={6} className={styles.emptyRow}>
                     No hay categorias que coincidan con los filtros actuales.
                   </td>
                 </tr>
@@ -422,7 +431,15 @@ export default function AdminCategoriesPage() {
       <CategoryModal
         open={open}
         title={editing ? "Editar categoria" : "Nueva categoria"}
-        initial={editing ? { name: editing.name, active: editing.active } : undefined}
+        initial={
+          editing
+            ? {
+                name: editing.name,
+                active: editing.active,
+                productKind: editing.productKind ?? "supplement",
+              }
+            : undefined
+        }
         onClose={() => {
           setOpen(false);
           setEditing(null);
@@ -430,9 +447,21 @@ export default function AdminCategoriesPage() {
         onSave={async (data: CategoryFormData) => {
           try {
             if (editing) {
+              const relatedProducts = productsByCategory.get(editing.id) ?? 0;
+              const productKindChanged = editing.productKind !== data.productKind;
+
+              if (productKindChanged && relatedProducts > 0) {
+                const confirmed = confirm(
+                  `Esta categoria tiene ${relatedProducts} productos asociados. Si cambias el grupo, se actualizaran sus tipos derivados y se limpiaran campos incompatibles. Continuar?`,
+                );
+
+                if (!confirmed) return;
+              }
+
               const updated = await updateCategory(editing.id, {
                 name: data.name,
                 active: data.active,
+                productKind: data.productKind,
               });
 
               setCategories((previous) =>
@@ -444,6 +473,7 @@ export default function AdminCategoriesPage() {
               const created = await createCategory({
                 name: data.name,
                 active: data.active,
+                productKind: data.productKind,
               });
 
               setCategories((previous) => [created, ...previous]);

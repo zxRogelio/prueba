@@ -7,6 +7,7 @@ export const AVAILABLE_EXPORT_FIELDS = [
   "brandName",
   "categoryId",
   "categoryName",
+  "productKind",
   "price",
   "stock",
   "status",
