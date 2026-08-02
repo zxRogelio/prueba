@@ -4,41 +4,64 @@ import {
   useState,
   type ChangeEvent,
   type DragEvent,
-  type FormEvent,
 } from "react";
 import axios from "axios";
 import {
   Archive,
   CheckCircle2,
-  ExternalLink,
+  ChevronDown,
+  ChevronUp,
   FileText,
   Image,
-  Link as LinkIcon,
   ListChecks,
-  Plus,
-  Send,
   Trash2,
-  UploadCloud,
-  Video,
-  XCircle,
 } from "lucide-react";
 import {
-  createTrainerRoutine,
-  updateTrainerRoutine,
-  deleteTrainerRoutine,
-  publishTrainerRoutine,
   archiveTrainerRoutine,
-  getTrainerRoutines,
-  uploadExerciseVideo,
-  setExerciseVideoUrl,
+  createTrainerRoutine,
   deleteExerciseVideo,
+  deleteTrainerRoutine,
+  getTrainerRoutines,
+  publishTrainerRoutine,
+  setExerciseVideoUrl,
+  updateTrainerRoutine,
+  uploadExerciseVideo,
   type RoutineCategory,
   type RoutineExerciseDTO,
   type RoutineLevel,
   type RoutineStatus,
   type TrainerRoutineDTO,
 } from "../../services/trainer/routineService";
+import {
+  ExerciseVideoCard,
+  type ExerciseVideoMode,
+} from "./routines/components/ExerciseVideoCard";
+import { RoutineEditorActions } from "./routines/components/RoutineEditorActions";
+import {
+  RoutineStepIndicator,
+  type RoutineEditorStep,
+} from "./routines/components/RoutineStepIndicator";
 import styles from "./TrainerRoutinesPage.module.css";
+
+type RoutineFormState = {
+  title: string;
+  objective: string;
+  description: string;
+  level: RoutineLevel;
+  category: RoutineCategory;
+  durationWeeks: number;
+  daysPerWeek: number;
+  estimatedMinutes: number;
+  status: RoutineStatus;
+  exercises: RoutineExerciseDTO[];
+};
+
+type VideoStats = {
+  total: number;
+  complete: number;
+  pending: number;
+  percent: number;
+};
 
 const emptyExercise = (order: number): RoutineExerciseDTO => ({
   id: undefined,
@@ -56,30 +79,17 @@ const emptyExercise = (order: number): RoutineExerciseDTO => ({
   hasVideo: false,
 });
 
-type RoutineFormState = {
-  title: string;
-  objective: string;
-  description: string;
-  level: RoutineLevel;
-  category: RoutineCategory;
-  durationWeeks: number;
-  daysPerWeek: number;
-  estimatedMinutes: number;
-  status: RoutineStatus;
-  exercises: RoutineExerciseDTO[];
-};
-
 const createDefaultForm = (): RoutineFormState => ({
   title: "",
   objective: "",
   description: "",
-  level: "principiante" as RoutineLevel,
-  category: "general" as RoutineCategory,
+  level: "principiante",
+  category: "general",
   durationWeeks: 4,
   daysPerWeek: 3,
   estimatedMinutes: 45,
-  status: "draft" as RoutineStatus,
-  exercises: [emptyExercise(0)] as RoutineExerciseDTO[],
+  status: "draft",
+  exercises: [emptyExercise(0)],
 });
 
 const statusLabels: Record<RoutineStatus, string> = {
@@ -99,109 +109,178 @@ const levelLabels: Record<RoutineLevel, string> = {
 const categoryLabels: Record<RoutineCategory, string> = {
   fuerza: "Fuerza",
   hipertrofia: "Hipertrofia",
-  perdida_peso: "Pérdida de peso",
+  perdida_peso: "Perdida de peso",
   resistencia: "Resistencia",
   movilidad: "Movilidad",
   general: "General",
 };
 
-type VideoSource = {
-  type: "video" | "embed" | "link";
-  url: string;
-};
+const formId = "routine-editor-form";
+const errorId = "routine-editor-error";
 
-const getYouTubeEmbedUrl = (url: string) => {
-  try {
-    const parsed = new URL(url);
-    const host = parsed.hostname.replace("www.", "");
+const getExerciseKey = (exercise: RoutineExerciseDTO, index: number) =>
+  exercise.id || `draft-${index}`;
 
-    if (host === "youtu.be") {
-      return `https://www.youtube.com/embed/${parsed.pathname.slice(1)}`;
-    }
-
-    if (host.includes("youtube.com")) {
-      const videoId = parsed.searchParams.get("v");
-      if (videoId) return `https://www.youtube.com/embed/${videoId}`;
-      if (parsed.pathname.startsWith("/embed/")) return url;
-      if (parsed.pathname.startsWith("/shorts/")) {
-        return `https://www.youtube.com/embed/${parsed.pathname.split("/")[2]}`;
-      }
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-};
-
-const getExerciseVideoSource = (
-  exercise: Pick<RoutineExerciseDTO, "videoUrl" | "videoType">,
-): VideoSource | null => {
-  if (!exercise.videoUrl || exercise.videoType === "none") return null;
-
-  const youtubeUrl = getYouTubeEmbedUrl(exercise.videoUrl);
-  if (youtubeUrl) return { type: "embed", url: youtubeUrl };
-
-  const isDirectVideo =
-    exercise.videoType === "upload" ||
-    exercise.videoUrl.includes("/video/upload/") ||
-    /\.(mp4|webm|ogg)(\?|$)/i.test(exercise.videoUrl);
+const getVideoStats = (exercises: RoutineExerciseDTO[] = []): VideoStats => {
+  const namedExercises = exercises.filter((exercise) => exercise.name.trim());
+  const complete = namedExercises.filter(
+    (exercise) => exercise.hasVideo && Boolean(exercise.videoUrl),
+  ).length;
+  const total = namedExercises.length;
+  const pending = Math.max(total - complete, 0);
 
   return {
-    type: isDirectVideo ? "video" : "link",
-    url: exercise.videoUrl,
+    total,
+    complete,
+    pending,
+    percent: total ? Math.round((complete / total) * 100) : 0,
   };
 };
 
-const routineHasMissingExerciseVideos = (routine: TrainerRoutineDTO) => {
-  const exercises = routine.exercises ?? [];
+const getRoutineVideoStatus = (routine: TrainerRoutineDTO) => {
+  if (routine.status === "pending_review") return "En revision";
+  if (routine.status === "published") return "Publicada";
+  if (routine.status === "archived") return "Archivada";
+  if (routine.status === "rejected") return "Rechazada";
 
+  const stats = getVideoStats(routine.exercises ?? []);
+  if (stats.total > 0 && stats.pending === 0) return "Completa";
+  return "Videos pendientes";
+};
+
+const canRoutineGoToReview = (routine: TrainerRoutineDTO) => {
+  const stats = getVideoStats(routine.exercises ?? []);
   return (
-    exercises.length === 0 ||
-    exercises.some((exercise) => !exercise.hasVideo || !exercise.videoUrl)
+    stats.total > 0 &&
+    stats.pending === 0 &&
+    routine.status !== "pending_review" &&
+    routine.status !== "published" &&
+    routine.status !== "archived"
   );
 };
 
+const buildRoutineForm = (routine: TrainerRoutineDTO): RoutineFormState => ({
+  title: routine.title || "",
+  objective: routine.objective || "",
+  description: routine.description || "",
+  level: routine.level,
+  category: routine.category,
+  durationWeeks: routine.durationWeeks || 4,
+  daysPerWeek: routine.daysPerWeek || 3,
+  estimatedMinutes: routine.estimatedMinutes || 45,
+  status: routine.status,
+  exercises: routine.exercises?.length
+    ? routine.exercises.map((exercise, index) => ({
+        id: exercise.id,
+        routineId: exercise.routineId,
+        name: exercise.name || "",
+        description: exercise.description || "",
+        dayNumber: exercise.dayNumber || 1,
+        sets: exercise.sets ?? 4,
+        reps: exercise.reps || "10",
+        restSeconds: exercise.restSeconds ?? 60,
+        notes: exercise.notes || "",
+        order: exercise.order ?? index,
+        videoUrl: exercise.videoUrl ?? null,
+        videoPublicId: exercise.videoPublicId ?? null,
+        videoType: exercise.videoType ?? "none",
+        hasVideo: Boolean(exercise.hasVideo),
+      }))
+    : [emptyExercise(0)],
+});
+
+const getFormSignature = (form: RoutineFormState) =>
+  JSON.stringify({
+    ...form,
+    exercises: form.exercises.map((exercise, index) => ({
+      id: exercise.id ?? null,
+      name: exercise.name,
+      description: exercise.description ?? "",
+      dayNumber: Number(exercise.dayNumber || 1),
+      sets: exercise.sets ?? null,
+      reps: exercise.reps ?? "",
+      restSeconds: exercise.restSeconds ?? null,
+      notes: exercise.notes ?? "",
+      order: exercise.order ?? index,
+      videoUrl: exercise.videoUrl ?? null,
+      videoType: exercise.videoType ?? "none",
+      hasVideo: Boolean(exercise.hasVideo),
+    })),
+  });
+
+const buildExerciseVideoUrlInputs = (routine: TrainerRoutineDTO) =>
+  Object.fromEntries(
+    (routine.exercises ?? [])
+      .filter((exercise) => exercise.id)
+      .map((exercise) => [
+        exercise.id as string,
+        exercise.videoType === "upload" ? "" : exercise.videoUrl || "",
+      ]),
+  );
+
+const buildVideoModes = (routine: TrainerRoutineDTO) =>
+  Object.fromEntries(
+    (routine.exercises ?? [])
+      .filter((exercise) => exercise.id)
+      .map((exercise) => [
+        exercise.id as string,
+        exercise.videoType === "youtube" || exercise.videoType === "external"
+          ? "url"
+          : "upload",
+      ]),
+  ) as Record<string, ExerciseVideoMode>;
+
+const getPreferredStepForRoutine = (routine: TrainerRoutineDTO): RoutineEditorStep => {
+  const stats = getVideoStats(routine.exercises ?? []);
+  return stats.total > 0 && stats.pending > 0 ? "videos" : "details";
+};
+
 export default function TrainerRoutinesPage() {
+  const defaultForm = useMemo(() => createDefaultForm(), []);
   const [routines, setRoutines] = useState<TrainerRoutineDTO[]>([]);
   const [selectedRoutine, setSelectedRoutine] = useState<TrainerRoutineDTO | null>(null);
   const [editingRoutine, setEditingRoutine] = useState<TrainerRoutineDTO | null>(null);
-
+  const [activeStep, setActiveStep] = useState<RoutineEditorStep>("details");
   const [form, setForm] = useState<RoutineFormState>(() => createDefaultForm());
+  const [lastSavedSignature, setLastSavedSignature] = useState(
+    getFormSignature(defaultForm),
+  );
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [expandedExercises, setExpandedExercises] = useState<Record<string, boolean>>({
+    "draft-0": true,
+  });
   const [exerciseVideoUrls, setExerciseVideoUrls] = useState<Record<string, string>>({});
+  const [videoModes, setVideoModes] = useState<Record<string, ExerciseVideoMode>>({});
+  const [replacingVideoByExercise, setReplacingVideoByExercise] = useState<
+    Record<string, boolean>
+  >({});
   const [videoWorkingByExercise, setVideoWorkingByExercise] = useState<
     Record<string, string>
   >({});
-
+  const [videoErrors, setVideoErrors] = useState<Record<string, string>>({});
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"todos" | RoutineStatus>("todos");
-
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
+  const [publishingId, setPublishingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
   const isEditing = Boolean(editingRoutine);
+  const formSignature = useMemo(() => getFormSignature(form), [form]);
+  const hasUnsavedChanges = formSignature !== lastSavedSignature || Boolean(imageFile);
   const hasVideoInProgress = Object.keys(videoWorkingByExercise).length > 0;
-
-  const exercisesWithoutVideo = useMemo(
-    () =>
-      form.exercises.filter(
-        (exercise) => exercise.name.trim() && (!exercise.hasVideo || !exercise.videoUrl),
-      ),
-    [form.exercises],
-  );
-
+  const videoStats = useMemo(() => getVideoStats(form.exercises), [form.exercises]);
   const canSubmitToReview = Boolean(
     editingRoutine &&
       editingRoutine.status !== "pending_review" &&
       editingRoutine.status !== "published" &&
-      form.exercises.some((exercise) => exercise.name.trim()) &&
-      exercisesWithoutVideo.length === 0 &&
+      videoStats.total > 0 &&
+      videoStats.pending === 0 &&
       !hasVideoInProgress &&
-      !saving,
+      !hasUnsavedChanges &&
+      !saving &&
+      !publishingId,
   );
 
   const loadRoutines = async () => {
@@ -240,82 +319,78 @@ export default function TrainerRoutinesPage() {
     });
   }, [query, routines, statusFilter]);
 
-  const stats = useMemo(() => {
-    return {
+  const stats = useMemo(
+    () => ({
       total: routines.length,
       published: routines.filter((routine) => routine.status === "published").length,
       draft: routines.filter((routine) => routine.status === "draft").length,
       archived: routines.filter((routine) => routine.status === "archived").length,
-    };
-  }, [routines]);
+    }),
+    [routines],
+  );
 
-  const resetForm = () => {
+  const resetEditor = (force = false) => {
+    if (!force && hasUnsavedChanges) {
+      const confirmed = window.confirm(
+        "Hay cambios sin guardar. Seguro que deseas cancelar?",
+      );
+      if (!confirmed) return;
+    }
+
+    const nextForm = createDefaultForm();
     setEditingRoutine(null);
-    setForm(createDefaultForm());
+    setSelectedRoutine(null);
+    setActiveStep("details");
+    setForm(nextForm);
+    setLastSavedSignature(getFormSignature(nextForm));
     setImageFile(null);
+    setExpandedExercises({ "draft-0": true });
     setExerciseVideoUrls({});
+    setVideoModes({});
+    setReplacingVideoByExercise({});
     setVideoWorkingByExercise({});
+    setVideoErrors({});
     setErrorMessage("");
     setSuccessMessage("");
   };
 
-  const buildRoutineForm = (routine: TrainerRoutineDTO): RoutineFormState => ({
-    title: routine.title || "",
-    objective: routine.objective || "",
-    description: routine.description || "",
-    level: routine.level,
-    category: routine.category,
-    durationWeeks: routine.durationWeeks || 4,
-    daysPerWeek: routine.daysPerWeek || 3,
-    estimatedMinutes: routine.estimatedMinutes || 45,
-    status: routine.status,
-    exercises: routine.exercises?.length
-      ? routine.exercises.map((exercise, index) => ({
-          id: exercise.id,
-          routineId: exercise.routineId,
-          name: exercise.name || "",
-          description: exercise.description || "",
-          dayNumber: exercise.dayNumber || 1,
-          sets: exercise.sets ?? 4,
-          reps: exercise.reps || "10",
-          restSeconds: exercise.restSeconds ?? 60,
-          notes: exercise.notes || "",
-          order: exercise.order ?? index,
-          videoUrl: exercise.videoUrl ?? null,
-          videoPublicId: exercise.videoPublicId ?? null,
-          videoType: exercise.videoType ?? "none",
-          hasVideo: Boolean(exercise.hasVideo),
-        }))
-      : [emptyExercise(0)],
-  });
-
-  const buildExerciseVideoUrlInputs = (routine: TrainerRoutineDTO) =>
-    Object.fromEntries(
-      (routine.exercises ?? [])
-        .filter((exercise) => exercise.id)
-        .map((exercise) => [
-          exercise.id as string,
-          exercise.videoType === "upload" ? "" : exercise.videoUrl || "",
-        ]),
-    );
-
-  const applyRoutineToEditor = (routine: TrainerRoutineDTO) => {
+  const applyRoutineToEditor = (
+    routine: TrainerRoutineDTO,
+    step: RoutineEditorStep = getPreferredStepForRoutine(routine),
+  ) => {
+    const nextForm = buildRoutineForm(routine);
     setEditingRoutine(routine);
     setSelectedRoutine(null);
+    setActiveStep(step);
+    setForm(nextForm);
+    setLastSavedSignature(getFormSignature(nextForm));
     setImageFile(null);
-    setForm(buildRoutineForm(routine));
     setExerciseVideoUrls(buildExerciseVideoUrlInputs(routine));
+    setVideoModes(buildVideoModes(routine));
+    setReplacingVideoByExercise({});
+    setVideoErrors({});
+    setExpandedExercises(
+      Object.fromEntries(
+        nextForm.exercises.map((exercise, index) => [
+          getExerciseKey(exercise, index),
+          index === 0,
+        ]),
+      ),
+    );
   };
 
-  const mergeUpdatedRoutine = (routine: TrainerRoutineDTO) => {
+  const mergeRoutine = (
+    routine: TrainerRoutineDTO,
+    options: { openEditor?: boolean; step?: RoutineEditorStep } = {},
+  ) => {
     setRoutines((current) =>
       current.some((item) => item.id === routine.id)
         ? current.map((item) => (item.id === routine.id ? routine : item))
         : [routine, ...current],
     );
 
-    if (editingRoutine?.id === routine.id) {
-      applyRoutineToEditor(routine);
+    if (options.openEditor || editingRoutine?.id === routine.id) {
+      applyRoutineToEditor(routine, options.step ?? activeStep);
     }
 
     if (selectedRoutine?.id === routine.id) {
@@ -323,9 +398,54 @@ export default function TrainerRoutinesPage() {
     }
   };
 
-  const fillFormForEdit = (routine: TrainerRoutineDTO) => {
-    applyRoutineToEditor(routine);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  const showEditorForRoutine = (
+    routine: TrainerRoutineDTO,
+    step: RoutineEditorStep = getPreferredStepForRoutine(routine),
+  ) => {
+    if (hasUnsavedChanges) {
+      const confirmed = window.confirm(
+        "Hay cambios sin guardar. Deseas abrir otra rutina?",
+      );
+      if (!confirmed) return;
+    }
+
+    applyRoutineToEditor(routine, step);
+    document.getElementById("routine-editor")?.focus();
+  };
+
+  const validateDetails = () => {
+    if (!form.title.trim()) return "El nombre de la rutina es obligatorio.";
+    if (form.durationWeeks <= 0) return "La duracion debe ser mayor a 0.";
+    if (form.daysPerWeek <= 0) return "Los dias por semana deben ser mayores a 0.";
+    if (form.estimatedMinutes <= 0) return "El tiempo estimado debe ser mayor a 0.";
+    return "";
+  };
+
+  const validateExercises = () => {
+    const detailsError = validateDetails();
+    if (detailsError) return detailsError;
+
+    if (!form.exercises.length) return "Agrega al menos un ejercicio.";
+
+    const emptyIndex = form.exercises.findIndex(
+      (exercise) => !exercise.name.trim(),
+    );
+    if (emptyIndex >= 0) {
+      return `Completa o elimina el ejercicio ${emptyIndex + 1}.`;
+    }
+
+    return "";
+  };
+
+  const handleContinueToExercises = () => {
+    const validationError = validateDetails();
+    if (validationError) {
+      setErrorMessage(validationError);
+      return;
+    }
+
+    setErrorMessage("");
+    setActiveStep("exercises");
   };
 
   const handleInputChange = (
@@ -340,18 +460,7 @@ export default function TrainerRoutinesPage() {
         name === "daysPerWeek" ||
         name === "estimatedMinutes"
           ? Number(value)
-      : value,
-    }));
-  };
-
-  const updateRoutineNumber = (
-    field: "durationWeeks" | "daysPerWeek" | "estimatedMinutes",
-    amount: number,
-    min = 1,
-  ) => {
-    setForm((current) => ({
-      ...current,
-      [field]: Math.max(min, Number(current[field] || min) + amount),
+          : value,
     }));
   };
 
@@ -359,19 +468,12 @@ export default function TrainerRoutinesPage() {
     setImageFile(event.target.files?.[0] || null);
   };
 
-  const handleFileDrop = (
-    event: DragEvent<HTMLDivElement>,
-    kind: "image",
-  ) => {
+  const handleImageDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-
     const droppedFile = Array.from(event.dataTransfer.files).find((file) =>
-      kind === "image" ? file.type.startsWith("image/") : false,
+      file.type.startsWith("image/"),
     );
-
-    if (!droppedFile) return;
-
-    setImageFile(droppedFile);
+    if (droppedFile) setImageFile(droppedFile);
   };
 
   const updateExercise = (
@@ -392,30 +494,20 @@ export default function TrainerRoutinesPage() {
     }));
   };
 
-  const updateExerciseNumber = (
-    index: number,
-    field: "dayNumber" | "sets" | "restSeconds",
-    amount: number,
-    min = 0,
-  ) => {
-    setForm((current) => ({
-      ...current,
-      exercises: current.exercises.map((exercise, exerciseIndex) =>
-        exerciseIndex === index
-          ? {
-              ...exercise,
-              [field]: Math.max(min, Number(exercise[field] ?? min) + amount),
-            }
-          : exercise,
-      ),
-    }));
-  };
-
   const addExercise = () => {
-    setForm((current) => ({
-      ...current,
-      exercises: [...current.exercises, emptyExercise(current.exercises.length)],
-    }));
+    setForm((current) => {
+      const nextExercise = emptyExercise(current.exercises.length);
+      const nextExercises = [...current.exercises, nextExercise];
+      const nextKey = getExerciseKey(nextExercise, nextExercises.length - 1);
+      setExpandedExercises((currentExpanded) => ({
+        ...currentExpanded,
+        [nextKey]: true,
+      }));
+      return {
+        ...current,
+        exercises: nextExercises,
+      };
+    });
   };
 
   const removeExercise = (index: number) => {
@@ -425,13 +517,13 @@ export default function TrainerRoutinesPage() {
       const confirmed = window.confirm(
         "Este ejercicio tiene video. Al guardar cambios tambien se eliminara su video.",
       );
-
       if (!confirmed) return;
     }
 
     setForm((current) => {
-      const nextExercises = current.exercises.filter((_, itemIndex) => itemIndex !== index);
-
+      const nextExercises = current.exercises.filter(
+        (_, itemIndex) => itemIndex !== index,
+      );
       return {
         ...current,
         exercises: nextExercises.length ? nextExercises : [emptyExercise(0)],
@@ -454,233 +546,226 @@ export default function TrainerRoutinesPage() {
     });
   };
 
-  const ensureEditableExercise = (exercise: RoutineExerciseDTO) => {
-    if (!editingRoutine?.id || !exercise.id) {
-      setErrorMessage("Guarda el borrador para obtener el ID del ejercicio antes de subir video.");
+  const setExerciseError = (exerciseId: string, message: string | null) => {
+    setVideoErrors((current) => {
+      const next = { ...current };
+      if (message) next[exerciseId] = message;
+      else delete next[exerciseId];
+      return next;
+    });
+  };
+
+  const buildPayload = (): Parameters<typeof createTrainerRoutine>[0] => ({
+    ...form,
+    status: form.status === "archived" ? "archived" : "draft",
+    exercises: form.exercises.map((exercise, index) => ({
+      ...exercise,
+      id: exercise.id,
+      name: exercise.name.trim(),
+      description: exercise.description || "",
+      notes: exercise.notes || "",
+      order: index,
+      sets:
+        exercise.sets === null || exercise.sets === undefined
+          ? null
+          : Number(exercise.sets),
+      restSeconds:
+        exercise.restSeconds === null || exercise.restSeconds === undefined
+          ? null
+          : Number(exercise.restSeconds),
+      dayNumber: Number(exercise.dayNumber),
+    })),
+    imageFile,
+  });
+
+  const saveDraft = async (stepAfterSave: RoutineEditorStep) => {
+    const validationError = validateExercises();
+    if (validationError) {
+      setErrorMessage(validationError);
       return null;
     }
 
-    return {
-      routineId: editingRoutine.id,
-      exerciseId: exercise.id,
-    };
-  };
-
-  const handleExerciseVideoFileChange = async (
-    exercise: RoutineExerciseDTO,
-    event: ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = event.target.files?.[0] || null;
-    event.target.value = "";
-
-    if (!file) return;
-
-    const target = ensureEditableExercise(exercise);
-    if (!target) return;
-
+    setSaving(true);
     setErrorMessage("");
     setSuccessMessage("");
-    setExerciseWorking(target.exerciseId, "Subiendo");
 
     try {
-      const updatedRoutine = await uploadExerciseVideo(
-        target.routineId,
-        target.exerciseId,
-        file,
+      const payload = buildPayload();
+      const savedRoutine = editingRoutine
+        ? await updateTrainerRoutine(editingRoutine.id, payload)
+        : await createTrainerRoutine(payload);
+
+      mergeRoutine(savedRoutine, {
+        openEditor: true,
+        step: stepAfterSave,
+      });
+      setSuccessMessage(
+        stepAfterSave === "videos"
+          ? "Borrador guardado. Ya puedes gestionar los videos."
+          : "Cambios guardados correctamente.",
       );
-      mergeUpdatedRoutine(updatedRoutine);
-      setSuccessMessage("Video del ejercicio guardado correctamente.");
+      return savedRoutine;
     } catch (error: unknown) {
-      console.error("UPLOAD EXERCISE VIDEO ERROR:", error);
+      console.error("SAVE ROUTINE ERROR:", error);
       setErrorMessage(
         axios.isAxiosError(error)
-          ? String(error.response?.data?.error || "No se pudo subir el video.")
-          : "No se pudo subir el video.",
+          ? String(error.response?.data?.error || "No se pudo guardar la rutina.")
+          : "No se pudo guardar la rutina.",
       );
+      return null;
     } finally {
-      setExerciseWorking(target.exerciseId, null);
+      setSaving(false);
     }
   };
 
-  const handleExerciseVideoUrlSubmit = async (exercise: RoutineExerciseDTO) => {
-    const target = ensureEditableExercise(exercise);
-    if (!target) return;
+  const handleSaveDraftAndContinue = async () => {
+    await saveDraft("videos");
+  };
 
-    const videoUrl = (exerciseVideoUrls[target.exerciseId] || "").trim();
+  const handleSaveChanges = async () => {
+    await saveDraft(activeStep);
+  };
 
-    if (!videoUrl) {
-      setErrorMessage("Agrega una URL HTTPS para el video del ejercicio.");
+  const handleExerciseVideoFileUpload = async (
+    exercise: RoutineExerciseDTO,
+    file: File,
+  ) => {
+    if (!editingRoutine?.id || !exercise.id) {
+      setErrorMessage("Guarda el borrador antes de subir videos.");
       return;
     }
 
     setErrorMessage("");
     setSuccessMessage("");
-    setExerciseWorking(target.exerciseId, "Guardando URL");
+    setExerciseError(exercise.id, null);
+    setExerciseWorking(exercise.id, "Subiendo");
+
+    try {
+      const updatedRoutine = await uploadExerciseVideo(
+        editingRoutine.id,
+        exercise.id,
+        file,
+      );
+      mergeRoutine(updatedRoutine, { openEditor: true, step: "videos" });
+      setReplacingVideoByExercise((current) => ({
+        ...current,
+        [exercise.id as string]: false,
+      }));
+      setSuccessMessage("Video del ejercicio guardado correctamente.");
+    } catch (error: unknown) {
+      console.error("UPLOAD EXERCISE VIDEO ERROR:", error);
+      setExerciseError(
+        exercise.id,
+        axios.isAxiosError(error)
+          ? String(error.response?.data?.error || "No se pudo subir el video.")
+          : "No se pudo subir el video.",
+      );
+    } finally {
+      setExerciseWorking(exercise.id, null);
+    }
+  };
+
+  const handleExerciseVideoUrlSubmit = async (exercise: RoutineExerciseDTO) => {
+    if (!editingRoutine?.id || !exercise.id) {
+      setErrorMessage("Guarda el borrador antes de guardar enlaces.");
+      return;
+    }
+
+    const videoUrl = (exerciseVideoUrls[exercise.id] || "").trim();
+    if (!videoUrl) {
+      setExerciseError(exercise.id, "Agrega una URL HTTPS para el video.");
+      return;
+    }
+
+    setErrorMessage("");
+    setSuccessMessage("");
+    setExerciseError(exercise.id, null);
+    setExerciseWorking(exercise.id, "Guardando URL");
 
     try {
       const updatedRoutine = await setExerciseVideoUrl(
-        target.routineId,
-        target.exerciseId,
+        editingRoutine.id,
+        exercise.id,
         videoUrl,
       );
-      mergeUpdatedRoutine(updatedRoutine);
-      setSuccessMessage("URL del video guardada correctamente.");
+      mergeRoutine(updatedRoutine, { openEditor: true, step: "videos" });
+      setReplacingVideoByExercise((current) => ({
+        ...current,
+        [exercise.id as string]: false,
+      }));
+      setSuccessMessage("Enlace del video guardado correctamente.");
     } catch (error: unknown) {
       console.error("SET EXERCISE VIDEO URL ERROR:", error);
-      setErrorMessage(
+      setExerciseError(
+        exercise.id,
         axios.isAxiosError(error)
-          ? String(error.response?.data?.error || "No se pudo guardar la URL.")
-          : "No se pudo guardar la URL.",
+          ? String(error.response?.data?.error || "No se pudo guardar el enlace.")
+          : "No se pudo guardar el enlace.",
       );
     } finally {
-      setExerciseWorking(target.exerciseId, null);
+      setExerciseWorking(exercise.id, null);
     }
   };
 
   const handleDeleteExerciseVideo = async (exercise: RoutineExerciseDTO) => {
-    const target = ensureEditableExercise(exercise);
-    if (!target) return;
+    if (!editingRoutine?.id || !exercise.id) return;
 
     const confirmed = window.confirm("Eliminar el video de este ejercicio?");
     if (!confirmed) return;
 
     setErrorMessage("");
     setSuccessMessage("");
-    setExerciseWorking(target.exerciseId, "Eliminando");
+    setExerciseError(exercise.id, null);
+    setExerciseWorking(exercise.id, "Eliminando");
 
     try {
-      const updatedRoutine = await deleteExerciseVideo(
-        target.routineId,
-        target.exerciseId,
-      );
-      mergeUpdatedRoutine(updatedRoutine);
+      const updatedRoutine = await deleteExerciseVideo(editingRoutine.id, exercise.id);
+      mergeRoutine(updatedRoutine, { openEditor: true, step: "videos" });
       setSuccessMessage("Video del ejercicio eliminado.");
     } catch (error: unknown) {
       console.error("DELETE EXERCISE VIDEO ERROR:", error);
-      setErrorMessage(
+      setExerciseError(
+        exercise.id,
         axios.isAxiosError(error)
           ? String(error.response?.data?.error || "No se pudo eliminar el video.")
           : "No se pudo eliminar el video.",
       );
     } finally {
-      setExerciseWorking(target.exerciseId, null);
+      setExerciseWorking(exercise.id, null);
     }
   };
 
-  const validateForm = () => {
-    if (!form.title.trim()) {
-      return "El nombre de la rutina es obligatorio.";
-    }
-
-    if (form.durationWeeks <= 0) {
-      return "La duración debe ser mayor a 0.";
-    }
-
-    if (form.daysPerWeek <= 0) {
-      return "Los días por semana deben ser mayores a 0.";
-    }
-
-    if (form.estimatedMinutes <= 0) {
-      return "El tiempo estimado debe ser mayor a 0.";
-    }
-
-    const validExercises = form.exercises.filter((exercise) => exercise.name.trim());
-
-    if (!validExercises.length) {
-      return "Agrega al menos un ejercicio con nombre.";
-    }
-
-    return "";
-  };
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    const validationError = validateForm();
-
-    if (validationError) {
-      setErrorMessage(validationError);
+  const handleSubmitToReview = async (routine: TrainerRoutineDTO) => {
+    if (hasVideoInProgress) {
+      setErrorMessage("Espera a que terminen las cargas de video.");
       return;
     }
 
-    setSaving(true);
-
-    try {
-      const payload = {
-        ...form,
-        exercises: form.exercises
-          .filter((exercise) => exercise.name.trim())
-          .map((exercise, index) => ({
-            ...exercise,
-            id: exercise.id,
-            name: exercise.name.trim(),
-            description: exercise.description || "",
-            notes: exercise.notes || "",
-            order: index,
-            sets: exercise.sets === null || exercise.sets === undefined ? null : Number(exercise.sets),
-            restSeconds:
-              exercise.restSeconds === null || exercise.restSeconds === undefined
-                ? null
-                : Number(exercise.restSeconds),
-            dayNumber: Number(exercise.dayNumber),
-          })),
-        imageFile,
-      };
-
-      if (editingRoutine) {
-        const updatedRoutine = await updateTrainerRoutine(editingRoutine.id, payload);
-        mergeUpdatedRoutine(updatedRoutine);
-        setSuccessMessage("Rutina actualizada correctamente.");
-      } else {
-        const createdRoutine = await createTrainerRoutine(payload);
-        mergeUpdatedRoutine(createdRoutine);
-        applyRoutineToEditor(createdRoutine);
-        setSuccessMessage("Borrador creado. Ya puedes subir el video de cada ejercicio.");
-      }
-
-      await loadRoutines();
-    } catch (error: unknown) {
-      console.error("SAVE ROUTINE ERROR:", error);
-
-      if (axios.isAxiosError(error)) {
-        setErrorMessage(
-          String(error.response?.data?.error || "No se pudo guardar la rutina."),
-        );
-      } else {
-        setErrorMessage("No se pudo guardar la rutina.");
-      }
-    } finally {
-      setSaving(false);
+    if (editingRoutine?.id === routine.id && hasUnsavedChanges) {
+      setErrorMessage("Guarda los cambios antes de enviar la rutina a revision.");
+      setActiveStep("videos");
+      return;
     }
-  };
 
-  const handleDelete = async (routine: TrainerRoutineDTO) => {
-    const confirmed = window.confirm(
-      `¿Seguro que deseas eliminar la rutina "${routine.title}"?`,
-    );
+    if (!canRoutineGoToReview(routine)) {
+      setErrorMessage("Agrega un video especifico a cada ejercicio antes de enviar.");
+      return;
+    }
 
+    const confirmed = window.confirm("Enviar esta rutina a revision?");
     if (!confirmed) return;
 
-    try {
-      await deleteTrainerRoutine(routine.id);
-      setSuccessMessage("Rutina eliminada correctamente.");
-      setSelectedRoutine(null);
-      await loadRoutines();
-    } catch (error) {
-      console.error("DELETE ROUTINE ERROR:", error);
-      setErrorMessage("No se pudo eliminar la rutina.");
-    }
-  };
+    setPublishingId(routine.id);
+    setErrorMessage("");
+    setSuccessMessage("");
 
-  const handlePublish = async (routine: TrainerRoutineDTO) => {
     try {
       const updatedRoutine = await publishTrainerRoutine(routine.id);
-      mergeUpdatedRoutine(updatedRoutine);
+      mergeRoutine(updatedRoutine, {
+        openEditor: editingRoutine?.id === routine.id,
+        step: "videos",
+      });
       setSuccessMessage("Rutina enviada a revision correctamente.");
-      await loadRoutines();
     } catch (error: unknown) {
       console.error("PUBLISH ROUTINE ERROR:", error);
       setErrorMessage(
@@ -691,133 +776,461 @@ export default function TrainerRoutinesPage() {
             )
           : "No se pudo enviar la rutina a revision.",
       );
+    } finally {
+      setPublishingId(null);
     }
   };
 
-  const handleSubmitCurrentToReview = async () => {
-    if (!editingRoutine) return;
+  const handleDeleteRoutine = async (routine: TrainerRoutineDTO) => {
+    const confirmed = window.confirm(
+      `Seguro que deseas eliminar la rutina "${routine.title}"?`,
+    );
+    if (!confirmed) return;
 
-    await handlePublish(editingRoutine);
+    try {
+      await deleteTrainerRoutine(routine.id);
+      setRoutines((current) => current.filter((item) => item.id !== routine.id));
+      if (editingRoutine?.id === routine.id) resetEditor(true);
+      if (selectedRoutine?.id === routine.id) setSelectedRoutine(null);
+      setSuccessMessage("Rutina eliminada correctamente.");
+    } catch (error) {
+      console.error("DELETE ROUTINE ERROR:", error);
+      setErrorMessage("No se pudo eliminar la rutina.");
+    }
   };
 
-  const handleArchive = async (routine: TrainerRoutineDTO) => {
+  const handleArchiveRoutine = async (routine: TrainerRoutineDTO) => {
     try {
-      await archiveTrainerRoutine(routine.id);
+      const updatedRoutine = await archiveTrainerRoutine(routine.id);
+      mergeRoutine(updatedRoutine, { openEditor: editingRoutine?.id === routine.id });
       setSuccessMessage("Rutina archivada correctamente.");
-      await loadRoutines();
     } catch (error) {
       console.error("ARCHIVE ROUTINE ERROR:", error);
       setErrorMessage("No se pudo archivar la rutina.");
     }
   };
 
-  const renderExerciseVideoControls = (exercise: RoutineExerciseDTO) => {
-    const exerciseId = exercise.id;
-    const busyLabel = exerciseId ? videoWorkingByExercise[exerciseId] : "";
-    const videoSource = getExerciseVideoSource(exercise);
-    const fileInputId = exerciseId ? `exercise-video-file-${exerciseId}` : "";
+  const canOpenStep = (step: RoutineEditorStep) => {
+    if (step === "details") return true;
+    if (step === "exercises") return !validateDetails();
+    return Boolean(editingRoutine?.id && !hasUnsavedChanges);
+  };
 
-    return (
-      <section className={styles.exerciseVideoSection}>
-        <div className={styles.exerciseVideoHeader}>
-          <div>
-            <span>Video del ejercicio</span>
-            <strong className={exercise.hasVideo ? styles.videoReady : styles.videoPending}>
-              {exercise.hasVideo
-                ? exercise.videoType === "youtube"
-                  ? "YouTube"
-                  : exercise.videoType === "upload"
-                    ? "Archivo subido"
-                    : "URL externa"
-                : "Video pendiente"}
-            </strong>
-          </div>
-          <Video size={18} />
+  const handleStepChange = (step: RoutineEditorStep) => {
+    if (step === activeStep) return;
+    if (step === "exercises") {
+      const validationError = validateDetails();
+      if (validationError) {
+        setErrorMessage(validationError);
+        return;
+      }
+    }
+
+    if (step === "videos" && (!editingRoutine?.id || hasUnsavedChanges)) {
+      setErrorMessage("Guarda el borrador antes de ir a videos.");
+      return;
+    }
+
+    setErrorMessage("");
+    setActiveStep(step);
+  };
+
+  const renderDetailsStep = () => (
+    <section className={styles.stepPanel} aria-labelledby="routine-details-title">
+      <div className={styles.stepHeader}>
+        <span className={styles.eyebrow}>Paso 1</span>
+        <h3 id="routine-details-title">Datos de la rutina</h3>
+      </div>
+
+      <div className={styles.detailsGrid}>
+        <div className={styles.field}>
+          <label htmlFor="routine-title">Nombre de la rutina</label>
+          <input
+            id="routine-title"
+            name="title"
+            value={form.title}
+            onChange={handleInputChange}
+            placeholder="Ej. Hipertrofia inicial"
+            required
+            aria-describedby={errorMessage ? errorId : undefined}
+          />
         </div>
 
-        {videoSource ? (
-          <div className={styles.videoPreview}>
-            {videoSource.type === "video" ? (
-              <video src={videoSource.url} controls />
-            ) : videoSource.type === "embed" ? (
-              <iframe
-                src={videoSource.url}
-                title={`Video de ${exercise.name || "ejercicio"}`}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            ) : (
-              <a href={videoSource.url} target="_blank" rel="noreferrer">
-                <ExternalLink size={16} />
-                Ver video actual
-              </a>
-            )}
-          </div>
-        ) : (
-          <div className={styles.videoPlaceholder}>
-            Video del ejercicio pendiente de actualizacion.
-          </div>
-        )}
+        <div className={styles.field}>
+          <label htmlFor="routine-objective">Objetivo</label>
+          <input
+            id="routine-objective"
+            name="objective"
+            value={form.objective}
+            onChange={handleInputChange}
+            placeholder="Ej. Ganancia muscular"
+          />
+        </div>
 
-        {!exerciseId ? (
-          <small>Guarda el borrador para subir video a este ejercicio.</small>
-        ) : (
-          <div className={styles.exerciseVideoActions}>
+        <div className={styles.fieldWide}>
+          <label htmlFor="routine-description">Descripcion</label>
+          <textarea
+            id="routine-description"
+            name="description"
+            value={form.description}
+            onChange={handleInputChange}
+            placeholder="Explica para quien es esta rutina y recomendaciones generales."
+            rows={4}
+          />
+        </div>
+
+        <div className={styles.field}>
+          <label htmlFor="routine-level">Nivel</label>
+          <select
+            id="routine-level"
+            name="level"
+            value={form.level}
+            onChange={handleInputChange}
+          >
+            <option value="principiante">Principiante</option>
+            <option value="intermedio">Intermedio</option>
+            <option value="avanzado">Avanzado</option>
+          </select>
+        </div>
+
+        <div className={styles.field}>
+          <label htmlFor="routine-category">Categoria</label>
+          <select
+            id="routine-category"
+            name="category"
+            value={form.category}
+            onChange={handleInputChange}
+          >
+            <option value="general">General</option>
+            <option value="fuerza">Fuerza</option>
+            <option value="hipertrofia">Hipertrofia</option>
+            <option value="perdida_peso">Perdida de peso</option>
+            <option value="resistencia">Resistencia</option>
+            <option value="movilidad">Movilidad</option>
+          </select>
+        </div>
+
+        <div className={styles.compactFields}>
+          <div className={styles.field}>
+            <label htmlFor="routine-durationWeeks">Duracion en semanas</label>
             <input
-              className={styles.fileInputNative}
-              id={fileInputId}
-              type="file"
-              accept="video/mp4,video/webm,video/quicktime"
-              onChange={(event) => void handleExerciseVideoFileChange(exercise, event)}
+              id="routine-durationWeeks"
+              type="number"
+              name="durationWeeks"
+              min={1}
+              value={form.durationWeeks}
+              onChange={handleInputChange}
             />
+          </div>
 
+          <div className={styles.field}>
+            <label htmlFor="routine-daysPerWeek">Dias por semana</label>
+            <input
+              id="routine-daysPerWeek"
+              type="number"
+              name="daysPerWeek"
+              min={1}
+              value={form.daysPerWeek}
+              onChange={handleInputChange}
+            />
+          </div>
+
+          <div className={styles.field}>
+            <label htmlFor="routine-estimatedMinutes">Tiempo estimado</label>
+            <input
+              id="routine-estimatedMinutes"
+              type="number"
+              name="estimatedMinutes"
+              min={1}
+              value={form.estimatedMinutes}
+              onChange={handleInputChange}
+            />
+          </div>
+        </div>
+
+        <div className={styles.fieldWide}>
+          <label htmlFor="routine-cover-image">Imagen de portada</label>
+          <input
+            className={styles.fileInputNative}
+            id="routine-cover-image"
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+          />
+          <div
+            className={styles.uploadDropzone}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={handleImageDrop}
+            onClick={() => document.getElementById("routine-cover-image")?.click()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                document.getElementById("routine-cover-image")?.click();
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Seleccionar imagen de portada"
+          >
+            <span className={styles.uploadIcon}>
+              <Image size={22} />
+            </span>
+            <strong>{imageFile?.name || "Arrastra la imagen aqui"}</strong>
+            <small>
+              {imageFile
+                ? "Imagen lista para guardar."
+                : "o haz clic para seleccionar PNG, JPG o WEBP."}
+            </small>
+          </div>
+          {editingRoutine?.imageUrl && !imageFile ? (
+            <small>La imagen actual se conserva si no subes otra.</small>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
+
+  const renderExerciseCard = (exercise: RoutineExerciseDTO, index: number) => {
+    const key = getExerciseKey(exercise, index);
+    const isExpanded = expandedExercises[key] ?? index === 0;
+    const isComplete = Boolean(exercise.name.trim());
+
+    return (
+      <article className={styles.exerciseAccordionCard} key={key}>
+        <div className={styles.exerciseAccordionHeader}>
+          <div>
+            <span>Ejercicio {index + 1}</span>
+            <strong>{exercise.name.trim() || "Sin nombre"}</strong>
+            <small>
+              Dia {exercise.dayNumber || 1} - {exercise.sets ?? "-"} series -{" "}
+              {exercise.reps || "reps libres"} - {exercise.restSeconds ?? 0} segundos
+            </small>
+          </div>
+
+          <div className={styles.exerciseHeaderActions}>
+            <span
+              className={isComplete ? styles.infoComplete : styles.infoPending}
+              aria-label={isComplete ? "Informacion completa" : "Informacion pendiente"}
+            >
+              {isComplete ? "Completa" : "Pendiente"}
+            </span>
             <button
               type="button"
-              className={styles.secondaryBtn}
-              disabled={Boolean(busyLabel)}
-              onClick={() => document.getElementById(fileInputId)?.click()}
+              className={styles.iconButton}
+              aria-label={isExpanded ? "Contraer ejercicio" : "Expandir ejercicio"}
+              title={isExpanded ? "Contraer ejercicio" : "Expandir ejercicio"}
+              onClick={() =>
+                setExpandedExercises((current) => ({
+                  ...current,
+                  [key]: !isExpanded,
+                }))
+              }
             >
-              <UploadCloud size={16} />
-              {busyLabel || "Subir archivo"}
+              {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
             </button>
+            <button
+              type="button"
+              className={styles.secondaryIconTextBtn}
+              onClick={() => removeExercise(index)}
+              aria-label={`Quitar ejercicio ${index + 1}`}
+            >
+              <Trash2 size={15} />
+              Quitar
+            </button>
+          </div>
+        </div>
 
-            <div className={styles.videoUrlRow}>
+        {isExpanded ? (
+          <div className={styles.exerciseFields}>
+            <div className={styles.field}>
+              <label htmlFor={`${key}-name`}>Nombre</label>
               <input
-                type="url"
-                value={exerciseVideoUrls[exerciseId] || ""}
-                onChange={(event) =>
-                  setExerciseVideoUrls((current) => ({
-                    ...current,
-                    [exerciseId]: event.target.value,
-                  }))
-                }
-                placeholder="https://youtube.com/..."
+                id={`${key}-name`}
+                value={exercise.name}
+                onChange={(event) => updateExercise(index, "name", event.target.value)}
+                placeholder="Ej. Press banca"
               />
-              <button
-                type="button"
-                className={styles.primarySmallBtn}
-                disabled={Boolean(busyLabel)}
-                onClick={() => void handleExerciseVideoUrlSubmit(exercise)}
-              >
-                <LinkIcon size={15} />
-                Guardar URL
-              </button>
             </div>
 
-            <button
-              type="button"
-              className={styles.dangerLightBtn}
-              disabled={!exercise.hasVideo || Boolean(busyLabel)}
-              onClick={() => void handleDeleteExerciseVideo(exercise)}
-            >
-              <XCircle size={15} />
-              Eliminar video
-            </button>
+            <div className={styles.compactFields}>
+              <div className={styles.field}>
+                <label htmlFor={`${key}-dayNumber`}>Dia</label>
+                <input
+                  id={`${key}-dayNumber`}
+                  type="number"
+                  min={1}
+                  value={exercise.dayNumber}
+                  onChange={(event) =>
+                    updateExercise(index, "dayNumber", Number(event.target.value))
+                  }
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor={`${key}-sets`}>Series</label>
+                <input
+                  id={`${key}-sets`}
+                  type="number"
+                  min={0}
+                  value={exercise.sets ?? ""}
+                  onChange={(event) =>
+                    updateExercise(index, "sets", Number(event.target.value))
+                  }
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor={`${key}-reps`}>Repeticiones</label>
+                <input
+                  id={`${key}-reps`}
+                  value={exercise.reps || ""}
+                  onChange={(event) => updateExercise(index, "reps", event.target.value)}
+                  placeholder="Ej. 10-12"
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor={`${key}-restSeconds`}>Descanso</label>
+                <input
+                  id={`${key}-restSeconds`}
+                  type="number"
+                  min={0}
+                  value={exercise.restSeconds ?? ""}
+                  onChange={(event) =>
+                    updateExercise(index, "restSeconds", Number(event.target.value))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className={styles.field}>
+              <label htmlFor={`${key}-description`}>Descripcion</label>
+              <textarea
+                id={`${key}-description`}
+                rows={2}
+                value={exercise.description || ""}
+                onChange={(event) =>
+                  updateExercise(index, "description", event.target.value)
+                }
+                placeholder="Indicaciones tecnicas del ejercicio"
+              />
+            </div>
+
+            <div className={styles.field}>
+              <label htmlFor={`${key}-notes`}>Notas</label>
+              <textarea
+                id={`${key}-notes`}
+                rows={2}
+                value={exercise.notes || ""}
+                onChange={(event) => updateExercise(index, "notes", event.target.value)}
+                placeholder="Peso sugerido, recomendaciones o progresion"
+              />
+            </div>
           </div>
-        )}
-      </section>
+        ) : null}
+      </article>
     );
   };
+
+  const renderExercisesStep = () => (
+    <section className={styles.stepPanel} aria-labelledby="routine-exercises-title">
+      <div className={styles.stepHeader}>
+        <span className={styles.eyebrow}>Paso 2</span>
+        <h3 id="routine-exercises-title">Ejercicios</h3>
+        <p>
+          Agrega los ejercicios que componen la rutina. Podras subir el video de
+          cada ejercicio despues de guardar el borrador.
+        </p>
+      </div>
+
+      <div className={styles.exerciseAccordionList}>
+        {form.exercises.map(renderExerciseCard)}
+      </div>
+    </section>
+  );
+
+  const renderVideosStep = () => (
+    <section className={styles.stepPanel} aria-labelledby="routine-videos-title">
+      <div className={styles.stepHeader}>
+        <span className={styles.eyebrow}>Paso 3</span>
+        <h3 id="routine-videos-title">Videos de los ejercicios</h3>
+        <p>
+          Agrega un video especifico para cada ejercicio. Todos los ejercicios
+          deben tener video antes de enviar la rutina a revision.
+        </p>
+      </div>
+
+      <div className={styles.videoProgressPanel}>
+        <div>
+          <strong>
+            {videoStats.complete} de {videoStats.total} ejercicios con video
+          </strong>
+          <span>{videoStats.percent} % completado</span>
+        </div>
+        <div
+          className={styles.videoProgressTrack}
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={videoStats.percent}
+          aria-label="Avance de videos"
+        >
+          <span style={{ width: `${videoStats.percent}%` }} />
+        </div>
+        <div className={styles.videoProgressStats}>
+          <span>Total: {videoStats.total}</span>
+          <span>Completos: {videoStats.complete}</span>
+          <span>Pendientes: {videoStats.pending}</span>
+        </div>
+      </div>
+
+      {!editingRoutine ? (
+        <div className={styles.videoReviewNotice}>
+          Guarda el borrador para obtener los IDs reales de los ejercicios.
+        </div>
+      ) : null}
+
+      <div className={styles.videoCardGrid}>
+        {form.exercises.map((exercise, index) => {
+          const exerciseId = exercise.id || getExerciseKey(exercise, index);
+
+          return (
+            <ExerciseVideoCard
+              key={exerciseId}
+              exercise={exercise}
+              index={index}
+              mode={videoModes[exerciseId] || "upload"}
+              urlValue={exerciseVideoUrls[exerciseId] || ""}
+              busyLabel={videoWorkingByExercise[exerciseId]}
+              error={videoErrors[exerciseId]}
+              replacing={Boolean(replacingVideoByExercise[exerciseId])}
+              onModeChange={(mode) =>
+                setVideoModes((current) => ({
+                  ...current,
+                  [exerciseId]: mode,
+                }))
+              }
+              onUrlChange={(value) =>
+                setExerciseVideoUrls((current) => ({
+                  ...current,
+                  [exerciseId]: value,
+                }))
+              }
+              onUploadFile={(file) => void handleExerciseVideoFileUpload(exercise, file)}
+              onSaveUrl={() => void handleExerciseVideoUrlSubmit(exercise)}
+              onDeleteVideo={() => void handleDeleteExerciseVideo(exercise)}
+              onToggleReplace={(value) =>
+                setReplacingVideoByExercise((current) => ({
+                  ...current,
+                  [exerciseId]: value,
+                }))
+              }
+            />
+          );
+        })}
+      </div>
+    </section>
+  );
 
   return (
     <section className={styles.page}>
@@ -826,8 +1239,8 @@ export default function TrainerRoutinesPage() {
           <span className={styles.eyebrow}>Panel de entrenador</span>
           <h1>Rutinas y planes</h1>
           <p>
-            Crea rutinas con imagen de portada y videos especificos para cada
-            ejercicio antes de enviarlas a revision.
+            Crea rutinas con un flujo guiado: datos generales, ejercicios y
+            videos especificos para revision.
           </p>
         </div>
       </header>
@@ -866,434 +1279,72 @@ export default function TrainerRoutinesPage() {
         </article>
       </section>
 
-      {errorMessage ? <div className={styles.errorBox}>{errorMessage}</div> : null}
-      {successMessage ? <div className={styles.successBox}>{successMessage}</div> : null}
+      {errorMessage ? (
+        <div id={errorId} className={styles.errorBox} role="alert" aria-live="assertive">
+          {errorMessage}
+        </div>
+      ) : null}
+      {successMessage ? (
+        <div className={styles.successBox} role="status" aria-live="polite">
+          {successMessage}
+        </div>
+      ) : null}
 
-      <section className={styles.formPanel}>
+      <section
+        id="routine-editor"
+        className={styles.formPanel}
+        tabIndex={-1}
+        aria-labelledby="routine-editor-title"
+      >
         <div className={styles.panelHeader}>
           <div>
             <span className={styles.eyebrow}>
               {isEditing ? "Editando rutina" : "Nueva rutina"}
             </span>
-            <h2>{isEditing ? editingRoutine?.title : "Crear rutina"}</h2>
+            <h2 id="routine-editor-title">
+              {isEditing ? editingRoutine?.title : "Crear rutina"}
+            </h2>
           </div>
-
           {isEditing ? (
-            <button type="button" className={styles.secondaryBtn} onClick={resetForm}>
-              Cancelar edición
+            <button type="button" className={styles.secondaryBtn} onClick={() => resetEditor()}>
+              Cancelar edicion
             </button>
           ) : null}
         </div>
 
-        <div className={styles.creationGuide}>
-          <article>
-            <strong>1</strong>
-            <span>Datos de la rutina</span>
-          </article>
-          <article>
-            <strong>2</strong>
-            <span>Imagen de portada</span>
-          </article>
-          <article>
-            <strong>3</strong>
-            <span>Videos por ejercicio</span>
-          </article>
-        </div>
+        <RoutineStepIndicator
+          activeStep={activeStep}
+          canOpenStep={canOpenStep}
+          onStepChange={handleStepChange}
+        />
 
-        <form className={styles.form} onSubmit={handleSubmit}>
-          <div className={styles.gridTwo}>
-            <label>
-              <span>Nombre de la rutina</span>
-              <input
-                name="title"
-                value={form.title}
-                onChange={handleInputChange}
-                placeholder="Ej. Hipertrofia inicial"
-                required
-              />
-            </label>
+        <form
+          id={formId}
+          className={styles.form}
+          aria-describedby={errorMessage ? errorId : undefined}
+          onSubmit={(event) => event.preventDefault()}
+        >
+          {activeStep === "details" ? renderDetailsStep() : null}
+          {activeStep === "exercises" ? renderExercisesStep() : null}
+          {activeStep === "videos" ? renderVideosStep() : null}
 
-            <label>
-              <span>Objetivo</span>
-              <input
-                name="objective"
-                value={form.objective}
-                onChange={handleInputChange}
-                placeholder="Ej. Ganancia muscular"
-              />
-            </label>
-
-            <label>
-              <span>Nivel</span>
-              <select name="level" value={form.level} onChange={handleInputChange}>
-                <option value="principiante">Principiante</option>
-                <option value="intermedio">Intermedio</option>
-                <option value="avanzado">Avanzado</option>
-              </select>
-            </label>
-
-            <label>
-              <span>Categoría</span>
-              <select name="category" value={form.category} onChange={handleInputChange}>
-                <option value="general">General</option>
-                <option value="fuerza">Fuerza</option>
-                <option value="hipertrofia">Hipertrofia</option>
-                <option value="perdida_peso">Pérdida de peso</option>
-                <option value="resistencia">Resistencia</option>
-                <option value="movilidad">Movilidad</option>
-              </select>
-            </label>
-
-            <label>
-              <span>Duración en semanas</span>
-              <div className={styles.numberControl}>
-                <input
-                  type="number"
-                  name="durationWeeks"
-                  value={form.durationWeeks}
-                  onChange={handleInputChange}
-                  min={1}
-                />
-                <div className={styles.numberButtons}>
-                  <button
-                    type="button"
-                    onClick={() => updateRoutineNumber("durationWeeks", -1)}
-                    aria-label="Restar una semana"
-                  >
-                    -
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateRoutineNumber("durationWeeks", 1)}
-                    aria-label="Agregar una semana"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            </label>
-
-            <label>
-              <span>Días por semana</span>
-              <div className={styles.numberControl}>
-                <input
-                  type="number"
-                  name="daysPerWeek"
-                  value={form.daysPerWeek}
-                  onChange={handleInputChange}
-                  min={1}
-                />
-                <div className={styles.numberButtons}>
-                  <button
-                    type="button"
-                    onClick={() => updateRoutineNumber("daysPerWeek", -1)}
-                    aria-label="Restar un dia por semana"
-                  >
-                    -
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateRoutineNumber("daysPerWeek", 1)}
-                    aria-label="Agregar un dia por semana"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            </label>
-
-            <label>
-              <span>Minutos por sesión</span>
-              <div className={styles.numberControl}>
-                <input
-                  type="number"
-                  name="estimatedMinutes"
-                  value={form.estimatedMinutes}
-                  onChange={handleInputChange}
-                  min={1}
-                />
-                <div className={styles.numberButtons}>
-                  <button
-                    type="button"
-                    onClick={() => updateRoutineNumber("estimatedMinutes", -5)}
-                    aria-label="Restar cinco minutos"
-                  >
-                    -
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateRoutineNumber("estimatedMinutes", 5)}
-                    aria-label="Agregar cinco minutos"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            </label>
-
-          </div>
-
-          <label>
-            <span>Descripción</span>
-            <textarea
-              name="description"
-              value={form.description}
-              onChange={handleInputChange}
-              placeholder="Explica para quién es esta rutina, cómo se trabaja y recomendaciones generales."
-              rows={4}
-            />
-          </label>
-
-          <div className={styles.gridTwo}>
-            <label>
-              <span>Imagen de portada</span>
-              <input
-                className={styles.fileInputNative}
-                id="routine-cover-image"
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-              />
-              <div
-                className={styles.uploadDropzone}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => handleFileDrop(event, "image")}
-                onClick={() =>
-                  document.getElementById("routine-cover-image")?.click()
-                }
-              >
-                <span className={styles.uploadIcon}>
-                  <Image size={22} />
-                </span>
-                <strong>{imageFile?.name || "Arrastra la imagen aqui"}</strong>
-                <small>
-                  {imageFile
-                    ? "Imagen lista para guardar."
-                    : "o haz clic para seleccionar PNG, JPG o WEBP."}
-                </small>
-              </div>
-              {editingRoutine?.imageUrl ? (
-                <small>Si subes otra imagen, reemplazará la actual.</small>
-              ) : null}
-            </label>
-
-          </div>
-
-          {exercisesWithoutVideo.length ? (
-            <div className={styles.videoReviewNotice}>
-              Agrega un video especifico a cada ejercicio antes de enviar la rutina a revision.
-            </div>
-          ) : null}
-
-          <section className={styles.exercisePanel}>
-            <div className={styles.panelHeader}>
-              <div>
-                <span className={styles.eyebrow}>Ejercicios</span>
-                <h3>Ejercicios de la rutina</h3>
-              </div>
-
-              <button type="button" className={styles.secondaryBtn} onClick={addExercise}>
-                <Plus size={17} />
-                Agregar ejercicio
-              </button>
-            </div>
-
-            <div className={styles.exerciseList}>
-              {form.exercises.map((exercise, index) => (
-                <article
-                  className={styles.exerciseCard}
-                  key={exercise.id || `${index}-${exercise.order}`}
-                >
-                  <div className={styles.exerciseHeader}>
-                    <strong>Ejercicio {index + 1}</strong>
-
-                    <button
-                      type="button"
-                      className={styles.dangerLightBtn}
-                      onClick={() => removeExercise(index)}
-                    >
-                      <Trash2 size={15} />
-                      Quitar
-                    </button>
-                  </div>
-
-                  <div className={styles.gridTwo}>
-                    <label>
-                      <span>Nombre</span>
-                      <input
-                        value={exercise.name}
-                        onChange={(event) =>
-                          updateExercise(index, "name", event.target.value)
-                        }
-                        placeholder="Ej. Press banca"
-                      />
-                    </label>
-
-                    <label>
-                      <span>Día</span>
-                      <div className={styles.numberControl}>
-                        <input
-                          type="number"
-                          min={1}
-                          value={exercise.dayNumber}
-                          onChange={(event) =>
-                            updateExercise(index, "dayNumber", Number(event.target.value))
-                          }
-                        />
-                        <div className={styles.numberButtons}>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateExerciseNumber(index, "dayNumber", -1, 1)
-                            }
-                            aria-label="Restar dia"
-                          >
-                            -
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateExerciseNumber(index, "dayNumber", 1, 1)
-                            }
-                            aria-label="Agregar dia"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-                    </label>
-
-                    <label>
-                      <span>Series</span>
-                      <div className={styles.numberControl}>
-                        <input
-                          type="number"
-                          min={0}
-                          value={exercise.sets ?? ""}
-                          onChange={(event) =>
-                            updateExercise(index, "sets", Number(event.target.value))
-                          }
-                        />
-                        <div className={styles.numberButtons}>
-                          <button
-                            type="button"
-                            onClick={() => updateExerciseNumber(index, "sets", -1, 0)}
-                            aria-label="Restar serie"
-                          >
-                            -
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateExerciseNumber(index, "sets", 1, 0)}
-                            aria-label="Agregar serie"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-                    </label>
-
-                    <label>
-                      <span>Repeticiones</span>
-                      <input
-                        value={exercise.reps || ""}
-                        onChange={(event) =>
-                          updateExercise(index, "reps", event.target.value)
-                        }
-                        placeholder="Ej. 10-12"
-                      />
-                    </label>
-
-                    <label>
-                      <span>Descanso en segundos</span>
-                      <div className={styles.numberControl}>
-                        <input
-                          type="number"
-                          min={0}
-                          value={exercise.restSeconds ?? ""}
-                          onChange={(event) =>
-                            updateExercise(index, "restSeconds", Number(event.target.value))
-                          }
-                        />
-                        <div className={styles.numberButtons}>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateExerciseNumber(index, "restSeconds", -15, 0)
-                            }
-                            aria-label="Restar descanso"
-                          >
-                            -
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateExerciseNumber(index, "restSeconds", 15, 0)
-                            }
-                            aria-label="Agregar descanso"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-                    </label>
-                  </div>
-
-                  <label>
-                    <span>Descripción del ejercicio</span>
-                    <textarea
-                      rows={2}
-                      value={exercise.description || ""}
-                      onChange={(event) =>
-                        updateExercise(index, "description", event.target.value)
-                      }
-                      placeholder="Indicaciones técnicas del ejercicio"
-                    />
-                  </label>
-
-                  <label>
-                    <span>Notas</span>
-                    <textarea
-                      rows={2}
-                      value={exercise.notes || ""}
-                      onChange={(event) =>
-                        updateExercise(index, "notes", event.target.value)
-                      }
-                      placeholder="Notas adicionales, peso sugerido o recomendaciones"
-                    />
-                  </label>
-
-                  {renderExerciseVideoControls(exercise)}
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <div className={styles.formActions}>
-            <button type="submit" className={styles.primaryBtn} disabled={saving}>
-              {saving
-                ? "Guardando..."
-                : isEditing
-                  ? "Guardar cambios"
-                  : "Guardar borrador"}
-            </button>
-
-            {isEditing ? (
-              <button
-                type="button"
-                className={styles.primaryBtn}
-                disabled={!canSubmitToReview}
-                onClick={() => void handleSubmitCurrentToReview()}
-              >
-                <Send size={17} />
-                Enviar a revision
-              </button>
-            ) : null}
-
-            <button type="button" className={styles.secondaryBtn} onClick={resetForm}>
-              Limpiar
-            </button>
-          </div>
+          <RoutineEditorActions
+            activeStep={activeStep}
+            saving={saving}
+            publishing={publishingId === editingRoutine?.id}
+            missingVideoCount={videoStats.pending}
+            canSubmitToReview={canSubmitToReview}
+            onCancel={() => resetEditor()}
+            onContinueToExercises={handleContinueToExercises}
+            onBackToDetails={() => setActiveStep("details")}
+            onAddExercise={addExercise}
+            onSaveDraftAndContinue={() => void handleSaveDraftAndContinue()}
+            onBackToExercises={() => setActiveStep("exercises")}
+            onSaveChanges={() => void handleSaveChanges()}
+            onSubmitToReview={() => {
+              if (editingRoutine) void handleSubmitToReview(editingRoutine);
+            }}
+          />
         </form>
       </section>
 
@@ -1309,6 +1360,7 @@ export default function TrainerRoutinesPage() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Buscar rutina..."
+              aria-label="Buscar rutina"
             />
 
             <select
@@ -1316,6 +1368,7 @@ export default function TrainerRoutinesPage() {
               onChange={(event) =>
                 setStatusFilter(event.target.value as "todos" | RoutineStatus)
               }
+              aria-label="Filtrar por estado"
             >
               <option value="todos">Todos</option>
               <option value="draft">Borradores</option>
@@ -1331,85 +1384,108 @@ export default function TrainerRoutinesPage() {
           <div className={styles.emptyState}>Cargando rutinas...</div>
         ) : filteredRoutines.length ? (
           <div className={styles.routineGrid}>
-            {filteredRoutines.map((routine) => (
-              <article className={styles.routineCard} key={routine.id}>
-                <div className={styles.cover}>
-                  {routine.imageUrl ? (
-                    <img src={routine.imageUrl} alt={routine.title} />
-                  ) : (
-                    <span>Sin imagen</span>
-                  )}
-                </div>
+            {filteredRoutines.map((routine) => {
+              const routineVideoStats = getVideoStats(routine.exercises ?? []);
+              const routineReady = canRoutineGoToReview(routine);
 
-                <div className={styles.cardBody}>
-                  <div className={styles.cardTop}>
-                    <span className={`${styles.status} ${styles[routine.status]}`}>
-                      {statusLabels[routine.status]}
-                    </span>
-                    <span className={styles.level}>{levelLabels[routine.level]}</span>
+              return (
+                <article className={styles.routineCard} key={routine.id}>
+                  <div className={styles.cover}>
+                    {routine.imageUrl ? (
+                      <img src={routine.imageUrl} alt={routine.title} />
+                    ) : (
+                      <span>Sin imagen</span>
+                    )}
                   </div>
 
-                  <h3>{routine.title}</h3>
-                  <p>{routine.objective || "Sin objetivo definido"}</p>
+                  <div className={styles.cardBody}>
+                    <div className={styles.cardTop}>
+                      <span className={`${styles.status} ${styles[routine.status]}`}>
+                        {statusLabels[routine.status]}
+                      </span>
+                      <span className={styles.level}>{levelLabels[routine.level]}</span>
+                    </div>
 
-                  <div className={styles.metaGrid}>
-                    <span>{categoryLabels[routine.category]}</span>
-                    <span>{routine.durationWeeks} semanas</span>
-                    <span>{routine.daysPerWeek} días/semana</span>
-                    <span>{routine.estimatedMinutes} min</span>
-                  </div>
+                    <h3>{routine.title}</h3>
+                    <p>{routine.objective || "Sin objetivo definido"}</p>
 
-                  <div className={styles.cardActions}>
-                    <button
-                      type="button"
-                      className={styles.secondaryBtn}
-                      onClick={() => setSelectedRoutine(routine)}
-                    >
-                      Ver
-                    </button>
+                    <div className={styles.routineVideoSummary}>
+                      <strong>
+                        {routineVideoStats.complete}/{routineVideoStats.total} videos
+                      </strong>
+                      <span>{getRoutineVideoStatus(routine)}</span>
+                      <div className={styles.videoProgressTrack}>
+                        <span style={{ width: `${routineVideoStats.percent}%` }} />
+                      </div>
+                    </div>
 
-                    <button
-                      type="button"
-                      className={styles.secondaryBtn}
-                      onClick={() => fillFormForEdit(routine)}
-                    >
-                      Editar
-                    </button>
+                    <div className={styles.metaGrid}>
+                      <span>{categoryLabels[routine.category]}</span>
+                      <span>{routine.durationWeeks} semanas</span>
+                      <span>{routine.daysPerWeek} dias/semana</span>
+                      <span>{routine.estimatedMinutes} min</span>
+                    </div>
 
-                    {routine.status === "published" ? (
+                    <div className={styles.cardActions}>
                       <button
                         type="button"
                         className={styles.secondaryBtn}
-                        onClick={() => void handleArchive(routine)}
+                        onClick={() => setSelectedRoutine(routine)}
                       >
-                        Archivar
+                        Ver detalle
                       </button>
-                    ) : routine.status === "pending_review" ? (
-                      <button type="button" className={styles.secondaryBtn} disabled>
-                        En revision
+                      <button
+                        type="button"
+                        className={styles.secondaryBtn}
+                        onClick={() => showEditorForRoutine(routine, "details")}
+                      >
+                        Editar datos
                       </button>
-                    ) : (
+                      <button
+                        type="button"
+                        className={styles.secondaryBtn}
+                        onClick={() => showEditorForRoutine(routine, "exercises")}
+                      >
+                        Editar ejercicios
+                      </button>
                       <button
                         type="button"
                         className={styles.primarySmallBtn}
-                        disabled={routineHasMissingExerciseVideos(routine)}
-                        onClick={() => void handlePublish(routine)}
+                        onClick={() => showEditorForRoutine(routine, "videos")}
                       >
-                        Enviar a revision
+                        Gestionar videos
                       </button>
-                    )}
-
-                    <button
-                      type="button"
-                      className={styles.dangerBtn}
-                      onClick={() => void handleDelete(routine)}
-                    >
-                      Eliminar
-                    </button>
+                      {routineReady ? (
+                        <button
+                          type="button"
+                          className={styles.primarySmallBtn}
+                          disabled={publishingId === routine.id}
+                          onClick={() => void handleSubmitToReview(routine)}
+                        >
+                          Enviar a revision
+                        </button>
+                      ) : null}
+                      {routine.status === "published" ? (
+                        <button
+                          type="button"
+                          className={styles.secondaryBtn}
+                          onClick={() => void handleArchiveRoutine(routine)}
+                        >
+                          Archivar
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        className={styles.dangerBtn}
+                        onClick={() => void handleDeleteRoutine(routine)}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         ) : (
           <div className={styles.emptyState}>
@@ -1425,8 +1501,9 @@ export default function TrainerRoutinesPage() {
               type="button"
               className={styles.closeBtn}
               onClick={() => setSelectedRoutine(null)}
+              aria-label="Cerrar detalle"
             >
-              ×
+              x
             </button>
 
             <div className={styles.modalHeader}>
@@ -1434,7 +1511,7 @@ export default function TrainerRoutinesPage() {
                 {statusLabels[selectedRoutine.status]}
               </span>
               <h2>{selectedRoutine.title}</h2>
-              <p>{selectedRoutine.description || "Sin descripción"}</p>
+              <p>{selectedRoutine.description || "Sin descripcion"}</p>
             </div>
 
             {selectedRoutine.imageUrl ? (
@@ -1447,58 +1524,29 @@ export default function TrainerRoutinesPage() {
 
             <div className={styles.metaGridModal}>
               <span>Nivel: {levelLabels[selectedRoutine.level]}</span>
-              <span>Categoría: {categoryLabels[selectedRoutine.category]}</span>
-              <span>Duración: {selectedRoutine.durationWeeks} semanas</span>
-              <span>Días: {selectedRoutine.daysPerWeek} por semana</span>
+              <span>Categoria: {categoryLabels[selectedRoutine.category]}</span>
+              <span>Duracion: {selectedRoutine.durationWeeks} semanas</span>
+              <span>Dias: {selectedRoutine.daysPerWeek} por semana</span>
               <span>Tiempo: {selectedRoutine.estimatedMinutes} min</span>
             </div>
 
             <section className={styles.modalExercises}>
               <h3>Ejercicios</h3>
-
               {selectedRoutine.exercises?.length ? (
-                selectedRoutine.exercises.map((exercise, index) => {
-                  const videoSource = getExerciseVideoSource(exercise);
-
-                  return (
-                    <div className={styles.modalExercise} key={exercise.id || index}>
-                      <strong>
-                        Dia {exercise.dayNumber} - {exercise.name}
-                      </strong>
-                      <p>
-                        {exercise.sets ? `${exercise.sets} series` : "Series libres"} -{" "}
-                        {exercise.reps || "Reps libres"} - Descanso{" "}
-                        {exercise.restSeconds ?? 0}s
-                      </p>
-                      {exercise.description ? <p>{exercise.description}</p> : null}
-                      {exercise.notes ? <small>{exercise.notes}</small> : null}
-
-                      {videoSource ? (
-                        <div className={styles.videoPreview}>
-                          {videoSource.type === "video" ? (
-                            <video src={videoSource.url} controls />
-                          ) : videoSource.type === "embed" ? (
-                            <iframe
-                              src={videoSource.url}
-                              title={`Video de ${exercise.name}`}
-                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                              allowFullScreen
-                            />
-                          ) : (
-                            <a href={videoSource.url} target="_blank" rel="noreferrer">
-                              <ExternalLink size={16} />
-                              Ver video
-                            </a>
-                          )}
-                        </div>
-                      ) : (
-                        <div className={styles.videoPlaceholder}>
-                          Video del ejercicio pendiente de actualizacion.
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
+                selectedRoutine.exercises.map((exercise, index) => (
+                  <div className={styles.modalExercise} key={exercise.id || index}>
+                    <strong>
+                      Dia {exercise.dayNumber} - {exercise.name}
+                    </strong>
+                    <p>
+                      {exercise.sets ? `${exercise.sets} series` : "Series libres"} -{" "}
+                      {exercise.reps || "Reps libres"} - Descanso{" "}
+                      {exercise.restSeconds ?? 0}s
+                    </p>
+                    {exercise.description ? <p>{exercise.description}</p> : null}
+                    {exercise.notes ? <small>{exercise.notes}</small> : null}
+                  </div>
+                ))
               ) : (
                 <p>Sin ejercicios registrados.</p>
               )}
