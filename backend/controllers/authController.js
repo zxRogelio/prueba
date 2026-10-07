@@ -1,5 +1,6 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { User } from "../models/User.js";
 import {
   sendOTP,
@@ -620,10 +621,28 @@ export const logout = async (req, res) => {
 };
 // ====================== OAuth con Google ======================
 
+const googleOAuthCookieName = "google_oauth_state";
+const googleOAuthCookieOptions = (req) => ({
+  httpOnly: true,
+  secure:
+    req.secure ||
+    process.env.NODE_ENV === "production" ||
+    process.env.GOOGLE_REDIRECT_URI?.startsWith("https://"),
+  sameSite: "lax",
+  path: "/api/auth/google",
+});
+
 // 1) Redirigir a Google
 export const googleAuth = async (req, res) => {
   try {
     const rootUrl = "https://accounts.google.com/o/oauth2/v2/auth";
+    const client = req.query.client === "mobile" ? "mobile" : "web";
+    const nonce = randomBytes(32).toString("hex");
+    const state = jwt.sign({ client, nonce }, process.env.JWT_SECRET, {
+      algorithm: "HS256",
+      audience: "google-oauth",
+      expiresIn: "10m",
+    });
 
     const options = {
       redirect_uri: process.env.GOOGLE_REDIRECT_URI,
@@ -632,14 +651,19 @@ export const googleAuth = async (req, res) => {
       response_type: "code",
       prompt: "consent",
       scope: ["openid", "email", "profile"].join(" "),
+      state,
     };
 
     const params = new URLSearchParams(options);
     const authUrl = `${rootUrl}?${params.toString()}`;
 
+    res.cookie(googleOAuthCookieName, nonce, {
+      ...googleOAuthCookieOptions(req),
+      maxAge: 10 * 60 * 1000,
+    });
     return res.redirect(authUrl);
   } catch (error) {
-    console.error("Error en googleAuth:", error);
+    console.error("Error en googleAuth:", error.name);
     return res
       .status(500)
       .json({ error: "Error al iniciar el flujo de OAuth con Google" });
@@ -647,13 +671,69 @@ export const googleAuth = async (req, res) => {
 };
 // 2) Callback que recibe Google
 export const googleCallback = async (req, res) => {
+  let client;
+
+  try {
+    if (typeof req.query.state !== "string") {
+      throw new Error("State faltante");
+    }
+
+    const state = jwt.verify(req.query.state, process.env.JWT_SECRET, {
+      algorithms: ["HS256"],
+      audience: "google-oauth",
+      maxAge: "10m",
+    });
+    const cookieNonce = (req.headers.cookie || "")
+      .split(";")
+      .map((cookie) => cookie.trim())
+      .find((cookie) => cookie.startsWith(`${googleOAuthCookieName}=`))
+      ?.slice(googleOAuthCookieName.length + 1);
+
+    if (
+      !["web", "mobile"].includes(state.client) ||
+      typeof state.exp !== "number" ||
+      typeof state.nonce !== "string" ||
+      !/^[a-f0-9]{64}$/.test(state.nonce) ||
+      !/^[a-f0-9]{64}$/.test(cookieNonce || "") ||
+      !timingSafeEqual(
+        Buffer.from(state.nonce, "hex"),
+        Buffer.from(cookieNonce, "hex"),
+      )
+    ) {
+      throw new Error("State inválido");
+    }
+
+    client = state.client;
+    res.clearCookie(googleOAuthCookieName, googleOAuthCookieOptions(req));
+  } catch (error) {
+    console.error("State de Google inválido o expirado:", error.name);
+    return res.status(400).json({ error: "State de Google inválido o expirado" });
+  }
+
+  if (req.query.error) {
+    console.error("Autorización de Google rechazada");
+    return res.status(400).json({ error: "Autorización de Google rechazada" });
+  }
+
   const code = req.query.code;
 
-  if (!code) {
+  if (typeof code !== "string" || !code) {
     return res.status(400).json({ error: "Código de autorización faltante" });
   }
 
   try {
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    let callbackUrl = `${frontendUrl}/oauth-callback`;
+
+    if (client === "mobile") {
+      const scheme = process.env.MOBILE_APP_SCHEME;
+      if (!scheme || !/^[a-z][a-z0-9+.-]*$/i.test(scheme)) {
+        console.error("MOBILE_APP_SCHEME faltante o inválido");
+        return res.status(500).json({ error: "Callback móvil no configurado" });
+      }
+      callbackUrl = `${scheme}://oauth-callback`;
+    }
+
     // 2.1 Intercambiar 'code' por tokens en Google
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -672,7 +752,7 @@ export const googleCallback = async (req, res) => {
     const tokenData = await tokenRes.json();
 
     if (!tokenRes.ok) {
-      console.error("Error al obtener token de Google:", tokenData);
+      console.error("Error al obtener token de Google:", tokenRes.status);
       return res
         .status(500)
         .json({ error: "Error al validar el código de Google" });
@@ -693,7 +773,7 @@ export const googleCallback = async (req, res) => {
     const profile = await userInfoRes.json();
 
     if (!userInfoRes.ok) {
-      console.error("Error al obtener perfil de Google:", profile);
+      console.error("Error al obtener perfil de Google:", userInfoRes.status);
       return res
         .status(500)
         .json({ error: "Error al obtener datos del usuario en Google" });
@@ -731,8 +811,6 @@ export const googleCallback = async (req, res) => {
       }
     }
 
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-
     // 2.4 Ignoramos authMethod para logins con Google
     //    Siempre creamos sesión directa con loginMethod = "google"
     const accessToken = jwt.sign(
@@ -754,7 +832,7 @@ export const googleCallback = async (req, res) => {
       userAgent: req.headers["user-agent"] || "Desconocido",
     });
 
-    const redirectUrl = `${frontendUrl}/oauth-callback?token=${encodeURIComponent(
+    const redirectUrl = `${callbackUrl}?token=${encodeURIComponent(
       accessToken,
     )}&email=${encodeURIComponent(user.email)}&role=${encodeURIComponent(
       user.role,
@@ -762,7 +840,7 @@ export const googleCallback = async (req, res) => {
 
     return res.redirect(redirectUrl);
   } catch (error) {
-    console.error("Error en googleCallback:", error);
+    console.error("Error en googleCallback:", error.name);
     return res
       .status(500)
       .json({ error: "Error en el callback de autenticación con Google" });
