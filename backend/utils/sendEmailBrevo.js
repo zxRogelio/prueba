@@ -14,6 +14,27 @@ const sender = {
   email: process.env.BREVO_SENDER_EMAIL,
 };
 
+// Enviar código de verificación de registro móvil
+export const sendAccountVerificationOTP = async (email, otpCode) => {
+  try {
+    await apiInstance.sendTransacEmail({
+      to: [{ email }],
+      sender,
+      subject: 'Verifica tu cuenta - Titanium Sport Gym',
+      htmlContent: `
+        <h2>¡Bienvenido a Titanium Sport Gym!</h2>
+        <p>Tu código de verificación es:</p>
+        <h1 style="font-size:28px;letter-spacing:2px;">${otpCode}</h1>
+        <p>Este código expira en 10 minutos.</p>
+        <p>Si no creaste esta cuenta, ignora este correo.</p>
+      `,
+    });
+  } catch (error) {
+    console.error('Error al enviar verificación de cuenta con Brevo:', error.name);
+    throw error;
+  }
+};
+
 // 🟦 Enviar código OTP
 export const sendOTP = async (email, otpCode) => {
   try {

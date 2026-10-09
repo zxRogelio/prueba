@@ -8,6 +8,8 @@ import {
   resetPassword,
   confirmAccess,
   verifyAccount,
+  verifyAccountOTP,
+  resendVerificationOTP,
   googleAuth,
   googleCallback,
 } from "../controllers/authController.js";
@@ -17,6 +19,10 @@ import {
   verifyTOTP
 } from "../controllers/authTOTPController.js";
 import { loginLimiter } from "../middleware/loginLimiter.js";
+import {
+  accountVerificationLimiter,
+  resendVerificationLimiter,
+} from "../middleware/accountVerificationLimiter.js";
 import { logout } from "../controllers/authController.js";
 import { checkBlacklist } from "../middleware/checkBlacklist.js";
 import { resendLoginOTP } from "../controllers/authController.js";
@@ -28,6 +34,12 @@ const router = express.Router();
 // Registro y verificación
 router.post("/register", validateRegister, register);
 router.get("/verify-account", verifyAccount);
+router.post("/verify-account-otp", accountVerificationLimiter, verifyAccountOTP);
+router.post(
+  "/resend-verification-otp",
+  resendVerificationLimiter,
+  resendVerificationOTP,
+);
 
 // Login
 router.post("/login", loginLimiter, login);

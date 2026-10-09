@@ -1,11 +1,12 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import { User } from "../models/User.js";
 import {
   sendOTP,
   sendConfirmationEmail,
   sendVerificationEmail,
+  sendAccountVerificationOTP,
 } from "../utils/sendEmailBrevo.js";
 import dotenv from "dotenv";
 import { blacklistToken } from "../middleware/tokenBlacklist.js";
@@ -14,11 +15,35 @@ import { generateRandomPassword } from "../utils/passwordPolicy.js";
 import { getClientIp } from "../utils/clientIp.js";
 const failedAttempts = new Map(); // email => { count, lastAttempt }
 dotenv.config();
+
+const normalizeVerificationEmail = (email) =>
+  typeof email === "string" ? email.trim().toLowerCase() : "";
+
+const createAccountVerificationOTP = async (previousHash = null) => {
+  let code;
+  do {
+    code = randomInt(100000, 1000000).toString();
+  } while (previousHash && (await bcrypt.compare(code, previousHash)));
+
+  return {
+    code,
+    verificationOtp: await bcrypt.hash(code, 10),
+    verificationOtpExpires: new Date(Date.now() + 10 * 60 * 1000),
+  };
+};
+
 /* ================================
     🟢 REGISTRO + VERIFICACIÓN CORREO
   ================================= */
 export const register = async (req, res) => {
-  const { email, password, role = "cliente" } = req.body;
+  const {
+    email: rawEmail,
+    password,
+    role = "cliente",
+    client = "web",
+  } = req.body;
+  const email =
+    client === "mobile" ? normalizeVerificationEmail(rawEmail) : rawEmail;
 
   try {
     // Verificar si ya existe
@@ -29,12 +54,26 @@ export const register = async (req, res) => {
 
     // Crear usuario nuevo
     const hashed = await bcrypt.hash(password, 10);
+    const verification =
+      client === "mobile" ? await createAccountVerificationOTP() : null;
     const user = await User.create({
       email,
       password: hashed,
       role,
       isVerified: false,
+      ...(verification && {
+        verificationOtp: verification.verificationOtp,
+        verificationOtpExpires: verification.verificationOtpExpires,
+      }),
     });
+
+    if (verification) {
+      await sendAccountVerificationOTP(user.email, verification.code);
+      return res.status(201).json({
+        message:
+          "Usuario registrado. Se ha enviado un código de verificación a tu correo.",
+      });
+    }
 
     // Generar token de verificación
     const verifyToken = jwt.sign(
@@ -51,7 +90,7 @@ export const register = async (req, res) => {
         "Usuario registrado. Verifica tu correo antes de iniciar sesión.",
     });
   } catch (err) {
-    console.error("❌ Error en registro:", err);
+    console.error("❌ Error en registro:", err.name);
     res.status(400).json({ error: "Error al registrar usuario" });
   }
 };
@@ -123,6 +162,91 @@ export const verifyAccount = async (req, res) => {
     console.error("❌ Error al verificar cuenta:", err.message);
     res.status(400).json({ error: "Token inválido o expirado" });
   }
+};
+
+/* ================================
+   VERIFICACIÓN DE REGISTRO MÓVIL
+================================ */
+export const verifyAccountOTP = async (req, res) => {
+  const email = normalizeVerificationEmail(req.body?.email);
+  const otp = req.body?.otp;
+  const invalidMessage = "Código de verificación inválido o expirado";
+
+  if (!email || typeof otp !== "string" || !/^\d{6}$/.test(otp)) {
+    return res.status(400).json({ error: invalidMessage });
+  }
+
+  try {
+    // Bloquear la fila impide consumir el mismo código en solicitudes simultáneas.
+    const verified = await User.sequelize.transaction(async (transaction) => {
+      const user = await User.findOne({
+        where: { email },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (
+        !user ||
+        user.isVerified ||
+        !user.verificationOtp ||
+        !user.verificationOtpExpires
+      ) {
+        return false;
+      }
+
+      const expiresAt = new Date(user.verificationOtpExpires).getTime();
+      if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return false;
+      if (
+        !(await bcrypt.compare(otp, user.verificationOtp)) ||
+        expiresAt <= Date.now()
+      ) {
+        return false;
+      }
+
+      user.isVerified = true;
+      user.verificationOtp = null;
+      user.verificationOtpExpires = null;
+      await user.save({ transaction });
+      return true;
+    });
+
+    if (!verified) return res.status(400).json({ error: invalidMessage });
+    return res.status(200).json({ message: "Cuenta verificada correctamente." });
+  } catch (err) {
+    console.error("Error al verificar cuenta por código:", err.name);
+    return res.status(500).json({ error: "Error al verificar la cuenta" });
+  }
+};
+
+export const resendVerificationOTP = async (req, res) => {
+  const email = normalizeVerificationEmail(req.body?.email);
+  if (!email) return res.status(400).json({ error: "El correo es obligatorio" });
+
+  const message =
+    "Si la cuenta requiere verificación, se ha enviado un nuevo código.";
+  try {
+    const verification = await User.sequelize.transaction(async (transaction) => {
+      const user = await User.findOne({
+        where: { email },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (!user || user.isVerified) return null;
+
+      const next = await createAccountVerificationOTP(user.verificationOtp);
+      user.verificationOtp = next.verificationOtp;
+      user.verificationOtpExpires = next.verificationOtpExpires;
+      await user.save({ transaction });
+      return { email: user.email, code: next.code };
+    });
+
+    if (verification) {
+      await sendAccountVerificationOTP(verification.email, verification.code);
+    }
+  } catch (err) {
+    console.error("Error al reenviar verificación de cuenta:", err.name);
+  }
+
+  return res.status(200).json({ message });
 };
 
 /* ================================
