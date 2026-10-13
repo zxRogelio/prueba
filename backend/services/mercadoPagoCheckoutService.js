@@ -541,11 +541,8 @@ function getPreferenceUrls(preference) {
 }
 
 function selectCheckoutUrl({ checkoutUrl, sandboxCheckoutUrl }) {
-  const useSandbox = normalizeBooleanEnv(process.env.MERCADOPAGO_USE_SANDBOX, true);
-
-  return useSandbox
-    ? sandboxCheckoutUrl || checkoutUrl
-    : checkoutUrl || sandboxCheckoutUrl;
+  // Checkout Pro usa init_point tambien para compras con usuarios de prueba.
+  return checkoutUrl || sandboxCheckoutUrl;
 }
 
 function buildPreferenceBody({ order, payment }) {

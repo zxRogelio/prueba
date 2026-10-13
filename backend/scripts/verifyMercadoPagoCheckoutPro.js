@@ -75,12 +75,14 @@ function createMockMercadoPagoApi() {
   const preferenceCalls = [];
   const preferenceDelays = new Map();
   const preferenceFailures = new Map();
+  const preferenceUrlOverrides = new Map();
 
   return {
     providerPayments,
     preferenceCalls,
     preferenceDelays,
     preferenceFailures,
+    preferenceUrlOverrides,
     async createPreference({ body, idempotencyKey }) {
       const delayMs = Number(preferenceDelays.get(idempotencyKey) || 0);
 
@@ -94,13 +96,16 @@ function createMockMercadoPagoApi() {
         throw typeof failure === "function" ? failure() : failure;
       }
 
-      preferenceCalls.push({ body, idempotencyKey });
-
-      return {
-        id: `pref-${idempotencyKey}`,
-        init_point: `https://www.mercadopago.com.mx/checkout/v1/redirect?pref_id=${idempotencyKey}`,
-        sandbox_init_point: `https://sandbox.mercadopago.com.mx/checkout/v1/redirect?pref_id=${idempotencyKey}`,
+      const preferenceId = `pref-${idempotencyKey}`;
+      const preference = {
+        id: preferenceId,
+        init_point: `https://www.mercadopago.com.mx/checkout/v1/redirect?pref_id=${preferenceId}`,
+        sandbox_init_point: `https://sandbox.mercadopago.com.mx/checkout/v1/redirect?pref_id=${preferenceId}`,
+        ...preferenceUrlOverrides.get(idempotencyKey),
       };
+
+      preferenceCalls.push({ body, idempotencyKey, preference });
+      return preference;
     },
     async getPayment({ id }) {
       const payment = providerPayments.get(String(id));
@@ -124,6 +129,30 @@ function createMockMercadoPagoApi() {
   };
 }
 
+function assertCheckoutPreference(checkout, mockApi, idempotencyKey) {
+  const preference = mockApi.preferenceCalls.find(
+    (call) => call.idempotencyKey === idempotencyKey
+  )?.preference;
+
+  assert(preference, "No se encontro la preferencia esperada en el mock.");
+  assert(
+    checkout.preferenceId === preference.id,
+    "El checkout no corresponde a la preferencia esperada."
+  );
+  assert(
+    checkout.checkoutUrl === (preference.init_point || preference.sandbox_init_point),
+    "La URL de checkout no corresponde a la preferencia esperada."
+  );
+  assert(
+    new URL(checkout.checkoutUrl).searchParams.get("pref_id") === preference.id,
+    "La URL de checkout contiene un pref_id incorrecto."
+  );
+  assert(
+    checkout.sandboxCheckoutUrl === (preference.sandbox_init_point || null),
+    "La URL sandbox opcional no corresponde a la preferencia esperada."
+  );
+}
+
 async function createUser(email, role) {
   return User.create({
     email,
@@ -140,6 +169,7 @@ async function createProductFixture(suffix) {
   const category = await Category.create({
     id_categoria: numericSuffix,
     name: `Verify MP Category ${suffix}`,
+    productKind: "apparel",
     active: true,
   });
   const brand = await Brand.create({
@@ -450,7 +480,7 @@ async function main() {
     const productPayment = await getPaymentByIdempotencyKey(productKey);
     const productOrder = await Order.findByPk(productPayment.orderId);
 
-    assert(productCheckout.checkoutUrl.includes("sandbox.mercadopago"), "No se devolvio sandbox checkoutUrl.");
+    assertCheckoutPreference(productCheckout, mockApi, productKey);
     assert(Number(productOrder.total) === 400, "El backend no recalculo el total desde DB.");
     assert(mockApi.preferenceCalls.at(-1).body.items[0].unit_price === 200, "La preferencia no uso el precio real.");
 
@@ -464,6 +494,11 @@ async function main() {
     });
 
     assert(repeatedCheckout.orderId === productCheckout.orderId, "La idempotencia creo otra orden.");
+    assertCheckoutPreference(repeatedCheckout, mockApi, productKey);
+    assert(
+      mockApi.preferenceCalls.filter((call) => call.idempotencyKey === productKey).length === 1,
+      "La idempotencia creo otra preferencia."
+    );
     assert(
       await Payment.count({ where: { idempotencyKey: productKey } }) === 1,
       "La idempotencia creo otro pago."
@@ -524,6 +559,9 @@ async function main() {
     ]);
     const concurrentPreferenceCalls = mockApi.preferenceCalls.length -
       preferenceCallsBeforeConcurrent;
+
+    assertCheckoutPreference(concurrentCheckoutA, mockApi, concurrentKey);
+    assertCheckoutPreference(concurrentCheckoutB, mockApi, concurrentKey);
 
     assert(
       concurrentCheckoutA.orderId === concurrentCheckoutB.orderId,
@@ -598,6 +636,8 @@ async function main() {
       mercadoPagoApi: mockApi,
     });
     const invalidCartAfterRetry = await Cart.findByPk(invalidCredentialsCart.id);
+
+    assertCheckoutPreference(retryAfterInvalidCredentials, mockApi, invalidCredentialsKey);
 
     assert(
       retryAfterInvalidCredentials.orderId === invalidOrderId,
@@ -941,6 +981,7 @@ async function main() {
 
     const pendingKey = `mp-pending-${suffix}`;
     idempotencyKeys.push(pendingKey);
+    mockApi.preferenceUrlOverrides.set(pendingKey, { sandbox_init_point: undefined });
     const pendingCheckout = await createMercadoPagoCheckout({
       userId: client.id,
       payload: {
@@ -950,6 +991,7 @@ async function main() {
       mercadoPagoApi: mockApi,
     });
     const pendingPayment = await getPaymentByIdempotencyKey(pendingKey);
+    assertCheckoutPreference(pendingCheckout, mockApi, pendingKey);
     const pendingProviderPaymentId = `${webhookPrefix}-pending`;
     mockApi.providerPayments.set(
       pendingProviderPaymentId,
@@ -972,6 +1014,7 @@ async function main() {
 
     const rejectedKey = `mp-rejected-${suffix}`;
     idempotencyKeys.push(rejectedKey);
+    mockApi.preferenceUrlOverrides.set(rejectedKey, { init_point: undefined });
     const rejectedCheckout = await createMercadoPagoCheckout({
       userId: client.id,
       payload: {
@@ -981,6 +1024,7 @@ async function main() {
       mercadoPagoApi: mockApi,
     });
     const rejectedPayment = await getPaymentByIdempotencyKey(rejectedKey);
+    assertCheckoutPreference(rejectedCheckout, mockApi, rejectedKey);
     const rejectedProviderPaymentId = `${webhookPrefix}-rejected`;
     mockApi.providerPayments.set(
       rejectedProviderPaymentId,
@@ -1206,6 +1250,7 @@ async function main() {
       mercadoPagoApi: mockApi,
     });
     const membershipPayment = await getPaymentByIdempotencyKey(membershipKey);
+    assertCheckoutPreference(membershipCheckout, mockApi, membershipKey);
     const membershipProviderPaymentId = `${webhookPrefix}-membership`;
     mockApi.providerPayments.set(
       membershipProviderPaymentId,
@@ -1244,6 +1289,7 @@ async function main() {
       mercadoPagoApi: mockApi,
     });
     const groupPayment = await getPaymentByIdempotencyKey(groupKey);
+    assertCheckoutPreference(groupCheckout, mockApi, groupKey);
     const groupProviderPaymentId = `${webhookPrefix}-group`;
     mockApi.providerPayments.set(
       groupProviderPaymentId,
@@ -1279,6 +1325,10 @@ async function main() {
     console.log("Verificacion OK: Mercado Pago Checkout Pro.");
     console.log({
       preferenceCreated: true,
+      checkoutUrlMatchedPreference: true,
+      initPointPreferred: true,
+      checkoutWithoutSandboxUrlSupported: true,
+      sandboxUrlFallbackSupported: true,
       nonexistentOrderStatusCode: 404,
       emptyCartStatusCode: 400,
       manipulatedPriceIgnored: true,
