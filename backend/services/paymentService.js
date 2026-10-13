@@ -522,7 +522,7 @@ async function assertOrderCanReceiveConfirmedPayment({
   const existingPaidPayment = await Payment.findOne({
     where: paidPaymentWhere,
     transaction,
-    lock: transaction.LOCK.UPDATE,
+    lock: transaction.options?.readOnly ? undefined : transaction.LOCK.UPDATE,
   });
 
   if (existingPaidPayment) {
@@ -617,6 +617,19 @@ async function assertNoDuplicatePaymentIdentifiers(
       throw serviceError(check.label, 409);
     }
   }
+}
+
+// Misma comprobacion para la vista previa y la confirmacion real.
+export async function assertPaymentConfirmationIsAllowed({ payment, order, providerPaymentId, transaction }) {
+  assertOrderTransition(order.status, "paid");
+  await assertOrderCanReceiveConfirmedPayment({
+    order, transaction, ignorePaymentId: payment.id, allowPaidOrder: payment.status === "paid",
+  });
+  await assertNoDuplicatePaymentIdentifiers({
+    externalReference: String(order.id), idempotencyKey: payment.idempotencyKey,
+    provider: payment.provider, providerPreferenceId: payment.providerPreferenceId,
+    providerPaymentId, ignorePaymentId: payment.id,
+  }, transaction);
 }
 
 async function updateOrderAfterPaymentStatus(payment, transaction) {

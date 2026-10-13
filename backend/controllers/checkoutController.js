@@ -1,5 +1,6 @@
 import {
   createMercadoPagoCheckout,
+  getMercadoPagoErrorDiagnostics,
   processMercadoPagoWebhook,
 } from "../services/mercadoPagoCheckoutService.js";
 
@@ -7,12 +8,12 @@ function handleControllerError(res, error, fallbackMessage) {
   const statusCode = error.statusCode || 500;
 
   if (statusCode >= 500) {
-    console.error(fallbackMessage, error);
+    console.error(fallbackMessage, getMercadoPagoErrorDiagnostics(error));
   }
 
   return res.status(statusCode).json({
     ok: false,
-    error: error.message || fallbackMessage,
+    error: statusCode >= 500 ? fallbackMessage : getMercadoPagoErrorDiagnostics(error).message,
   });
 }
 

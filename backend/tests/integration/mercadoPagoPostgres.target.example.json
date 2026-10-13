@@ -1,0 +1,10 @@
+{
+  "environment": "test",
+  "neonBranchId": "br-replace-with-verified-test-branch",
+  "branchVerifiedInNeon": false,
+  "host": "ep-replace-with-verified-test-endpoint.us-east-2.aws.neon.tech",
+  "port": 5432,
+  "database": "REPLACE_WITH_TEST_DATABASE",
+  "username": "REPLACE_WITH_TEST_ROLE",
+  "expectedDatabaseId": "REPLACE_WITH_INDEPENDENTLY_APPROVED_SHA256"
+}

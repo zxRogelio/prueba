@@ -72,6 +72,10 @@ web_modules/
 .env.*
 !.env.example
 
+# Claves privadas locales: ignorar no retira archivos ya versionados.
+*.key
+backend/target.local
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache

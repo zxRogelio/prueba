@@ -38,19 +38,9 @@ export const normalizeIp = (value) => {
 };
 
 export const getClientIp = (req) => {
-  const forwardedIp = normalizeIp(
-    req.headers["x-forwarded-for"] ||
-      req.headers["x-real-ip"] ||
-      req.headers["cf-connecting-ip"],
-  );
-
-  const socketIp = normalizeIp(
+  // Express resuelve la cadena de proxies conforme a "trust proxy".
+  // Sin Express, solo se acepta la dirección del socket, nunca encabezados.
+  return normalizeIp(
     req.ip || req.socket?.remoteAddress || req.connection?.remoteAddress,
   );
-
-  if (forwardedIp && socketIp === LOCALHOST_LABEL) {
-    return forwardedIp;
-  }
-
-  return forwardedIp || socketIp || null;
 };

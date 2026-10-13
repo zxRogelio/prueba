@@ -38,6 +38,9 @@ dotenv.config();
 
 const app = express();
 
+// En Render, confiar solo en el proxy inmediato; fuera de Render, no confiar en proxies.
+app.set("trust proxy", process.env.RENDER === "true" ? 1 : false);
+
 app.use(cors());
 app.use(helmet());
 app.use(express.json());

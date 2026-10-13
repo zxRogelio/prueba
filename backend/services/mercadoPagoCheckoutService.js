@@ -16,7 +16,13 @@ import {
   OrderItem,
   Payment,
   PaymentWebhookEvent,
+  Receipt,
 } from "../models/index.js";
+import { previewMembershipsFromOrder } from "./membershipActivationService.js";
+import {
+  getReconciliationPolicy, assertReconciliationApproval, authenticateReconciliationOperator,
+  assertReconciliationProviderEnvironment,
+} from "./mercadoPagoReconciliationAuthorization.js";
 import { markCartConverted } from "./cartService.js";
 import { createInventoryReservationsForOrder } from "./inventoryReservationService.js";
 import { createOrder, getOrderWithDetails } from "./orderService.js";
@@ -24,6 +30,7 @@ import {
   confirmPaidPayment,
   createPaymentAttempt,
   updatePaymentStatus,
+  assertPaymentConfirmationIsAllowed,
 } from "./paymentService.js";
 
 const PROVIDER = "mercadopago_checkout";
@@ -74,7 +81,25 @@ function safeWebhookErrorMessage(error) {
     }
   }
 
-  return message.slice(0, 1000);
+  return message
+    .replace(/Bearer\s+[^\s"']+/gi, "Bearer [redacted]")
+    .replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, "[redacted]")
+    .replace(/(?:APP_USR|TEST)-[\w-]+/g, "[redacted]")
+    .replace(/postgres(?:ql)?:\/\/[^\s"']+/gi, "[redacted]")
+    .replace(/v1=[a-f0-9]+/gi, "v1=[redacted]")
+    .slice(0, 1000);
+}
+
+export function getMercadoPagoErrorDiagnostics(error) {
+  const original = error?.cause || error;
+  const status = Number(original?.status || original?.statusCode);
+  return {
+    stage: error?.mercadoPagoStage || original?.mercadoPagoStage || null,
+    name: safeWebhookErrorMessage({ message: original?.name || "Error" }),
+    message: safeWebhookErrorMessage(original),
+    code: safeWebhookErrorMessage({ message: original?.original?.code || original?.code || "unknown" }),
+    providerStatusCode: Number.isInteger(status) && status >= 100 && status <= 599 ? status : null,
+  };
 }
 
 function delay(ms) {
@@ -165,8 +190,10 @@ function getMercadoPagoAccessToken() {
 }
 
 function createMercadoPagoSdk() {
+  const accessToken = getMercadoPagoAccessToken();
   const client = new MercadoPagoConfig({
-    accessToken: getMercadoPagoAccessToken(),
+    accessToken,
+    options: { timeout: 10000 },
   });
 
   return {
@@ -184,6 +211,20 @@ function createMercadoPagoSdk() {
       const payment = new MercadoPagoPayment(client);
 
       return payment.get({ id });
+    },
+    async getSeller() {
+      const response = await fetch("https://api.mercadopago.com/users/me", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!response.ok) {
+        throw Object.assign(new Error("No se pudo consultar la cuenta vendedora."), {
+          status: response.status,
+        });
+      }
+      const seller = await response.json();
+      // Solo se conserva la evidencia de identidad necesaria; no datos personales.
+      return { id: seller.id, tags: seller.tags };
     },
     validateSignature({ xSignature, xRequestId, dataId, secret }) {
       WebhookSignatureValidator.validate({
@@ -1039,7 +1080,15 @@ export async function createMercadoPagoCheckout({
 }
 
 function extractHeader(headers = {}, name) {
-  return headers[name] ?? headers[name.toLowerCase()] ?? headers[name.toUpperCase()];
+  const key = Object.keys(headers).find((key) => key.toLowerCase() === name.toLowerCase());
+  const value = key ? headers[key] : null;
+  return normalizeNullableString(Array.isArray(value) ? value[0] : value);
+}
+
+function extractSignatureDataId(query = {}) {
+  const value = query["data.id"] ?? query.data_id;
+  const scalar = Array.isArray(value) ? value[0] : value;
+  return normalizeNullableString(scalar)?.toLowerCase();
 }
 
 function extractTimestampFromSignatureHeader(xSignature) {
@@ -1309,6 +1358,7 @@ function getProviderPaymentCurrency(providerPayment) {
 }
 
 async function resolveLocalPayment(providerPayment, transaction) {
+  const lock = transaction && !transaction.options?.readOnly ? transaction.LOCK.UPDATE : undefined;
   const metadata = getProviderPaymentMetadata(providerPayment);
   const providerPaymentId = normalizeNullableString(providerPayment?.id);
   const providerPreferenceId = normalizeNullableString(providerPayment?.preference_id);
@@ -1326,7 +1376,7 @@ async function resolveLocalPayment(providerPayment, transaction) {
         provider: PROVIDER,
       },
       transaction,
-      lock: transaction.LOCK.UPDATE,
+      lock,
     });
   }
 
@@ -1337,7 +1387,7 @@ async function resolveLocalPayment(providerPayment, transaction) {
         providerPaymentId,
       },
       transaction,
-      lock: transaction.LOCK.UPDATE,
+      lock,
     });
   }
 
@@ -1348,7 +1398,7 @@ async function resolveLocalPayment(providerPayment, transaction) {
         providerPreferenceId,
       },
       transaction,
-      lock: transaction.LOCK.UPDATE,
+      lock,
     });
   }
 
@@ -1360,7 +1410,7 @@ async function resolveLocalPayment(providerPayment, transaction) {
       },
       order: [["createdAt", "DESC"]],
       transaction,
-      lock: transaction.LOCK.UPDATE,
+      lock,
     });
   }
 
@@ -1370,7 +1420,7 @@ async function resolveLocalPayment(providerPayment, transaction) {
 
   const order = await Order.findByPk(payment.orderId || resolvedOrderId, {
     transaction,
-    lock: transaction.LOCK.UPDATE,
+    lock,
   });
 
   if (!order) {
@@ -1387,7 +1437,7 @@ async function resolveLocalPayment(providerPayment, transaction) {
   return { payment, order };
 }
 
-function assertProviderPaymentMatchesOrder({ providerPayment, payment, order }) {
+function assertProviderPaymentMatchesOrder({ providerPayment, payment, order, requireExternalReference = false }) {
   if (payment.provider !== PROVIDER || payment.source !== "online_checkout") {
     throw nonRetryableWebhookError(
       "El pago local no corresponde a Checkout Pro.",
@@ -1395,21 +1445,54 @@ function assertProviderPaymentMatchesOrder({ providerPayment, payment, order }) 
     );
   }
 
-  const amountCents = toCents(getProviderPaymentAmount(providerPayment), "amount");
+  for (const amount of [providerPayment?.transaction_amount, payment.amount, order.total]) {
+    const cents = Number(amount) * 100;
+    if (amount == null || String(amount).trim() === "" || !Number.isFinite(cents) || cents <= 0 ||
+        !Number.isSafeInteger(Math.round(cents)) || Math.abs(cents - Math.round(cents)) > 0.000001) {
+      throw nonRetryableWebhookError("El importe debe ser positivo y expresarse en centavos exactos.", 400);
+    }
+  }
+  const amountCents = toCents(providerPayment.transaction_amount, "amount");
   const orderTotalCents = toCents(order.total, "order.total");
 
-  if (amountCents !== orderTotalCents) {
+  if (amountCents !== orderTotalCents || amountCents !== toCents(payment.amount, "payment.amount")) {
     throw nonRetryableWebhookError(
       "El monto aprobado no coincide con la orden local.",
       400
     );
   }
 
-  if (getProviderPaymentCurrency(providerPayment) !== CURRENCY) {
+  if (getProviderPaymentCurrency(providerPayment) !== CURRENCY ||
+      payment.currency !== CURRENCY || order.currency !== CURRENCY) {
     throw nonRetryableWebhookError(
       "La moneda del pago de Mercado Pago no es MXN.",
       400
     );
+  }
+
+  const metadata = getProviderPaymentMetadata(providerPayment);
+  if (!payment.userId || payment.userId !== order.userId) {
+    throw nonRetryableWebhookError("El propietario del pago no coincide con la orden.", 400);
+  }
+  if (requireExternalReference && providerPayment.external_reference !== String(order.id)) {
+    throw nonRetryableWebhookError("La referencia externa no identifica la orden solicitada.", 400);
+  }
+  for (const [provided, expected] of [
+    [providerPayment?.external_reference, order.id],
+    [metadata.order_id, order.id],
+    [metadata.payment_id, payment.id],
+    [metadata.user_id, payment.userId],
+  ]) {
+    if (provided != null && String(provided) !== String(expected)) {
+      throw nonRetryableWebhookError("Las referencias del pago de Mercado Pago no coinciden.", 400);
+    }
+  }
+
+  if (
+    payment.providerPaymentId &&
+    String(providerPayment?.id) !== payment.providerPaymentId
+  ) {
+    throw nonRetryableWebhookError("La orden ya fue confirmada con otra operacion.", 409);
   }
 
   const providerPreferenceId = normalizeNullableString(providerPayment?.preference_id);
@@ -1426,12 +1509,31 @@ function assertProviderPaymentMatchesOrder({ providerPayment, payment, order }) 
   }
 }
 
+async function lockProviderPayment(providerPaymentId, transaction) {
+  await sequelize.query("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))", {
+    replacements: { key: `mercadopago_payment:${providerPaymentId}` }, transaction,
+  });
+}
+
 async function applyProviderPaymentStatus({
   providerPayment,
-  event,
+  event = null,
   transaction,
+  expectedOrderId = null,
+  expectedPaymentId = null,
+  reconciliation = null,
 }) {
+  await lockProviderPayment(providerPayment.id, transaction);
   const { payment, order } = await resolveLocalPayment(providerPayment, transaction);
+  if (
+    (expectedOrderId && order.id !== expectedOrderId) ||
+    (expectedPaymentId && payment.id !== expectedPaymentId)
+  ) {
+    throw nonRetryableWebhookError("La operacion no pertenece al pago y orden solicitados.", 409);
+  }
+  if (reconciliation && !["pending", "paid"].includes(payment.status)) {
+    throw nonRetryableWebhookError("El pago local no admite reconciliacion automatica.", 409);
+  }
   const mappedStatus = mapMercadoPagoStatus(providerPayment?.status);
   const providerPaymentId = normalizeNullableString(providerPayment?.id);
   const providerStatus = normalizeNullableString(providerPayment?.status);
@@ -1466,11 +1568,22 @@ async function applyProviderPaymentStatus({
       : {}),
   };
 
-  await event.update(
+  if (reconciliation) {
+    const previousHistory = payment.metadata?.reconciliationHistory;
+    if (previousHistory != null && !Array.isArray(previousHistory)) {
+      throw serviceError("El historial de reconciliacion requiere revision administrativa.", 409);
+    }
+    const history = [...(previousHistory || [])];
+    if (!history.length && payment.metadata?.reconciliation) history.push(payment.metadata.reconciliation);
+    history.push({ ...reconciliation, outcome: payment.status === "paid" ? "rechecked" : "confirmed" });
+    metadata.reconciliation = payment.metadata?.reconciliation || reconciliation;
+    metadata.reconciliationHistory = history;
+  }
+
+  if (event) await event.update(
     {
       paymentId: payment.id,
       providerPaymentId,
-      signatureValid: true,
       payload: {
         ...(event.payload || {}),
         providerPayment: {
@@ -1490,7 +1603,7 @@ async function applyProviderPaymentStatus({
   );
 
   if (requiresAdminReview) {
-    assertProviderPaymentMatchesOrder({ providerPayment, payment, order });
+    assertProviderPaymentMatchesOrder({ providerPayment, payment, order, requireExternalReference: Boolean(reconciliation) });
 
     const updatedPayment = await updatePaymentStatus({
       paymentId: payment.id,
@@ -1498,7 +1611,7 @@ async function applyProviderPaymentStatus({
       providerPaymentId,
       providerStatus,
       providerStatusDetail: normalizeNullableString(providerPayment?.status_detail),
-      providerPreferenceId: normalizeNullableString(providerPayment?.preference_id),
+      providerPreferenceId: normalizeNullableString(providerPayment?.preference_id) || payment.providerPreferenceId,
       externalReference:
         normalizeNullableString(providerPayment?.external_reference) || String(order.id),
       metadata,
@@ -1521,7 +1634,7 @@ async function applyProviderPaymentStatus({
       };
     }
 
-    assertProviderPaymentMatchesOrder({ providerPayment, payment, order });
+    assertProviderPaymentMatchesOrder({ providerPayment, payment, order, requireExternalReference: Boolean(reconciliation) });
 
     const result = await confirmPaidPayment({
       paymentId: payment.id,
@@ -1530,12 +1643,12 @@ async function applyProviderPaymentStatus({
       providerStatusDetail: normalizeNullableString(
         providerPayment?.status_detail
       ),
-      providerPreferenceId: normalizeNullableString(providerPayment?.preference_id),
+      providerPreferenceId: normalizeNullableString(providerPayment?.preference_id) || payment.providerPreferenceId,
       externalReference: normalizeNullableString(
         providerPayment?.external_reference
       ) || String(order.id),
       metadata,
-      createdBy: null,
+      createdBy: reconciliation?.requestedBy || null,
       transaction,
     });
 
@@ -1563,7 +1676,7 @@ async function applyProviderPaymentStatus({
     providerPaymentId,
     providerStatus,
     providerStatusDetail: normalizeNullableString(providerPayment?.status_detail),
-    providerPreferenceId: normalizeNullableString(providerPayment?.preference_id),
+    providerPreferenceId: normalizeNullableString(providerPayment?.preference_id) || payment.providerPreferenceId,
     externalReference: normalizeNullableString(providerPayment?.external_reference) || String(order.id),
     metadata,
     transaction,
@@ -1582,7 +1695,124 @@ async function markWebhookFailed(event, error) {
     errorMessage: safeWebhookErrorMessage(error),
     processedAt: new Date(),
     retryCount: Number(event.retryCount || 0) + 1,
+    payload: {
+      ...(event.payload || {}),
+      errorDiagnostics: getMercadoPagoErrorDiagnostics(error),
+    },
   });
+}
+
+async function getTrustedProviderPayment({ id, mercadoPagoApi, verifySeller = false, policy = null }) {
+  let providerPayment;
+  let seller;
+  try {
+    providerPayment = await mercadoPagoApi.getPayment({ id });
+    if (verifySeller) seller = await mercadoPagoApi.getSeller();
+  } catch (cause) {
+    const error = serviceError("No se pudo consultar Mercado Pago.", 502);
+    error.cause = cause;
+    error.mercadoPagoStage = "provider_lookup";
+    throw error;
+  }
+
+  if (normalizeNullableString(providerPayment?.id) !== String(id)) {
+    throw nonRetryableWebhookError("Mercado Pago devolvio otra operacion.", 502);
+  }
+  if (verifySeller && (
+    !seller?.id || !providerPayment?.collector_id ||
+    String(seller.id) !== String(providerPayment.collector_id)
+  )) {
+    throw nonRetryableWebhookError("El Access Token no corresponde al vendedor del pago.", 409);
+  }
+  if (policy) assertReconciliationProviderEnvironment({ policy, seller, providerPayment });
+  return providerPayment;
+}
+
+// Uso administrativo explicito. La vista previa no actualiza registros ni crea eventos.
+export async function reconcileMercadoPagoPayment({
+  orderId,
+  providerPaymentId,
+  dryRun = true,
+  requestedBy = null,
+  operatorToken = null,
+  approval = null,
+  mercadoPagoApi = createMercadoPagoSdk(),
+}) {
+  const expectedOrderId = normalizeRequiredString(orderId, "orderId");
+  const id = normalizeRequiredString(providerPaymentId, "providerPaymentId");
+  if (!/^\d+$/.test(id) || typeof dryRun !== "boolean") {
+    throw serviceError("providerPaymentId debe ser numerico y dryRun booleano.");
+  }
+  const policy = getReconciliationPolicy();
+  let operator = null;
+  if (!dryRun) {
+    assertReconciliationApproval({ approval, orderId: expectedOrderId, policy });
+    operator = await authenticateReconciliationOperator({ operatorToken, requestedBy });
+  }
+  const attemptId = randomUUID();
+  const fetchApprovedPayment = async () => {
+    const providerPayment = await getTrustedProviderPayment({ id, mercadoPagoApi, verifySeller: true, policy });
+    if (providerPayment.status !== "approved") {
+      throw nonRetryableWebhookError("La operacion no esta aprobada en Mercado Pago.", 409);
+    }
+    return providerPayment;
+  };
+  const inspect = async (providerPayment, transaction) => {
+    const { payment, order } = await resolveLocalPayment(providerPayment, transaction);
+    if (order.id !== expectedOrderId) {
+      throw nonRetryableWebhookError("La operacion no pertenece a la orden solicitada.", 409);
+    }
+    if (!["pending", "paid"].includes(payment.status)) {
+      throw nonRetryableWebhookError("El pago local no admite reconciliacion automatica.", 409);
+    }
+    assertProviderPaymentMatchesOrder({ providerPayment, payment, order, requireExternalReference: true });
+    await assertPaymentConfirmationIsAllowed({ payment, order, providerPaymentId: id, transaction });
+    const memberships = await previewMembershipsFromOrder({ order, transaction });
+    const receipt = await Receipt.findOne({ where: { paymentId: payment.id }, transaction });
+    return { payment, preview: {
+      dryRun, environment: policy.environment, databaseId: policy.databaseId,
+      orderId: order.id, orderNumber: order.orderNumber, orderStatus: order.status,
+      paymentId: payment.id, providerPaymentId: id, providerStatus: providerPayment.status,
+      liveMode: providerPayment.live_mode, sellerId: String(providerPayment.collector_id),
+      paymentMode: policy.paymentMode,
+      localStatus: payment.status, amount: providerPayment.transaction_amount, currency: CURRENCY,
+      receipt: receipt ? { id: receipt.id, status: receipt.status } : null, memberships,
+    } };
+  };
+  try {
+    const providerPayment = await fetchApprovedPayment();
+    const initial = await sequelize.transaction({ readOnly: true, isolationLevel: "REPEATABLE READ" }, async (transaction) => {
+      // readOnly de Sequelize selecciona el pool; esta sentencia impone la garantia en PostgreSQL.
+      await sequelize.query("SET TRANSACTION READ ONLY", { transaction });
+      return inspect(providerPayment, transaction);
+    });
+    if (dryRun) return initial.preview;
+    return await sequelize.transaction(async (transaction) => {
+      operator = await authenticateReconciliationOperator({ operatorToken, requestedBy, transaction });
+      getReconciliationPolicy(); // Verifica nuevamente el destino efectivo antes de escribir.
+      await lockProviderPayment(id, transaction);
+      // Consulta fresca despues de esperar el bloqueo; nunca reutiliza una aprobacion antigua.
+      const freshPayment = await fetchApprovedPayment();
+      operator = await authenticateReconciliationOperator({ operatorToken, requestedBy, transaction });
+      const result = await applyProviderPaymentStatus({
+        providerPayment: freshPayment, transaction, expectedOrderId, expectedPaymentId: initial.payment.id,
+        reconciliation: {
+          source: "provider_api_reconciliation", requestedBy: operator.id, sessionId: operator.sessionId,
+          attemptId, environment: policy.environment, databaseId: policy.databaseId,
+          reconciledAt: new Date().toISOString(),
+        },
+      });
+      const final = await inspect(freshPayment, transaction);
+      return { ...final.preview, action: result.action, attemptId, requestedBy: operator.id };
+    });
+  } catch (error) {
+    if (operator) console.error("Mercado Pago reconciliation failed", {
+      attemptId, requestedBy: operator.id, orderId: expectedOrderId, providerPaymentId: id,
+      environment: policy.environment, databaseId: policy.databaseId,
+      error: getMercadoPagoErrorDiagnostics(error),
+    });
+    throw error;
+  }
 }
 
 export async function processMercadoPagoWebhook({
@@ -1614,13 +1844,7 @@ export async function processMercadoPagoWebhook({
     payload,
   });
 
-  if (!created && event.processingStatus === "processed") {
-    return {
-      ok: true,
-      duplicate: true,
-      event,
-    };
-  }
+  const alreadyProcessed = !created && event.processingStatus === "processed";
 
   if (!dataId) {
     const error = nonRetryableWebhookError(
@@ -1631,6 +1855,7 @@ export async function processMercadoPagoWebhook({
     throw error;
   }
 
+  let signatureDiagnostics;
   try {
     const webhookSecret = normalizeNullableString(
       process.env.MERCADOPAGO_WEBHOOK_SECRET
@@ -1640,7 +1865,7 @@ export async function processMercadoPagoWebhook({
       throw serviceError("Webhook de Mercado Pago no esta configurado.", 500);
     }
 
-    const signatureDiagnostics = validateWebhookSignatureTimestamp({
+    signatureDiagnostics = validateWebhookSignatureTimestamp({
       xSignature,
       xRequestId,
       dataId,
@@ -1649,19 +1874,16 @@ export async function processMercadoPagoWebhook({
     mercadoPagoApi.validateSignature({
       xSignature,
       xRequestId,
-      dataId,
+      dataId: extractSignatureDataId(query),
       secret: webhookSecret,
     });
-
-    await event.update({
-      signatureValid: true,
-      providerPaymentId: dataId,
-      payload: mergeWebhookSignatureDiagnostics(event.payload, {
-        ...signatureDiagnostics,
-        reason: null,
-      }),
-    });
   } catch (error) {
+    if (alreadyProcessed) {
+      if (error instanceof InvalidWebhookSignatureError) {
+        throw serviceError("Firma de Mercado Pago invalida.", 401);
+      }
+      throw error;
+    }
     await event.update({
       signatureValid: false,
     });
@@ -1690,6 +1912,17 @@ export async function processMercadoPagoWebhook({
     throw error;
   }
 
+  if (alreadyProcessed) return { ok: true, duplicate: true, event };
+  await event.update({
+    signatureValid: true,
+    providerPaymentId: dataId,
+    payload: mergeWebhookSignatureDiagnostics(payload, {
+      ...signatureDiagnostics,
+      signedDataIdPresent: Boolean(extractSignatureDataId(query)),
+      reason: null,
+    }),
+  });
+
   if (!eventType.includes("payment")) {
     await event.update({
       processingStatus: "ignored",
@@ -1704,8 +1937,10 @@ export async function processMercadoPagoWebhook({
     };
   }
 
+  let stage = "provider_lookup";
   try {
-    const providerPayment = await mercadoPagoApi.getPayment({ id: dataId });
+    const providerPayment = await getTrustedProviderPayment({ id: dataId, mercadoPagoApi });
+    stage = "local_confirmation";
     const result = await sequelize.transaction(async (transaction) => {
       const applied = await applyProviderPaymentStatus({
         providerPayment,
@@ -1731,13 +1966,17 @@ export async function processMercadoPagoWebhook({
       result,
     };
   } catch (error) {
+    error.mercadoPagoStage ||= stage;
     await markWebhookFailed(event, error);
 
     if (!shouldRetryWebhookError(error)) {
       throw error;
     }
 
-    throw serviceError("Error interno procesando webhook de Mercado Pago.", 500);
+    const wrapped = serviceError("Error interno procesando webhook de Mercado Pago.", error.statusCode === 502 ? 502 : 500);
+    wrapped.cause = error.cause || error;
+    wrapped.mercadoPagoStage = error.mercadoPagoStage;
+    throw wrapped;
   }
 }
 
