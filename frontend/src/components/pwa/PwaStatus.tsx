@@ -28,7 +28,6 @@ export function PwaStatus() {
       workerRegistered = true;
       updateServiceWorker = registerSW({
         immediate: true,
-        onOfflineReady() { publish({ message: "Aplicación lista para abrirse sin conexión. Los datos dependen de lo guardado." }); },
         onNeedRefresh() { publish({ update: true }); },
         onRegisterError() { publish({ message: "No se pudo preparar el modo offline. Recarga con conexión para reintentar." }); },
       });

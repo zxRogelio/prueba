@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import App from "./App";
 import { AuthProvider } from "./context/AuthProvider";
 import { CartProvider } from "./context/CartContext";
+import { PwaWelcome } from "./components/pwa/PwaWelcome";
 import "./styles/fonts.css";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import "animate.css/animate.min.css";
@@ -16,6 +17,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <AuthProvider>
         <CartProvider>
           <App />
+          <PwaWelcome />
           <Toaster
             closeButton
             position="top-right"
