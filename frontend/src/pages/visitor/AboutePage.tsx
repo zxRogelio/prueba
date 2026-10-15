@@ -7,6 +7,18 @@ import type {
   AboutValueDTO,
 } from "../../services/aboutService";
 import { getAboutPage } from "../../services/aboutService";
+import { usePublicResource } from "../../hooks/usePublicResource";
+import { Skeleton } from "../../components/pwa/Skeleton";
+import { ResourceNotice } from "../../components/pwa/ResourceNotice";
+import { PublicImage } from "../../components/pwa/PublicImage";
+import HeroImage from "../../assets/SliderTitanuim.jpg";
+import IntroImage from "../../assets/abaout1.jpg";
+import MissionImage from "../../assets/mision1.jpg";
+import VisionImage from "../../assets/vision.jpg";
+import ValuesImage from "../../assets/valores.jpg";
+import CarlosImage from "../../assets/1.jpg";
+import MariaImage from "../../assets/2.jpg";
+import AlexImage from "../../assets/3.jpg";
 
 type GalleryItem = {
   id: string;
@@ -355,6 +367,11 @@ function getInitials(value?: string | null) {
 }
 
 function buildResolvedAbout(about: AboutPageDTO | null) {
+  // Missing CMS fields must not erase the local informational copy offline.
+  const publishedContent = Object.fromEntries(
+    Object.entries(about ?? {}).filter(([, value]) =>
+      value != null && (typeof value !== "string" || value.trim() !== "")),
+  ) as Partial<AboutPageDTO>;
   const activeValues = [...(about?.values ?? [])]
     .filter((item) => item.isActive !== false)
     .sort((first, second) => (first.order ?? 0) - (second.order ?? 0));
@@ -364,14 +381,20 @@ function buildResolvedAbout(about: AboutPageDTO | null) {
 
   return {
     ...DEFAULT_ABOUT_CONTENT,
-    ...about,
+    ...publishedContent,
+    heroImageUrl: about?.heroImageUrl || HeroImage,
+    introImageUrl: about?.introImageUrl || IntroImage,
+    missionImageUrl: about?.missionImageUrl || MissionImage,
+    visionImageUrl: about?.visionImageUrl || VisionImage,
+    valuesImageUrl: about?.valuesImageUrl || ValuesImage,
     values: activeValues.length > 0 ? activeValues : DEFAULT_VALUES,
-    teamMembers: activeTeam.length > 0 ? activeTeam : DEFAULT_TEAM,
+    teamMembers: activeTeam.length > 0 ? activeTeam : DEFAULT_TEAM.map((member, index) => ({ ...member, imageUrl: [CarlosImage, MariaImage, AlexImage][index] })),
   };
 }
 
 export default function AboutUs() {
-  const [about, setAbout] = useState<AboutPageDTO | null>(null);
+  const resource = usePublicResource("about", getAboutPage);
+  const about = resource.data ?? null;
   const [activeGalleryCategory, setActiveGalleryCategory] = useState("Todos");
   const [activeGalleryItemId, setActiveGalleryItemId] = useState<string | null>(
     null,
@@ -379,25 +402,6 @@ export default function AboutUs() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
-
-    let cancelled = false;
-
-    const loadAbout = async () => {
-      try {
-        const data = await getAboutPage();
-        if (!cancelled) {
-          setAbout(data);
-        }
-      } catch (error) {
-        console.error("getAboutPage error:", error);
-      }
-    };
-
-    loadAbout();
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   const content = useMemo(() => buildResolvedAbout(about), [about]);
@@ -624,10 +628,11 @@ export default function AboutUs() {
 
       <div className={cx("page-container")}>
         <div className={cx("about-container")}>
+          <ResourceNotice resource={resource} />
           <section className={cx("hero-stage")}>
             <div className={cx("hero-banner")}>
               {content.heroImageUrl ? (
-                <img
+                <PublicImage
                   src={content.heroImageUrl}
                   alt={content.heroTitle || "Acerca de nosotros"}
                   className={cx("hero-banner-image")}
@@ -675,7 +680,7 @@ export default function AboutUs() {
                   {statItems.map((stat) => (
                     <div key={stat.id} className={cx("hero-metric")}>
                       <strong className={cx("hero-metric-value")}>
-                        {stat.value}
+                        {resource.loading ? <Skeleton style={{ width: 100, height: 40 }} /> : stat.value}
                       </strong>
                       <span className={cx("hero-metric-label")}>
                         {stat.label}
@@ -695,7 +700,7 @@ export default function AboutUs() {
             <div className={cx("story-media-stack")}>
               <div className={cx("story-image-frame")}>
                 {content.introImageUrl ? (
-                  <img
+                  <PublicImage
                     src={content.introImageUrl}
                     alt={content.introTitle || "Nuestra comunidad"}
                     className={cx("story-main-image")}
@@ -806,7 +811,7 @@ export default function AboutUs() {
                 >
                   <div className={cx("manifesto-media-modern")}>
                     {card.imageUrl ? (
-                      <img
+                      <PublicImage
                         src={card.imageUrl}
                         alt={card.title}
                         className={cx("manifesto-image-modern")}
@@ -937,7 +942,7 @@ export default function AboutUs() {
                     aria-label={`Abrir imagen ${index + 1}: ${item.title}`}
                   >
                     <span className={cx("gallery-media-modern")}>
-                      <img
+                      <PublicImage
                         src={item.imageUrl}
                         alt={item.title}
                         className={cx("gallery-image-modern")}
@@ -1038,13 +1043,13 @@ export default function AboutUs() {
                   </button>
 
                   <div className={cx("gallery-lightbox-media-modern")}>
-                    <img
+                    <PublicImage
                       src={activeGalleryItem.imageUrl}
                       alt=""
                       aria-hidden="true"
                       className={cx("gallery-lightbox-backdrop-modern")}
                     />
-                    <img
+                    <PublicImage
                       src={activeGalleryItem.imageUrl}
                       alt={activeGalleryItem.title}
                       className={cx("gallery-lightbox-image-modern")}
@@ -1115,7 +1120,7 @@ export default function AboutUs() {
                 <article className={cx("team-featured-modern")}>
                   <div className={cx("team-featured-media-modern")}>
                     {leadMember.imageUrl ? (
-                      <img
+                      <PublicImage
                         src={leadMember.imageUrl}
                         alt={leadMember.name}
                         className={cx("team-featured-image-modern")}
@@ -1198,7 +1203,7 @@ export default function AboutUs() {
                     <article key={member.id} className={cx("team-card-modern")}>
                       <div className={cx("team-card-media-modern")}>
                         {member.imageUrl ? (
-                          <img
+                          <PublicImage
                             src={member.imageUrl}
                             alt={member.name}
                             className={cx("team-card-image-modern")}
@@ -1279,13 +1284,13 @@ export default function AboutUs() {
               <div className={cx("cta-map-column")}>
                 {mapAddress ? (
                   <div className={cx("cta-map-panel")}>
-                    <iframe
+                    {resource.online ? <iframe
                       title="Mapa de ubicacion Titanium Sport Gym"
                       src={mapEmbedUrl}
                       loading="lazy"
                       referrerPolicy="no-referrer-when-downgrade"
                       allowFullScreen
-                    />
+                    /> : <div className="pwa-resource-notice" role="status"><p>Mapa no disponible sin conexión. Ubicación: {mapAddress}</p></div>}
                   </div>
                 ) : null}
 

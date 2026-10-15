@@ -9,6 +9,8 @@ import {
   FaShoppingCart,
   FaStar,
   FaTimes,
+  FaMicrophone,
+  FaStop,
 } from "react-icons/fa";
 import styles from "./CatalogePage.module.css";
 import { useCart } from "../../context/useCart";
@@ -19,6 +21,11 @@ import {
   fetchCatalogProducts,
   getCatalogProductPath,
 } from "./catalogData";
+import { usePublicResource } from "../../hooks/usePublicResource";
+import { useVoiceSearch } from "../../hooks/useVoiceSearch";
+import { SkeletonCards } from "../../components/pwa/Skeleton";
+import { ResourceNotice } from "../../components/pwa/ResourceNotice";
+import { PublicImage } from "../../components/pwa/PublicImage";
 
 const cx = (...names: Array<string | null | undefined | false>) =>
   names
@@ -56,13 +63,14 @@ function getVisibleCatalogPages(currentPage: number, totalPages: number) {
 
 export default function CatalogoPage() {
   const { addItem, openCart } = useCart();
-  const [products, setProducts] = useState<CatalogProductView[]>([]);
+  const resource = usePublicResource("products", fetchCatalogProducts);
+  const products = useMemo(() => resource.data ?? [], [resource.data]);
   const [selectedCategory, setSelectedCategory] = useState("TODOS");
   const [sortBy, setSortBy] = useState("RECOMENDADO");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPageNumber, setCurrentPageNumber] = useState(1);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const isLoading = resource.loading;
+  const voice = useVoiceSearch(setSearchQuery);
   const [favorites, setFavorites] = useState<Set<CatalogProductView["id"]>>(
     new Set(),
   );
@@ -74,34 +82,6 @@ export default function CatalogoPage() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
-
-    let ignore = false;
-
-    const loadProducts = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-
-      try {
-        const nextProducts = await fetchCatalogProducts();
-        if (ignore) return;
-        setProducts(nextProducts);
-      } catch (error) {
-        if (ignore) return;
-        console.error("fetchCatalogProducts error:", error);
-        setProducts([]);
-        setLoadError("No pudimos cargar el catalogo desde el backend.");
-      } finally {
-        if (!ignore) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    void loadProducts();
-
-    return () => {
-      ignore = true;
-    };
   }, []);
 
   const filteredProducts = useMemo(() => {
@@ -183,7 +163,7 @@ export default function CatalogoPage() {
         : "Todos los productos";
 
   const addToCart = (product: CatalogProductView) => {
-    if (!product.inStock) return;
+    if (!product.inStock || !resource.online || resource.stale) return;
     addItem(product);
     openCart();
   };
@@ -240,7 +220,16 @@ export default function CatalogoPage() {
                       <FaTimes />
                     </button>
                   )}
+                  <button type="button" className={`pwa-voice ${cx("catalogVoiceButton")}`} onClick={voice.toggle}
+                    disabled={!voice.supported || (!voice.online && !voice.listening)}
+                    aria-label={voice.listening ? "Cancelar escucha" : "Buscar por voz"}
+                    aria-pressed={voice.listening} title="Buscar por voz en español de México">
+                    {voice.listening ? <FaStop /> : <FaMicrophone />}
+                  </button>
                 </div>
+                <p className="pwa-voice-help" role="status">{voice.error || (voice.listening ? "Escuchando… pulsa para cancelar."
+                  : !voice.supported ? "Tu navegador no admite búsqueda por voz. Puedes escribir."
+                  : "La búsqueda por voz puede necesitar internet. La búsqueda por texto funciona con datos guardados.")}</p>
               </section>
 
               <section className={cx("catalogFilterSection")}>
@@ -305,33 +294,11 @@ export default function CatalogoPage() {
               </div>
             </div>
 
+            <ResourceNotice resource={resource} />
             {isLoading ? (
-              <div className={cx("catalogEmptyState")}>
-                <span className={cx("catalogEmptyIcon")}>
-                  <FaSearch />
-                </span>
-                <h3 className={cx("catalogEmptyTitle")}>Cargando productos</h3>
-                <p className={cx("catalogEmptyText")}>
-                  Estamos trayendo el catalogo desde la base de datos.
-                </p>
-              </div>
-            ) : loadError ? (
-              <div className={cx("catalogEmptyState")}>
-                <span className={cx("catalogEmptyIcon")}>
-                  <FaTimes />
-                </span>
-                <h3 className={cx("catalogEmptyTitle")}>
-                  No pudimos cargar el catalogo
-                </h3>
-                <p className={cx("catalogEmptyText")}>{loadError}</p>
-                <button
-                  type="button"
-                  className={cx("catalogEmptyButton")}
-                  onClick={() => window.location.reload()}
-                >
-                  Intentar de nuevo
-                </button>
-              </div>
+              <SkeletonCards className={cx("catalogProductsGrid")} />
+            ) : resource.error && !resource.data ? (
+              <SkeletonCards count={3} unavailable className={cx("catalogProductsGrid")} />
             ) : filteredProducts.length === 0 ? (
               <div className={cx("catalogEmptyState")}>
                 <span className={cx("catalogEmptyIcon")}>
@@ -392,7 +359,7 @@ export default function CatalogoPage() {
                             {isFavorite ? <FaHeart /> : <FaRegHeart />}
                           </button>
 
-                          <img
+                          <PublicImage
                             src={product.image}
                             alt={product.name}
                             className={cx("catalogProductImage")}
@@ -453,7 +420,7 @@ export default function CatalogoPage() {
                               type="button"
                               className={cx("catalogAddToCartButton")}
                               onClick={() => addToCart(product)}
-                              disabled={!product.inStock}
+                              disabled={!product.inStock || !resource.online || resource.stale}
                             >
                               <FaShoppingCart />
                               {product.inStock

@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import axios from "axios";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { FaChevronRight, FaHome } from "react-icons/fa";
 import CatalogProductDetail from "../../components/catalog/CatalogProductDetail";
@@ -12,6 +11,9 @@ import {
   type CatalogProductView,
 } from "./catalogData";
 import styles from "./CatalogProductPage.module.css";
+import { usePublicResource } from "../../hooks/usePublicResource";
+import { SkeletonCards } from "../../components/pwa/Skeleton";
+import { ResourceNotice } from "../../components/pwa/ResourceNotice";
 
 const cx = (...names: Array<string | null | undefined | false>) =>
   names
@@ -20,83 +22,26 @@ const cx = (...names: Array<string | null | undefined | false>) =>
     .filter(Boolean)
     .join(" ");
 
-const PRODUCT_DETAIL_MIN_LOADING_MS = 520;
-
 export default function CatalogProductPage() {
   const { productId } = useParams();
   const { addItem, openCart } = useCart();
-  const [product, setProduct] = useState<CatalogProductView | null>(null);
-  const [recommendations, setRecommendations] = useState<CatalogProductView[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadProduct = useCallback((signal: AbortSignal) => fetchCatalogProductById(productId || "", signal), [productId]);
+  const loadRecommendations = useCallback((signal: AbortSignal) => fetchCatalogProductRecommendations(productId || "", 4, signal), [productId]);
+  const resource = usePublicResource(`product:${productId}`, loadProduct);
+  const recommendationResource = usePublicResource(`recommendations:${productId}`, loadRecommendations);
+  const product = resource.data;
+  const recommendations = recommendationResource.data ?? [];
   const [favorites, setFavorites] = useState<Set<CatalogProductView["id"]>>(
     new Set()
   );
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
-
-    if (!productId) {
-      setProduct(null);
-      setRecommendations([]);
-      setIsLoading(false);
-      return;
-    }
-
-    let ignore = false;
-
-    const loadProduct = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      const loadingStartedAt = performance.now();
-
-      try {
-        const [nextProduct, nextRecommendations] = await Promise.all([
-          fetchCatalogProductById(productId),
-          fetchCatalogProductRecommendations(productId, 4).catch((error: unknown) => {
-            console.warn("fetchCatalogProductRecommendations error:", error);
-            return [];
-          }),
-        ]);
-        if (ignore) return;
-        setProduct(nextProduct);
-        setRecommendations(nextRecommendations);
-        void registerProductView(nextProduct.id);
-      } catch (error: unknown) {
-        if (ignore) return;
-
-        console.error("fetchCatalogProductById error:", error);
-        setProduct(null);
-        setRecommendations([]);
-
-        if (!axios.isAxiosError(error) || error.response?.status !== 404) {
-          setLoadError("No pudimos cargar el detalle del producto.");
-        }
-      } finally {
-        const elapsed = performance.now() - loadingStartedAt;
-        const remainingTime = Math.max(
-          PRODUCT_DETAIL_MIN_LOADING_MS - elapsed,
-          0
-        );
-
-        if (remainingTime > 0) {
-          await new Promise((resolve) => {
-            window.setTimeout(resolve, remainingTime);
-          });
-        }
-
-        if (!ignore) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    void loadProduct();
-
-    return () => {
-      ignore = true;
-    };
   }, [productId]);
+
+  useEffect(() => {
+    if (product && resource.online && !resource.stale) void registerProductView(product.id);
+  }, [product, resource.online, resource.stale]);
 
   const toggleFavorite = (productKey: CatalogProductView["id"]) => {
     setFavorites((prev) => {
@@ -111,7 +56,7 @@ export default function CatalogProductPage() {
   };
 
   const addToCart = (selectedProduct: CatalogProductView, quantity = 1) => {
-    if (!selectedProduct.inStock) return;
+    if (!selectedProduct.inStock || !resource.online || resource.stale) return;
 
     for (let index = 0; index < quantity; index += 1) {
       addItem(selectedProduct);
@@ -120,33 +65,25 @@ export default function CatalogProductPage() {
     openCart();
   };
 
-  if (isLoading) {
+  if (resource.loading) {
     return (
       <main className={cx("detailPage")}>
         <div className={cx("detailShell")}>
-          <section className={cx("detailLoading")} aria-live="polite">
-            <div className={cx("detailLoadingCopy")}>
-              <span className={cx("detailLoadingSpinner")} aria-hidden="true" />
-              <span className={cx("detailLoadingEyebrow")}>Titanium shop</span>
-              <h1 className={cx("detailLoadingTitle")}>Cargando producto</h1>
-              <p className={cx("detailLoadingText")}>
-                Preparando detalle y disponibilidad.
-              </p>
-              <span className={cx("detailLoadingProgress")} aria-hidden="true" />
-            </div>
-          </section>
+          <h1>Detalle del producto</h1>
+          <SkeletonCards count={1} variant="detail" />
         </div>
       </main>
     );
   }
 
-  if (loadError) {
+  if (resource.error && !product) {
     return (
       <main className={cx("detailPage")}>
         <div className={cx("detailShell")}>
           <section className={cx("detailNotFound")}>
             <h1 className={cx("detailNotFoundTitle")}>No pudimos cargar el producto</h1>
-            <p className={cx("detailNotFoundText")}>{loadError}</p>
+            <ResourceNotice resource={resource} />
+            <SkeletonCards count={1} variant="detail" unavailable />
             <Link to="/catalogue" className={cx("detailBackButton")}>
               Volver al catalogo
             </Link>
@@ -194,16 +131,23 @@ export default function CatalogProductPage() {
         </nav>
 
         <CatalogProductDetail
+          disabled={!resource.online || resource.stale}
+          recommendationsDisabled={!recommendationResource.online || recommendationResource.stale}
           product={product}
           recommendations={recommendations}
           isFavorite={favorites.has(product.id)}
           onToggleFavorite={toggleFavorite}
           onAddToCart={addToCart}
           onAddRecommendation={(recommendedProduct) => {
+            if (!recommendationResource.online || recommendationResource.stale) return;
             addItem(recommendedProduct);
             openCart();
           }}
         />
+
+        <ResourceNotice resource={resource} />
+        <ResourceNotice resource={recommendationResource} />
+        {recommendationResource.loading && <SkeletonCards count={3} />}
 
         <section className={cx("detailFooterNav")}>
           <Link to="/catalogue" className={cx("detailBackButton")}>

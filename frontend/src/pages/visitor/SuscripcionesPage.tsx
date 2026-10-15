@@ -18,10 +18,15 @@ import {
   type MembershipPlanCardView,
 } from "./membershipPlanView";
 import {
-  getMembershipPlans,
+  getPublicMembershipPlans,
   type MembershipPlan,
 } from "../../services/membershipService";
 import styles from "./SuscripcionesPage.module.css";
+import { usePublicResource } from "../../hooks/usePublicResource";
+import { SkeletonCards } from "../../components/pwa/Skeleton";
+import { ResourceNotice } from "../../components/pwa/ResourceNotice";
+
+const loadPlans = async (signal: AbortSignal) => (await getPublicMembershipPlans(signal)).plans;
 
 type HeroBenefit = {
   label: string;
@@ -131,30 +136,11 @@ function formatPriceMXN(value: number) {
 export default function SuscripcionesPage() {
   const [activeFaqIndex, setActiveFaqIndex] = useState(0);
   const [activeTestimonialIndex, setActiveTestimonialIndex] = useState(0);
-  const [membershipPlans, setMembershipPlans] = useState<MembershipPlan[]>([]);
+  const resource = usePublicResource("memberships", loadPlans);
+  const membershipPlans = useMemo(() => resource.data ?? [], [resource.data]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
-  }, []);
-
-  useEffect(() => {
-    let ignore = false;
-
-    getMembershipPlans()
-      .then((response) => {
-        if (ignore) return;
-        setMembershipPlans(Array.isArray(response.plans) ? response.plans : []);
-      })
-      .catch((error) => {
-        if (!ignore) {
-          console.error("getMembershipPlans error:", error);
-          setMembershipPlans([]);
-        }
-      });
-
-    return () => {
-      ignore = true;
-    };
   }, []);
 
   useEffect(() => {
@@ -307,6 +293,9 @@ export default function SuscripcionesPage() {
           </div>
 
           <div className={styles.planGroups}>
+            <ResourceNotice resource={resource} empty={membershipPlans.length === 0} />
+            {(resource.loading || (!resource.data && resource.error)) &&
+              <SkeletonCards count={3} variant="plan" unavailable={!resource.loading} />}
             {planGroups.map((group) => (
               <section key={group.id} className={styles.planGroup}>
                 <div className={styles.planGroupHeader}>
@@ -390,6 +379,8 @@ export default function SuscripcionesPage() {
 
                         <Link
                           to={plan.paymentPath}
+                          aria-disabled={!resource.online || resource.stale}
+                          onClick={(event) => { if (!resource.online || resource.stale) event.preventDefault(); }}
                           className={`${styles.planButton} ${
                             plan.featured
                               ? styles.planButtonFeatured

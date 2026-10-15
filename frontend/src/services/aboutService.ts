@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { API } from "../api/api";
+import { publicClient } from "../pwa/publicClient";
 
 export type AboutValueDTO = {
   id: string;
@@ -149,7 +149,8 @@ const mapAboutPage = (data: AboutApi): AboutPageDTO => ({
   updatedAt: data.updatedAt,
 });
 
-export async function getAboutPage() {
-  const { data } = await API.get<AboutApi>("/about");
+export async function getAboutPage(signal?: AbortSignal) {
+  const { data } = await publicClient.get<AboutApi>("/about", { signal });
+  if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("Información no disponible");
   return mapAboutPage(data);
 }

@@ -1,4 +1,5 @@
 import axios from "axios";
+import { publicClient } from "../pwa/publicClient";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
@@ -56,6 +57,12 @@ export type ManualGroupPaymentPayload = {
   startsAt?: string;
   memberEmails?: string[];
 };
+
+export async function getPublicMembershipPlans(signal?: AbortSignal) {
+  const response = await publicClient.get<{ plans: MembershipPlan[] }>("/memberships/plans", { signal });
+  if (!Array.isArray(response.data.plans)) throw new Error("Planes no disponibles");
+  return response.data;
+}
 
 export async function getMembershipPlans() {
   const response = await axios.get(`${API_URL}/memberships/plans`);

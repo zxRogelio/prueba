@@ -31,8 +31,7 @@ import {
   type MembershipPlanCardView,
 } from "./membershipPlanView";
 import {
-  getMembershipPlans,
-  type MembershipPlan,
+  getPublicMembershipPlans,
 } from "../../services/membershipService";
 
 import HeroExterior from "../../assets/SliderTitanuim.jpg";
@@ -41,6 +40,12 @@ import HeroCoaching from "../../assets/vision.jpg";
 import TrainerCarlos from "../../assets/1.jpg";
 import TrainerMaria from "../../assets/2.jpg";
 import TrainerAlex from "../../assets/3.jpg";
+import { usePublicResource } from "../../hooks/usePublicResource";
+import { SkeletonCards } from "../../components/pwa/Skeleton";
+import { ResourceNotice } from "../../components/pwa/ResourceNotice";
+import { PublicImage } from "../../components/pwa/PublicImage";
+
+const loadPlans = async (signal: AbortSignal) => (await getPublicMembershipPlans(signal)).plans;
 
 const cx = (...names: Array<string | null | undefined | false>) =>
   names
@@ -251,9 +256,10 @@ const HOME_STORE_PRODUCTS_LIMIT = 6;
 export default function HomePage() {
   const { addItem, openCart } = useCart();
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [storeProducts, setStoreProducts] = useState<CatalogProductView[]>([]);
-  const [membershipPlans, setMembershipPlans] = useState<MembershipPlan[]>([]);
-  const [isStoreLoading, setIsStoreLoading] = useState(true);
+  const storeResource = usePublicResource("products", fetchCatalogProducts);
+  const plansResource = usePublicResource("memberships", loadPlans);
+  const storeProducts = useMemo(() => storeResource.data ?? [], [storeResource.data]);
+  const membershipPlans = useMemo(() => plansResource.data ?? [], [plansResource.data]);
   const productTrackRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -262,56 +268,6 @@ export default function HomePage() {
     }, 6000);
 
     return () => window.clearInterval(intervalId);
-  }, []);
-
-  useEffect(() => {
-    let ignore = false;
-
-    const loadMembershipPlans = async () => {
-      try {
-        const response = await getMembershipPlans();
-        if (ignore) return;
-        setMembershipPlans(Array.isArray(response.plans) ? response.plans : []);
-      } catch (error) {
-        if (ignore) return;
-        console.error("getMembershipPlans error:", error);
-        setMembershipPlans([]);
-      }
-    };
-
-    void loadMembershipPlans();
-
-    return () => {
-      ignore = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    let ignore = false;
-
-    const loadStoreProducts = async () => {
-      setIsStoreLoading(true);
-
-      try {
-        const nextProducts = await fetchCatalogProducts();
-        if (ignore) return;
-        setStoreProducts(nextProducts);
-      } catch (error) {
-        if (ignore) return;
-        console.error("fetchCatalogProducts error:", error);
-        setStoreProducts([]);
-      } finally {
-        if (!ignore) {
-          setIsStoreLoading(false);
-        }
-      }
-    };
-
-    void loadStoreProducts();
-
-    return () => {
-      ignore = true;
-    };
   }, []);
 
   const activeSlide = heroSlides[currentSlide];
@@ -365,7 +321,7 @@ export default function HomePage() {
   };
 
   const addProductToCart = (product: CatalogProductView) => {
-    if (!product.inStock) return;
+    if (!product.inStock || !storeResource.online || storeResource.stale) return;
     addItem(product);
     openCart();
   };
@@ -576,6 +532,9 @@ export default function HomePage() {
           </div>
 
           <div className={cx("home-store__viewport")}>
+            <ResourceNotice resource={storeResource} empty={storeProducts.length === 0} />
+            {(storeResource.loading || (!storeResource.data && storeResource.error)) &&
+              <SkeletonCards count={3} unavailable={!storeResource.loading} />}
             <div ref={productTrackRef} className={cx("home-store__track")}>
               {homeStoreProducts.map((product) => (
                 <article key={product.id} className={cx("home-product-card")}>
@@ -588,23 +547,10 @@ export default function HomePage() {
                         {product.badge}
                       </span>
                     )}
-                    <img
+                    <PublicImage
                       src={product.image}
                       alt={product.name}
                       className={cx("home-product-card__image")}
-                      onLoad={(event) => {
-                        event.currentTarget.style.display = "";
-                        event.currentTarget.parentElement?.removeAttribute(
-                          "data-image-fallback",
-                        );
-                      }}
-                      onError={(event) => {
-                        event.currentTarget.style.display = "none";
-                        event.currentTarget.parentElement?.setAttribute(
-                          "data-image-fallback",
-                          "true",
-                        );
-                      }}
                     />
                   </div>
 
@@ -647,7 +593,7 @@ export default function HomePage() {
                           "home-product-card__action--primary",
                         )}
                         onClick={() => addProductToCart(product)}
-                        disabled={!product.inStock}
+                        disabled={!product.inStock || !storeResource.online || storeResource.stale}
                       >
                         <FaShoppingCart />
                         {product.inStock ? "Agregar al carrito" : "Sin stock"}
@@ -670,7 +616,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          {!isStoreLoading && homeStoreProducts.length === 0 && (
+          {!storeResource.loading && homeStoreProducts.length === 0 && (
             <p className={cx("home-section-text")}>
               No pudimos mostrar productos en este momento. Puedes ver todo el
               catalogo en la tienda completa.
@@ -690,6 +636,9 @@ export default function HomePage() {
             </p>
           </div>
 
+          <ResourceNotice resource={plansResource} empty={membershipPlans.length === 0} />
+          {(plansResource.loading || (!plansResource.data && plansResource.error)) &&
+            <SkeletonCards count={3} variant="plan" unavailable={!plansResource.loading} />}
           <div className={cx("home-plans__grid")}>
             {homePlanCards.map((plan) => (
               <article
@@ -758,6 +707,8 @@ export default function HomePage() {
 
                 <Link
                   to={plan.paymentPath}
+                  aria-disabled={!plansResource.online || plansResource.stale}
+                  onClick={(event) => { if (!plansResource.online || plansResource.stale) event.preventDefault(); }}
                   className={cx(
                     "home-plan-card__button",
                     plan.featured && "is-popular",

@@ -14,6 +14,7 @@ import {
 import styles from "./CatalogProductDetail.module.css";
 import type { CatalogProductView } from "../../pages/visitor/catalogData";
 import type { CartProduct } from "../../context/CartContext";
+import { PublicImage } from "../pwa/PublicImage";
 
 const cx = (...names: Array<string | null | undefined | false>) =>
   names
@@ -23,6 +24,8 @@ const cx = (...names: Array<string | null | undefined | false>) =>
     .join(" ");
 
 interface CatalogProductDetailProps {
+  disabled?: boolean;
+  recommendationsDisabled?: boolean;
   product: CatalogProductView;
   recommendations: CatalogProductView[];
   isFavorite: boolean;
@@ -37,6 +40,8 @@ function formatSpecLabel(key: string) {
 }
 
 export default function CatalogProductDetail({
+  disabled = false,
+  recommendationsDisabled = false,
   product,
   recommendations,
   isFavorite,
@@ -83,7 +88,7 @@ export default function CatalogProductDetail({
               {isFavorite ? <FaHeart /> : <FaRegHeart />}
             </button>
 
-            <img src={gallery[selectedImage]} alt={product.name} className={cx("mainImage")} />
+            <PublicImage src={gallery[selectedImage]} alt={product.name} className={cx("mainImage")} />
           </div>
 
           {gallery.length > 1 && (
@@ -96,7 +101,7 @@ export default function CatalogProductDetail({
                   onClick={() => setSelectedImage(index)}
                   aria-label={`Ver imagen ${index + 1} de ${product.name}`}
                 >
-                  <img src={image} alt={`${product.name} ${index + 1}`} />
+                  <PublicImage src={image} alt={`${product.name} ${index + 1}`} style={{ width: "100%", height: "100%" }} />
                 </button>
               ))}
             </div>
@@ -167,7 +172,7 @@ export default function CatalogProductDetail({
             <button
               type="button"
               className={cx("addButton")}
-              disabled={!product.inStock}
+              disabled={disabled || !product.inStock}
               onClick={() => onAddToCart(product, quantity)}
             >
               <FaShoppingCart />
@@ -255,7 +260,7 @@ export default function CatalogProductDetail({
                 key={recommendedProduct.id}
                 className={cx("detailRecommendationCard")}
               >
-                <img
+                <PublicImage
                   src={recommendedProduct.image}
                   alt={recommendedProduct.name}
                   className={cx("detailRecommendationImage")}
@@ -270,6 +275,7 @@ export default function CatalogProductDetail({
                 <button
                   type="button"
                   className={cx("detailRecommendationButton")}
+                  disabled={recommendationsDisabled || !recommendedProduct.inStock}
                   onClick={() => onAddRecommendation(recommendedProduct)}
                   aria-label={`Agregar ${recommendedProduct.name}`}
                 >

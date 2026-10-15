@@ -1,4 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap");
 
 .catalogPage {
   --font-ui: "Manrope", sans-serif;
@@ -168,7 +167,7 @@
 .catalogSearchInput {
   width: 100%;
   height: 3.35rem;
-  padding: 0 3rem 0 2.9rem;
+  padding: 0 5.5rem 0 2.9rem;
   border: 1px solid rgba(17, 17, 17, 0.12);
   border-radius: 18px;
   background: #fbfbfb;
@@ -195,7 +194,7 @@
 .catalogClearButton {
   position: absolute;
   top: 50%;
-  right: 0.85rem;
+  right: 3.1rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -216,6 +215,16 @@
 .catalogClearButton:hover {
   color: #ef4444;
   background: rgba(239, 68, 68, 0.12);
+}
+
+.catalogVoiceButton {
+  position: absolute;
+  top: 50%;
+  right: 0.7rem;
+  width: 2rem;
+  height: 2rem;
+  justify-content: center;
+  transform: translateY(-50%);
 }
 
 .catalogCategoryList,

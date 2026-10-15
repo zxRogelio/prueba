@@ -179,7 +179,7 @@ export function buildMembershipPlanCards(
     .sort((left, right) => Number(left.sortOrder ?? 0) - Number(right.sortOrder ?? 0));
 
   if (activePlans.length === 0) {
-    return fallbackMembershipPlans;
+    return [];
   }
 
   const featuredIndex = getFeaturedIndex(activePlans);

@@ -1,0 +1,28 @@
+.pwa-skeleton { display: block; flex-shrink: 0; border-radius: 5px; background: linear-gradient(100deg, #e5e5e7 25%, #f6f6f7 45%, #e5e5e7 65%); background-size: 220% 100%; animation: pwa-shimmer 1.6s ease-in-out infinite; }
+@keyframes pwa-shimmer { from { background-position: 200% 0; } to { background-position: -20% 0; } }
+.pwa-skeleton-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; width: 100%; }
+.pwa-skeleton-card { min-width: 0; border: 1px solid #e4e4e7; border-radius: 18px; overflow: hidden; background: #fff; color: #52525b; }
+.pwa-skeleton-image { width: 100%; aspect-ratio: 1 / 1; border-radius: 0; }
+.pwa-skeleton-copy { display: flex; flex-direction: column; gap: 16px; padding: 24px; }
+.pwa-skeleton-card.plan { min-height: 520px; }
+.pwa-skeleton-grid.detail { grid-template-columns: 1fr; }
+.pwa-skeleton-card.detail { display: grid; grid-template-columns: 1fr 1fr; min-height: 580px; }
+.pwa-skeleton-card.detail .pwa-skeleton-copy { justify-content: center; }
+.pwa-skeleton-grid.unavailable .pwa-skeleton { animation: none; background: #e9e9eb; }
+.pwa-resource-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; margin: 16px 0; border: 1px solid #e8caca; border-left: 4px solid #b91c1c; border-radius: 10px; background: #fff5f5; color: #592020; font-family: var(--font-ui); font-size: .85rem; }
+.pwa-resource-notice p { margin: 0; flex: 1 1 220px; }
+.pwa-resource-notice small { display: block; }
+.pwa-resource-notice button, .pwa-status button { cursor: pointer; border: 1px solid currentColor; background: transparent; color: inherit; padding: 8px 14px; border-radius: 8px; }
+.pwa-status { position: fixed; bottom: 16px; left: 16px; right: 16px; margin: auto; max-width: 640px; z-index: 10000; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; background: #171717; color: #fff; border: 1px solid #b91c1c; border-radius: 12px; padding: 14px 18px; box-shadow: 0 4px 20px #0004; font-size: .85rem; }
+.pwa-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.pwa-image { position: relative; display: inline-block; overflow: hidden; }
+.pwa-image > img { width: 100%; height: 100%; object-fit: inherit; }
+.pwa-image-loading { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pwa-voice { background: transparent; color: #b91c1c; border: 0; padding: 10px; cursor: pointer; display: inline-flex; align-items: center; }
+.pwa-voice[aria-pressed="true"] { background: #b91c1c; color: #fff; border-radius: 50%; animation: pwa-shimmer 1.5s ease-in-out infinite; }
+.pwa-voice:disabled { cursor: not-allowed; opacity: .5; }
+.pwa-voice-help { font-size: .75rem; color: #666; margin: 8px 0; }
+[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
+@media (max-width: 1100px) { .pwa-skeleton-grid.product { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .pwa-skeleton-grid, .pwa-skeleton-grid.product { grid-template-columns: 1fr; } .pwa-skeleton-card.detail { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .pwa-skeleton, .pwa-voice { animation: none !important; } }

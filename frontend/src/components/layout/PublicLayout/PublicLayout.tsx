@@ -2,6 +2,7 @@
 import { Outlet } from "react-router-dom";
 import Header from "../Header/Header";
 import Footer from "../Footer";
+import { PwaStatus } from "../../pwa/PwaStatus";
 
 export default function PublicLayout() {
   return (
@@ -9,6 +10,7 @@ export default function PublicLayout() {
       <Header />
       <Outlet />
       <Footer />
+      <PwaStatus />
     </div>
   );
 }

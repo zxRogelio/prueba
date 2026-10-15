@@ -1,4 +1,6 @@
 import { API } from "../../api/api";
+import { publicClient } from "../../pwa/publicClient";
+import fallbackImage from "../../assets/LogoP.png";
 import type { CartProduct } from "../../context/CartContext";
 
 export type ProductSpecificationValue = string | number | string[];
@@ -59,8 +61,7 @@ type CatalogProductApi = {
   Brand?: { name?: string | null } | null;
 };
 
-const FALLBACK_IMAGE =
-  "https://via.placeholder.com/1200x1200/f4f4f5/18181b?text=Titanium";
+const FALLBACK_IMAGE = fallbackImage;
 const NEW_PRODUCT_WINDOW_DAYS = 45;
 const VISITOR_ID_STORAGE_KEY = "titaniumVisitorId";
 const PRODUCT_VIEW_DEDUP_WINDOW_MS = 30 * 60 * 1000;
@@ -238,23 +239,26 @@ export function mapCatalogProduct(product: CatalogProductApi): CatalogProductVie
   };
 }
 
-export async function fetchCatalogProducts() {
-  const { data } = await API.get<CatalogProductApi[]>("/products");
-  return Array.isArray(data) ? data.map(mapCatalogProduct) : [];
+export async function fetchCatalogProducts(signal?: AbortSignal) {
+  const { data } = await publicClient.get<CatalogProductApi[]>("/products", { signal });
+  if (!Array.isArray(data)) throw new Error("Respuesta de catálogo inválida");
+  return data.map(mapCatalogProduct);
 }
 
-export async function fetchCatalogProductById(productId: string | number) {
-  const { data } = await API.get<CatalogProductApi>(`/products/${productId}`);
+export async function fetchCatalogProductById(productId: string | number, signal?: AbortSignal) {
+  const { data } = await publicClient.get<CatalogProductApi>(`/products/${encodeURIComponent(productId)}`, { signal });
+  if (!data || (!data.id && !data.id_producto)) throw new Error("Producto no disponible");
   return mapCatalogProduct(data);
 }
 
 export async function fetchCatalogProductRecommendations(
   productId: string | number,
   limit = 4,
+  signal?: AbortSignal,
 ) {
-  const { data } = await API.get<CatalogProductApi[]>(
+  const { data } = await publicClient.get<CatalogProductApi[]>(
     `/products/${productId}/recommendations`,
-    { params: { limit } },
+    { params: { limit }, signal },
   );
 
   return Array.isArray(data) ? data.map(mapCatalogProduct) : [];
@@ -263,11 +267,12 @@ export async function fetchCatalogProductRecommendations(
 export async function fetchCartProductRecommendations(
   productIds: Array<string | number>,
   limit = 2,
+  signal?: AbortSignal,
 ) {
   const { data } = await API.post<CatalogProductApi[]>("/products/recommendations", {
     productIds,
     limit,
-  });
+  }, { signal, timeout: 8000 });
 
   return Array.isArray(data) ? data.map(mapCatalogProduct) : [];
 }

@@ -7,6 +7,9 @@ import {
   type CatalogProductView,
 } from "../../pages/visitor/catalogData";
 import "./CartDrawer.css";
+import { useOnline } from "../../hooks/useOnline";
+import { Skeleton } from "../pwa/Skeleton";
+import { PublicImage } from "../pwa/PublicImage";
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("es-MX", {
@@ -16,6 +19,7 @@ function formatMoney(value: number) {
 }
 
 export default function CartDrawer() {
+  const online = useOnline();
   const {
     items,
     subtotal,
@@ -27,6 +31,8 @@ export default function CartDrawer() {
   } = useCart();
   const [recommendations, setRecommendations] = useState<CatalogProductView[]>([]);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
+  const [recommendationsFailed, setRecommendationsFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const itemIds = useMemo(() => items.map((item) => item.id), [items]);
   const itemIdsKey = useMemo(() => itemIds.map(String).sort().join("|"), [itemIds]);
 
@@ -53,16 +59,18 @@ export default function CartDrawer() {
       .map((itemId) => itemId.trim())
       .filter(Boolean);
 
-    if (!isCartOpen || currentItemIds.length === 0) {
+    if (!isCartOpen || currentItemIds.length === 0 || !online) {
       setRecommendations([]);
       setIsLoadingRecommendations(false);
       return;
     }
 
     let ignore = false;
+    const controller = new AbortController();
     setIsLoadingRecommendations(true);
+    setRecommendationsFailed(false);
 
-    fetchCartProductRecommendations(currentItemIds, 2)
+    fetchCartProductRecommendations(currentItemIds, 2, controller.signal)
       .then((nextRecommendations) => {
         if (ignore) return;
 
@@ -77,6 +85,7 @@ export default function CartDrawer() {
         if (ignore) return;
         console.warn("fetchCartProductRecommendations error:", error);
         setRecommendations([]);
+        setRecommendationsFailed(true);
       })
       .finally(() => {
         if (!ignore) setIsLoadingRecommendations(false);
@@ -84,8 +93,9 @@ export default function CartDrawer() {
 
     return () => {
       ignore = true;
+      controller.abort();
     };
-  }, [isCartOpen, itemIdsKey]);
+  }, [isCartOpen, itemIdsKey, online, attempt]);
 
   if (!isCartOpen) return null;
 
@@ -120,7 +130,7 @@ export default function CartDrawer() {
             <div className="shared-cart-items">
               {items.map((item) => (
                 <article key={item.id} className="shared-cart-item">
-                  <img
+                  <PublicImage
                     src={item.image}
                     alt={item.name}
                     className="shared-cart-item-image"
@@ -166,7 +176,7 @@ export default function CartDrawer() {
                 </article>
               ))}
 
-              {(isLoadingRecommendations || recommendations.length > 0) && (
+              {(isLoadingRecommendations || recommendations.length > 0 || !online || recommendationsFailed) && (
                 <section
                   className="shared-cart-recommendations"
                   aria-labelledby="shared-cart-recommendations-title"
@@ -183,9 +193,16 @@ export default function CartDrawer() {
                     </div>
                   </div>
 
-                  {isLoadingRecommendations ? (
+                  {!online || recommendationsFailed ? (
+                    <div className="pwa-resource-notice" role="status">
+                      <p>{online ? "No pudimos cargar recomendaciones." : "Las recomendaciones y el pago requieren conexión."}</p>
+                      <button type="button" onClick={() => setAttempt((value) => value + 1)}>Reintentar</button>
+                    </div>
+                  ) : isLoadingRecommendations ? (
                     <div className="shared-cart-recommendation-loading">
-                      Buscando recomendaciones...
+                      <span className="pwa-sr-only" role="status">Buscando recomendaciones…</span>
+                      <Skeleton style={{ height: 64, width: "100%", marginBottom: 12 }} />
+                      <Skeleton style={{ height: 64, width: "100%" }} />
                     </div>
                   ) : (
                     <div className="shared-cart-recommendation-list">
@@ -194,7 +211,7 @@ export default function CartDrawer() {
                         key={recommendation.id}
                         className="shared-cart-recommendation"
                       >
-                        <img
+                        <PublicImage
                           src={recommendation.image}
                           alt={recommendation.name}
                           className="shared-cart-recommendation-image"
@@ -208,6 +225,7 @@ export default function CartDrawer() {
                           <strong>{formatMoney(Number(recommendation.price))}</strong>
                           <button
                             type="button"
+                            disabled={!online || !recommendation.inStock}
                             onClick={() => addItem(recommendation)}
                             aria-label={`Agregar recomendacion ${recommendation.name}`}
                           >
@@ -234,7 +252,8 @@ export default function CartDrawer() {
             <Link
               to="/checkout"
               className="shared-cart-checkout"
-              onClick={closeCart}
+              aria-disabled={!online}
+              onClick={(event) => { if (!online) event.preventDefault(); else closeCart(); }}
             >
               Proceder al pago
             </Link>
