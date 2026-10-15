@@ -5,7 +5,7 @@ const DATABASE = "titanium-public-v1";
 const STORE = "resources";
 
 // Storage may be denied, evicted, full, or blocked by another tab. None of those
-// conditions should prevent rendering or leave a skeleton waiting forever.
+// conditions should block rendering or the decision to wait for a connection.
 function transaction<T>(mode: IDBTransactionMode,
   run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T | undefined> {
   return new Promise((resolve) => {

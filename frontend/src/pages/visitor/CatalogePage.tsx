@@ -296,7 +296,7 @@ export default function CatalogoPage() {
 
             <ResourceNotice resource={resource} />
             {isLoading ? (
-              <SkeletonCards className={cx("catalogProductsGrid")} />
+              <SkeletonCards waitingForConnection={resource.waitingForConnection} className={cx("catalogProductsGrid")} />
             ) : resource.error && !resource.data ? (
               <SkeletonCards count={3} unavailable className={cx("catalogProductsGrid")} />
             ) : filteredProducts.length === 0 ? (

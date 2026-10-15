@@ -295,7 +295,7 @@ export default function SuscripcionesPage() {
           <div className={styles.planGroups}>
             <ResourceNotice resource={resource} empty={membershipPlans.length === 0} />
             {(resource.loading || (!resource.data && resource.error)) &&
-              <SkeletonCards count={3} variant="plan" unavailable={!resource.loading} />}
+              <SkeletonCards count={3} variant="plan" unavailable={!resource.loading} waitingForConnection={resource.waitingForConnection} />}
             {planGroups.map((group) => (
               <section key={group.id} className={styles.planGroup}>
                 <div className={styles.planGroupHeader}>

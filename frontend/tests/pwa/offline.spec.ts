@@ -10,9 +10,10 @@ const products = [
   { id: "2", name: "Playera Titanium", price: 250, stock: 5, status: "Activo", productType: "Ropa", description: "Playera deportiva", imageUrl },
 ];
 const plan = { id: "plan-1", name: "Mensual Titanium", slug: "mensual", type: "individual", durationDays: 30, price: 499, minPeople: 1, maxPeople: 1, benefits: ["Acceso al gimnasio"], isActive: true, sortOrder: 1 };
+const waitingMessage = "Sin conexión. Esperando conexión para cargar el contenido";
 
 async function fixtures(context: BrowserContext, available = true) {
-  const state = { available, price: 550, requests: [] as { path: string; authorization?: string; cookie?: string }[] };
+  const state = { available, price: 550, latencyMs: 0, requests: [] as { path: string; authorization?: string; cookie?: string }[] };
   await context.route("https://t.contentsquare.net/**", (route) => route.abort());
   await context.route("https://www.google.com/**", (route) => route.abort());
   await context.route("https://res.cloudinary.com/**", (route) => route.fulfill({ status: 200, contentType: "image/png", body: image, headers: { "Access-Control-Allow-Origin": "*" } }));
@@ -22,6 +23,7 @@ async function fixtures(context: BrowserContext, available = true) {
     state.requests.push({ path, authorization: request.headers().authorization, cookie: request.headers().cookie });
     const headers = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*" };
     if (request.method() === "OPTIONS") { await route.fulfill({ status: 204, headers }); return; }
+    if (state.latencyMs) await new Promise((resolve) => setTimeout(resolve, state.latencyMs));
     if (!state.available) { await route.fulfill({ status: 503, json: { error: "Test: API unavailable" }, headers }); return; }
     const currentProducts = products.map((product) => product.id === "1" ? { ...product, price: state.price } : product);
     const detail = path.match(/\/products\/(\d+)$/);
@@ -46,6 +48,20 @@ async function shell(page: Page) {
   await expect(page.locator("footer")).toBeVisible();
   await expect(page.locator("header nav").first()).toBeVisible();
   await expect.poll(() => page.locator("header img, footer img").evaluateAll((images) => images.every((img) => (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth > 0))).toBe(true);
+}
+
+async function persistentSkeletons(page: Page, count = 1) {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  const grids = page.getByLabel("Esperando conexión para cargar el contenido", { exact: true });
+  await expect(grids).toHaveCount(count);
+  await expect(page.getByText(waitingMessage, { exact: true })).toHaveCount(count);
+  await expect(page.locator(".pwa-skeleton-grid.unavailable")).toHaveCount(0);
+  // Observe a real CSS animation surviving well beyond the former 250 ms
+  // cutoff. Infinite iteration ensures it has no CSS expiration either.
+  const skeleton = grids.first().locator(".pwa-skeleton").first();
+  expect(await skeleton.evaluate((node) => getComputedStyle(node).animationIterationCount)).toBe("infinite");
+  await expect.poll(() => skeleton.evaluate((node) => Number(node.getAnimations()[0]?.currentTime ?? 0))).toBeGreaterThan(1100);
+  await expect(grids).toHaveCount(count);
 }
 
 test("A/F: home reload, assets, fonts and public routes work after initial precache", async ({ page, context }) => {
@@ -80,28 +96,24 @@ test("A/F: home reload, assets, fonts and public routes work after initial preca
   for (const route of ["/suscripciones", "/about", "/AboutPage", "/AboutePage", "/about?ref=pwa"]) {
     await page.goto(route);
     await shell(page);
-    await expect(page.getByText("Sin conexión. No hay datos guardados para esta sección.").first()).toBeVisible();
+    await expect(page.getByText(waitingMessage).first()).toBeVisible();
   }
   await page.screenshot({ path: "test-results/about-offline.png", fullPage: true });
 });
 
-test("B/D: first catalogue and detail visit offline settle from skeletons to explicit unavailable state", async ({ page, context }) => {
+test("B/D: first catalogue and detail visits offline keep animated skeletons while awaiting connection", async ({ page, context }) => {
   await fixtures(context, false);
   await page.goto("/");
   await ready(page);
   await context.setOffline(true);
   await page.goto("/catalogue", { waitUntil: "domcontentloaded" });
-  await expect(page.locator('.pwa-skeleton-grid[aria-busy="true"]')).toBeVisible();
-  await expect(page.getByText("Sin conexión. No hay datos guardados para esta sección.", { exact: true })).toBeVisible();
-  await expect(page.locator('.pwa-skeleton-grid[aria-busy="true"]')).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Reintentar", exact: true })).toBeVisible();
+  await persistentSkeletons(page);
   await shell(page);
   await expect(page.getByRole("heading", { name: "Catalogo de productos" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Agregar al carrito" })).toHaveCount(0);
   await page.screenshot({ path: "test-results/catalogue-offline-empty.png", fullPage: true });
   await page.goto("/catalogue/999");
-  await expect(page.getByText("Sin conexión. No hay datos guardados para esta sección.", { exact: true })).toBeVisible();
-  await expect(page.locator('.pwa-skeleton-grid[aria-busy="true"]')).toHaveCount(0);
+  await persistentSkeletons(page);
   await shell(page);
 });
 
@@ -118,6 +130,7 @@ test("C: saved catalogue, text search, viewed and unvisited saved product detail
   await page.goto("/catalogue");
   await expect(page.getByRole("heading", { name: "Proteína Titanium", exact: true })).toBeVisible();
   await expect(page.getByText(/Mostrando contenido guardado/)).toBeVisible();
+  await expect(page.locator(".pwa-skeleton-grid")).toHaveCount(0);
   await page.getByRole("textbox", { name: "Buscar productos" }).fill("Playera");
   await expect(page.getByRole("heading", { name: "Playera Titanium", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Proteína Titanium", exact: true })).toHaveCount(0);
@@ -127,6 +140,7 @@ test("C: saved catalogue, text search, viewed and unvisited saved product detail
   for (const [id, name] of [["1", "Proteína Titanium"], ["2", "Playera Titanium"]]) {
     await page.goto(`/catalogue/${id}`);
     await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
+    await expect(page.locator(".pwa-skeleton-grid.detail")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Agregar al carrito", exact: true })).toBeDisabled();
     await shell(page);
   }
@@ -138,10 +152,11 @@ test("E: reconnect refreshes public data automatically and retry fetches new pri
   await ready(page);
   await context.setOffline(true);
   await page.goto("/catalogue");
-  await expect(page.getByRole("button", { name: "Reintentar" })).toBeVisible();
+  await persistentSkeletons(page);
   state.available = true;
   await context.setOffline(false);
   await expect(page.getByRole("heading", { name: "Proteína Titanium", exact: true })).toBeVisible();
+  await expect(page.locator(".pwa-skeleton-grid")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Agregar al carrito", exact: true }).first()).toBeEnabled();
   state.price = 575;
   await context.setOffline(true);
@@ -163,9 +178,11 @@ test("public persistence excludes credentials and private cache entries; plans r
   await page.goto("/suscripciones");
   await ready(page);
   await expect(page.getByRole("heading", { name: "Mensual Titanium", exact: true })).toBeVisible();
+  await expect(page.locator(".pwa-skeleton-grid")).toHaveCount(0);
   await context.setOffline(true);
   await page.reload();
   await expect(page.getByRole("heading", { name: "Mensual Titanium", exact: true })).toBeVisible();
+  await expect(page.locator(".pwa-skeleton-grid")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Comenzar Ahora" })).toHaveAttribute("aria-disabled", "true");
   expect(state.requests.filter((request) => request.path.endsWith("/memberships/plans")).every((request) => !request.authorization && !request.cookie)).toBe(true);
   const snapshot = await page.evaluate(async () => {
@@ -178,7 +195,7 @@ test("public persistence excludes credentials and private cache entries; plans r
   expect(urls.some((url) => /\/api\/|\/payment|\/admin|\/cliente/.test(url))).toBe(false);
 });
 
-test("loading is bounded on an unresponsive API and respects reduced motion", async ({ page, context }) => {
+test("online loading is bounded on an unresponsive API and respects reduced motion", async ({ page, context }) => {
   await fixtures(context, false);
   await context.route(/\/api\/products$/, async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 10_000));
@@ -199,7 +216,7 @@ test("mobile public shell and skeleton fit the viewport", async ({ page, context
   await ready(page);
   await context.setOffline(true);
   await page.goto("/catalogue");
-  await expect(page.getByRole("button", { name: "Reintentar" })).toBeVisible();
+  await expect(page.getByText(waitingMessage)).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expect(page.locator("header").first()).toBeVisible();
   await expect(page.locator("footer")).toBeVisible();
@@ -276,7 +293,7 @@ test("manifest icons decode at the requested sizes and Chromium finds no install
   await cdp.detach();
 });
 
-test("unavailable IndexedDB leaves online content usable and offline loading bounded", async ({ page, context }) => {
+test("unavailable IndexedDB leaves online content usable and offline skeletons waiting for connection", async ({ page, context }) => {
   await fixtures(context);
   await page.addInitScript(() => Object.defineProperty(window, "indexedDB", { get() { throw new Error("Test: storage denied"); } }));
   await page.goto("/catalogue");
@@ -284,8 +301,7 @@ test("unavailable IndexedDB leaves online content usable and offline loading bou
   await expect(page.getByRole("heading", { name: "Proteína Titanium", exact: true })).toBeVisible();
   await context.setOffline(true);
   await page.reload();
-  await expect(page.getByText("Sin conexión. No hay datos guardados para esta sección.")).toBeVisible();
-  await expect(page.locator('.pwa-skeleton-grid[aria-busy="true"]')).toHaveCount(0);
+  await persistentSkeletons(page);
 });
 
 test("partial saved gym information retains local informational text and images offline", async ({ page, context }) => {
@@ -301,4 +317,81 @@ test("partial saved gym information retains local informational text and images 
   await expect(page.getByText(/En Titanium Sport Gym, hemos creado un espacio/)).toBeVisible();
   await expect(page.getByText(/Mapa no disponible sin conexión/)).toBeVisible();
   await shell(page);
+});
+
+for (const scenario of [
+  { route: "/catalogue/1", grids: 1, heading: "Proteína Titanium" },
+  { route: "/suscripciones", grids: 1, heading: "Mensual Titanium" },
+  { route: "/", grids: 2, heading: "Proteína Titanium" },
+]) {
+  test(`${scenario.route}: offline skeletons persist until real data arrives after reconnection`, async ({ page, context }) => {
+    const state = await fixtures(context, false);
+    await page.goto("/");
+    await ready(page);
+    await context.setOffline(true);
+    await page.goto(scenario.route);
+    await persistentSkeletons(page, scenario.grids);
+    await shell(page);
+    if (scenario.route === "/") {
+      await expect(page.getByRole("heading", { name: "Titanium Sport Gym", exact: true })).toBeVisible();
+      expect(await page.locator("main img").count()).toBeGreaterThan(0);
+    }
+    state.available = true;
+    state.latencyMs = 1500;
+    await context.setOffline(false);
+    // Restoring the connection alone is insufficient: keep the skeleton while
+    // the real network request is still waiting for its controlled response.
+    await expect(page.getByText(waitingMessage, { exact: true })).toHaveCount(0);
+    await expect(page.locator('.pwa-skeleton-grid[aria-busy="true"]').first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: scenario.heading, exact: true })).toBeVisible();
+    await expect(page.locator('.pwa-skeleton-grid[aria-busy="true"]')).toHaveCount(0);
+    if (scenario.route === "/") await expect(page.getByRole("heading", { name: "Mensual Titanium", exact: true })).toBeVisible();
+  });
+}
+
+test("offline waiting respects reduced motion without replacing the skeleton", async ({ page, context }) => {
+  await fixtures(context, false);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await ready(page);
+  await context.setOffline(true);
+  await page.goto("/catalogue");
+  const grid = page.getByLabel("Esperando conexión para cargar el contenido", { exact: true });
+  await expect(grid).toBeVisible();
+  // Run beyond the previous cutoff, even when there is no animation clock to
+  // observe. A real offline event and real IndexedDB lookup still happen.
+  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1200)));
+  await expect(grid).toBeVisible();
+  expect(await grid.locator(".pwa-skeleton").first().evaluate((node) => getComputedStyle(node).animationName)).toBe("none");
+  await expect(page.locator(".pwa-skeleton-grid.unavailable")).toHaveCount(0);
+  await expect(page.getByText(waitingMessage)).toBeVisible();
+});
+
+test("reconnecting to a failing backend stops loading and offers retry without a saved snapshot", async ({ page, context }) => {
+  const state = await fixtures(context, false);
+  await page.goto("/");
+  await ready(page);
+  await context.setOffline(true);
+  await page.goto("/catalogue");
+  await persistentSkeletons(page);
+  await context.setOffline(false);
+  await expect(page.getByText(/No pudimos contactar al servidor/)).toBeVisible();
+  await expect(page.locator('.pwa-skeleton-grid[aria-busy="true"]')).toHaveCount(0);
+  state.available = true;
+  await page.getByRole("button", { name: "Reintentar", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Proteína Titanium", exact: true })).toBeVisible();
+  await expect(page.locator(".pwa-skeleton-grid")).toHaveCount(0);
+});
+
+test("a saved empty catalogue is usable offline without waiting skeletons", async ({ page, context }) => {
+  await fixtures(context);
+  await context.route(/\/api\/products$/, (route) => route.fulfill({ status: 200, json: [], headers: { "Access-Control-Allow-Origin": "*" } }));
+  await page.goto("/catalogue");
+  await ready(page);
+  await expect(page.getByRole("heading", { name: "No encontramos coincidencias", exact: true })).toBeVisible();
+  await context.setOffline(true);
+  await page.reload();
+  await expect(page.getByText(/Mostrando contenido guardado/)).toBeVisible();
+  await expect(page.getByText(waitingMessage)).toHaveCount(0);
+  await expect(page.locator(".pwa-skeleton-grid")).toHaveCount(0);
 });

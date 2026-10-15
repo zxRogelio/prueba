@@ -534,7 +534,7 @@ export default function HomePage() {
           <div className={cx("home-store__viewport")}>
             <ResourceNotice resource={storeResource} empty={storeProducts.length === 0} />
             {(storeResource.loading || (!storeResource.data && storeResource.error)) &&
-              <SkeletonCards count={3} unavailable={!storeResource.loading} />}
+              <SkeletonCards count={3} unavailable={!storeResource.loading} waitingForConnection={storeResource.waitingForConnection} />}
             <div ref={productTrackRef} className={cx("home-store__track")}>
               {homeStoreProducts.map((product) => (
                 <article key={product.id} className={cx("home-product-card")}>
@@ -638,7 +638,7 @@ export default function HomePage() {
 
           <ResourceNotice resource={plansResource} empty={membershipPlans.length === 0} />
           {(plansResource.loading || (!plansResource.data && plansResource.error)) &&
-            <SkeletonCards count={3} variant="plan" unavailable={!plansResource.loading} />}
+            <SkeletonCards count={3} variant="plan" unavailable={!plansResource.loading} waitingForConnection={plansResource.waitingForConnection} />}
           <div className={cx("home-plans__grid")}>
             {homePlanCards.map((plan) => (
               <article

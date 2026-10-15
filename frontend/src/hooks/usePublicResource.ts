@@ -14,7 +14,11 @@ export function usePublicResource<T>(key: PublicKey, loader: (signal: AbortSigna
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
-    setState({ key, loading: true, stale: false, error: false });
+    // Preserve rendered data while rechecking storage or revalidating it. An
+    // online/offline event must not replace a saved catalogue with skeletons.
+    setState((previous) => previous.key === key && previous.data !== undefined
+      ? { ...previous, loading: false, stale: true, error: false }
+      : { key, loading: true, stale: false, error: false });
     async function load() {
       let cached = await readPublic<T>(key);
       // A product from the saved catalogue is also usable on a first detail visit.
@@ -26,9 +30,9 @@ export function usePublicResource<T>(key: PublicKey, loader: (signal: AbortSigna
       if (!active) return;
       if (cached) setState({ key, ...cached, loading: false, stale: true, error: false });
       if (!online) {
-        // Give the loading state one frame even when storage is empty and fast.
-        await new Promise((resolve) => setTimeout(resolve, 250));
-        if (active) setState({ key, ...cached, loading: false, stale: Boolean(cached), error: !cached });
+        // Deliberately wait without a timer when there is no local snapshot.
+        // The online event reruns this effect and starts a bounded API request.
+        setState({ key, ...cached, loading: !cached, stale: Boolean(cached), error: false });
         return;
       }
       try {
@@ -46,5 +50,13 @@ export function usePublicResource<T>(key: PublicKey, loader: (signal: AbortSigna
   }, [key, loader, online, attempt]);
 
   const current = state.key === key ? state : { loading: true, stale: false, error: false, data: undefined, savedAt: undefined };
-  return { ...current, online, retry };
+  const waitingForConnection = !online && current.data === undefined;
+  return {
+    ...current,
+    loading: current.loading || waitingForConnection,
+    error: online && current.error,
+    waitingForConnection,
+    online,
+    retry,
+  };
 }

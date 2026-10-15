@@ -5,11 +5,12 @@ export function Skeleton({ className = "", style }: { className?: string; style?
   return <span aria-hidden="true" className={`pwa-skeleton ${className}`} style={style} />;
 }
 
-export function SkeletonCards({ count = 6, variant = "product", unavailable = false, className = "" }: {
-  count?: number; variant?: "product" | "plan" | "detail"; unavailable?: boolean; className?: string;
+export function SkeletonCards({ count = 6, variant = "product", unavailable = false, waitingForConnection = false, className = "" }: {
+  count?: number; variant?: "product" | "plan" | "detail"; unavailable?: boolean; waitingForConnection?: boolean; className?: string;
 }) {
   return <div className={`pwa-skeleton-grid ${variant} ${className} ${unavailable ? "unavailable" : ""}`}
-    aria-busy={!unavailable} aria-label={unavailable ? "Contenido no disponible sin conexión" : "Cargando contenido"}>
+    aria-busy={!unavailable} aria-label={unavailable ? "Contenido no disponible"
+      : waitingForConnection ? "Esperando conexión para cargar el contenido" : "Cargando contenido"}>
     {Array.from({ length: count }, (_, index) => <article className={`pwa-skeleton-card ${variant}`} key={index}>
       {variant !== "plan" && <Skeleton className="pwa-skeleton-image" />}
       <div className="pwa-skeleton-copy">

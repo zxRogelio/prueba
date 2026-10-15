@@ -70,7 +70,8 @@ export default function CatalogProductPage() {
       <main className={cx("detailPage")}>
         <div className={cx("detailShell")}>
           <h1>Detalle del producto</h1>
-          <SkeletonCards count={1} variant="detail" />
+          <ResourceNotice resource={resource} />
+          <SkeletonCards count={1} variant="detail" waitingForConnection={resource.waitingForConnection} />
         </div>
       </main>
     );
@@ -147,7 +148,7 @@ export default function CatalogProductPage() {
 
         <ResourceNotice resource={resource} />
         <ResourceNotice resource={recommendationResource} />
-        {recommendationResource.loading && <SkeletonCards count={3} />}
+        {recommendationResource.loading && <SkeletonCards count={3} waitingForConnection={recommendationResource.waitingForConnection} />}
 
         <section className={cx("detailFooterNav")}>
           <Link to="/catalogue" className={cx("detailBackButton")}>
