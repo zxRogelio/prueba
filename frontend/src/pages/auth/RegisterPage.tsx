@@ -11,6 +11,8 @@ import {
 import { API } from "../../api/api";
 import "../../styles/auth.css";
 import AuthInputField from "./AuthInputField";
+import { useOnline } from "../../hooks/useOnline";
+import { OfflineOperationNotice } from "../../components/pwa/OfflineOperationNotice";
 
 type PasswordChecks = {
   length: boolean;
@@ -49,6 +51,7 @@ function extractRegisterErrorMessage(error: unknown) {
 }
 
 export default function RegisterPage() {
+  const online = useOnline();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -91,6 +94,7 @@ export default function RegisterPage() {
 
   const handleRegister = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!navigator.onLine) return;
     setErrorMessage("");
 
     if (!validateEmail(email)) {
@@ -152,6 +156,7 @@ export default function RegisterPage() {
                 Registrate en Titanium Sport Gym y comienza tu transformacion
               </p>
 
+              <OfflineOperationNotice online={online} />
               <form className="auth-form" onSubmit={handleRegister}>
                 {errorMessage && (
                   <div className="auth-error">
@@ -251,7 +256,7 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   className="auth-btn-primary"
-                  disabled={loading}
+                  disabled={loading || !online}
                 >
                   {loading ? "Registrando..." : "Crear Cuenta"}
                 </button>

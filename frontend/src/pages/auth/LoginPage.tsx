@@ -16,6 +16,8 @@ import {
 } from "../../utils/authRouting";
 import "../../styles/auth.css";
 import AuthInputField from "./AuthInputField";
+import { useOnline } from "../../hooks/useOnline";
+import { OfflineOperationNotice } from "../../components/pwa/OfflineOperationNotice";
 
 interface LoginLock {
   email: string;
@@ -58,6 +60,7 @@ function getRedirectAfterLogin(state: unknown, fallbackPath: string) {
 }
 
 export default function LoginPage() {
+  const online = useOnline();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -109,12 +112,14 @@ export default function LoginPage() {
   }, [lockSeconds]);
 
   const handleGoogleLogin = () => {
+    if (!navigator.onLine) return;
     const baseUrl = import.meta.env.VITE_API_URL;
     window.location.href = `${baseUrl}/auth/google`;
   };
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!navigator.onLine) return;
     setErrorMessage("");
 
     if (isLocked) {
@@ -226,6 +231,7 @@ export default function LoginPage() {
                 productos exclusivos.
               </p>
 
+              <OfflineOperationNotice online={online} />
               <form className="auth-form" onSubmit={handleLogin}>
                 {errorMessage && (
                   <div className="auth-error">
@@ -283,7 +289,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   className="auth-btn-primary"
-                  disabled={loading || isLocked}
+                  disabled={loading || isLocked || !online}
                 >
                   {loading
                     ? "Iniciando..."
@@ -296,6 +302,7 @@ export default function LoginPage() {
                   type="button"
                   className="auth-btn-google"
                   onClick={handleGoogleLogin}
+                  disabled={!online}
                 >
                   <FaGoogle className="auth-icon" />
                   Continuar con Google

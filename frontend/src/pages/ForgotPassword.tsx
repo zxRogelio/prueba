@@ -2,12 +2,16 @@
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { API } from "../api/api";
+import { useOnline } from "../hooks/useOnline";
+import { OfflineOperationNotice } from "../components/pwa/OfflineOperationNotice";
 
 export default function ForgotPasswordPage() {
+  const online = useOnline();
   const { register, handleSubmit } = useForm();
   const navigate = useNavigate();
 
   const onSubmit = async (data: any) => {
+    if (!navigator.onLine) return;
     try {
       const res = await API.post("/auth/forgot-password", {
         email: data.email,
@@ -49,12 +53,14 @@ export default function ForgotPasswordPage() {
             Ingresa tu correo electrónico y te enviaremos un código
           </p>
 
+          <OfflineOperationNotice online={online} />
           <form onSubmit={handleSubmit(onSubmit)} className="auth-form">
             <div className="auth-input-group">
               <label className="auth-label" htmlFor="email">
                 Correo electrónico
               </label>
               <input
+                id="email"
                 type="email"
                 className="auth-input"
                 placeholder="correo@titaniumgym.com"
@@ -62,7 +68,7 @@ export default function ForgotPasswordPage() {
               />
             </div>
 
-            <button type="submit" className="auth-btn-primary">
+            <button type="submit" className="auth-btn-primary" disabled={!online}>
               Enviar código
             </button>
           </form>

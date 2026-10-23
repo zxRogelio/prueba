@@ -5,7 +5,7 @@ import { extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const pageCache = "titanium-public-pages-v1";
-const paths = ["/", "/catalogue", "/suscripciones", "/about", "/terms", "/aviso-privacidad"];
+const paths = ["/", "/catalogue", "/suscripciones", "/about", "/terms", "/aviso-privacidad", "/login", "/register", "/forgot-password"];
 const footerLinks = [
   ["Inicio", "/"], ["Catálogo", "/catalogue"], ["Membresías", "/suscripciones"],
   ["Acerca de nosotros", "/about"], ["Términos y condiciones", "/terms"], ["Aviso de privacidad", "/aviso-privacidad"],
@@ -51,7 +51,7 @@ test("public routes are prepared without per-route downloads and visible through
   expect(new Set(html).size).toBe(1);
   expect(html[0]).toContain('<div id="root"></div>');
   // This is the actual Chrome DevTools Protocol backing Application > Cache
-  // Storage, not a mocked Cache API. It exposes the six prepared navigation URLs.
+  // Storage, not a mocked Cache API. It exposes the prepared navigation URLs.
   const cdp = await context.newCDPSession(page);
   const { caches: listed } = await cdp.send("CacheStorage.requestCacheNames", { securityOrigin: "http://localhost:4173" });
   const entry = listed.find((cache) => cache.cacheName === pageCache);
@@ -140,7 +140,7 @@ test("query strings and authenticated/private requests never become page-cache e
   }, pageCache);
   expect(entries).toHaveLength(paths.length);
   expect(entries.every((entry) => !new URL(entry.url).search && !entry.authorization && !entry.html.includes(sentinel))).toBe(true);
-  expect(entries.some((entry) => /\/api\/|\/admin|\/cliente|\/login|\/payment/.test(entry.url))).toBe(false);
+  expect(entries.some((entry) => /\/api\/|\/admin|\/cliente|\/payment/.test(entry.url))).toBe(false);
 });
 
 test("real SW update refreshes HTML aliases, removes old versions and preserves images/IndexedDB", async ({ page, context }) => {

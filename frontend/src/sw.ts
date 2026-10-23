@@ -40,7 +40,7 @@ self.addEventListener("activate", (event) => {
       if (url.origin === self.location.origin && !url.search && path &&
           request.method === "GET" && !request.headers.has("authorization")) paths.add(path);
     }
-    // Six small copies of the same precached HTML, with NO per-route downloads.
+    // One small copy of the precached HTML per path, with NO route downloads.
     // The JS, CSS, images and fonts remain in the single Workbox precache.
     await Promise.all([...paths].map((path) => cache.put(pageKey(path), shell.clone())));
     const expected = new Set([...paths].map(pageKey));
