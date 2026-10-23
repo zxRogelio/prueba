@@ -155,6 +155,21 @@
   font-weight: 500;
 }
 
+.footer-legal-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.footer-legal-link:hover {
+  color: var(--primary, #ef4444);
+}
+
+.smart-footer a:focus-visible {
+  outline: 2px solid var(--primary, #ef4444);
+  outline-offset: 4px;
+}
+
 @media (max-width: 1024px) {
   .footer-content {
     grid-template-columns: 1fr;

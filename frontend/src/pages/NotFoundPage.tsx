@@ -68,13 +68,13 @@ export default function NotFoundPage() {
           </div>
 
           <div className="not-found-footer-links">
-            <Link to="/contact" className="not-found-footer-link">
+            <a href="mailto:tsghuejutla@gmail.com" className="not-found-footer-link">
               Contactar Soporte
+            </a>
+            <Link to="/about" className="not-found-footer-link">
+              Acerca de Titanium
             </Link>
-            <Link to="/faq" className="not-found-footer-link">
-              Preguntas Frecuentes
-            </Link>
-            <Link to="/privacy" className="not-found-footer-link">
+            <Link to="/aviso-privacidad" className="not-found-footer-link">
               Privacidad
             </Link>
             <Link to="/terms" className="not-found-footer-link">

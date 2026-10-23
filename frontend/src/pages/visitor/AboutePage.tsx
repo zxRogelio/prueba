@@ -167,9 +167,9 @@ const DEFAULT_ABOUT_CONTENT: Partial<AboutPageDTO> = {
     "Av. Corona del Rosal N 15. Col. 5 de mayo. Huejutla, Hidalgo Mexico.",
   ctaPhone: "771 197 6803",
   ctaPrimaryButtonText: "Contactanos",
-  ctaPrimaryButtonLink: "/contacto",
-  ctaSecondaryButtonText: "Ver Servicios",
-  ctaSecondaryButtonLink: "/servicios",
+  ctaPrimaryButtonLink: "mailto:tsghuejutla@gmail.com",
+  ctaSecondaryButtonText: "Ver membresías",
+  ctaSecondaryButtonLink: "/suscripciones",
 };
 
 const TITANIUM_MAP_QUERY =
@@ -794,8 +794,8 @@ export default function AboutUs() {
                   siente
                 </h2>
                 <p className={cx("section-copy-modern")}>
-                  Todo sigue saliendo de tu admin, pero ahora con una jerarquia
-                  mucho mas clara y con lectura visual tipo landing premium.
+                  Conoce los principios que guían nuestro trabajo y nuestro
+                  compromiso con tu entrenamiento, bienestar y comunidad.
                 </p>
               </div>
             </div>

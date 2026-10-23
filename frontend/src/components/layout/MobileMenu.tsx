@@ -50,7 +50,7 @@ const MobileMenu = ({ onClose, transparent = false }: Props) => {
         >
           SUSCRIPCIONES
         </Link>
-        <Link to="/AboutePage" className={menuStyles.link} onClick={onClose}>
+        <Link to="/about" className={menuStyles.link} onClick={onClose}>
           ACERCA DE
         </Link>
 

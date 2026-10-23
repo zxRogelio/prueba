@@ -35,7 +35,7 @@ const sharedNavItems: NavItem[] = [
   { to: "/", label: "INICIO", icon: FaHome, end: true },
   { to: "/catalogue", label: "PRODUCTOS", icon: FaDumbbell },
   { to: "/suscripciones", label: "SUSCRIPCIONES", icon: FaIdCard },
-  { to: "/AboutePage", label: "ACERCA DE NOSOTROS", icon: FaInfoCircle },
+  { to: "/about", label: "ACERCA DE NOSOTROS", icon: FaInfoCircle },
 ];
 
 const Navbar = ({ scrolled, onToggleMobile }: Props) => {

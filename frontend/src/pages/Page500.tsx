@@ -118,7 +118,7 @@ export default function Error500Page() {
               </h4>
               <ul className="not-found-link-list">
                 <li className="not-found-link-item">
-                  <Link to="/contacto" className="not-found-link">
+                  <a href="mailto:tsghuejutla@gmail.com" className="not-found-link">
                     <svg
                       className="not-found-link-icon"
                       viewBox="0 0 24 24"
@@ -129,10 +129,10 @@ export default function Error500Page() {
                       <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" />
                     </svg>
                     Soporte Técnico
-                  </Link>
+                  </a>
                 </li>
                 <li className="not-found-link-item">
-                  <Link to="/contacto" className="not-found-link">
+                  <a href="mailto:tsghuejutla@gmail.com" className="not-found-link">
                     <svg
                       className="not-found-link-icon"
                       viewBox="0 0 24 24"
@@ -144,7 +144,7 @@ export default function Error500Page() {
                       <path d="M22 6l-10 7L2 6" />
                     </svg>
                     Correo Electrónico
-                  </Link>
+                  </a>
                 </li>
               </ul>
             </div>
@@ -165,7 +165,7 @@ export default function Error500Page() {
               </h4>
               <ul className="not-found-link-list">
                 <li className="not-found-link-item">
-                  <Link to="/faq" className="not-found-link">
+                  <Link to="/about" className="not-found-link">
                     <svg
                       className="not-found-link-icon"
                       viewBox="0 0 24 24"
@@ -175,11 +175,11 @@ export default function Error500Page() {
                     >
                       <path d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Preguntas Frecuentes
+                    Información del gimnasio
                   </Link>
                 </li>
                 <li className="not-found-link-item">
-                  <Link to="/status" className="not-found-link">
+                  <Link to="/" className="not-found-link">
                     <svg
                       className="not-found-link-icon"
                       viewBox="0 0 24 24"
@@ -189,7 +189,7 @@ export default function Error500Page() {
                     >
                       <path d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
-                    Estado del Servicio
+                    Volver al inicio
                   </Link>
                 </li>
               </ul>
@@ -210,13 +210,13 @@ export default function Error500Page() {
           </div>
 
           <div className="not-found-footer-links">
-            <Link to="/contacto" className="not-found-footer-link">
+            <a href="mailto:tsghuejutla@gmail.com" className="not-found-footer-link">
               Contactar Soporte
+            </a>
+            <Link to="/about" className="not-found-footer-link">
+              Acerca de Titanium
             </Link>
-            <Link to="/faq" className="not-found-footer-link">
-              Preguntas Frecuentes
-            </Link>
-            <Link to="/privacy" className="not-found-footer-link">
+            <Link to="/aviso-privacidad" className="not-found-footer-link">
               Privacidad
             </Link>
             <Link to="/terms" className="not-found-footer-link">

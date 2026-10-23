@@ -106,7 +106,7 @@ const heroSlides: HeroSlide[] = [
     title: "Coaching Titanium",
     accent: "Tecnica, energia y acompanamiento",
     description:
-      "Cada sesion busca que avances con mas estructura, mejor ejecucion y una experiencia visual mucho mas fuerte en todo el home.",
+      "Avanza con una rutina estructurada, mejora tu técnica y recibe acompañamiento en cada sesión de entrenamiento.",
     image: HeroCoaching,
   },
   {
@@ -114,7 +114,7 @@ const heroSlides: HeroSlide[] = [
     title: "Comunidad real",
     accent: "Disciplina, identidad y constancia",
     description:
-      "Titanium no se siente generico. Tiene ambiente propio, bloques claros y una narrativa visual mas cercana a la referencia que me mostraste.",
+      "Comparte tus metas con una comunidad que te acompaña y encuentra la motivación para entrenar con constancia.",
     image: HeroTeam,
   },
 ];
@@ -124,7 +124,7 @@ const welcomeFeatures: WelcomeFeature[] = [
     icon: FaMoneyBillWave,
     title: "La mejor relacion calidad-precio para arrancar fuerte",
     description:
-      "Planes claros, acceso real al gimnasio y una experiencia mucho mas premium sin sentirse lejana o fria.",
+      "Conoce nuestros planes y elige la opción que mejor se adapte a tu rutina y tus objetivos.",
     badge: "Planes desde $299",
     image: HeroExterior,
     linkLabel: "Ver suscripciones",
@@ -137,18 +137,18 @@ const welcomeFeatures: WelcomeFeature[] = [
       "Zona de pesas, cardio y trabajo funcional en un recorrido que se siente activo, amplio y con energia.",
     badge: "Zona de fuerza y cardio",
     image: HeroCoaching,
-    linkLabel: "Explorar servicios",
-    linkTo: "/servicios",
+    linkLabel: "Conocer el gimnasio",
+    linkTo: "/about",
   },
   {
     icon: FaGlobeAmericas,
     title: "Una comunidad que si te hace volver cada semana",
     description:
-      "No vendes solo maquinas. Vendes ambiente, constancia, coaches visibles y un lugar donde entrenar se siente natural.",
+      "Entrena en un ambiente cercano, comparte tus avances y construye hábitos junto a la comunidad Titanium.",
     badge: "Comunidad Titanium",
     image: HeroTeam,
     linkLabel: "Conocer mas",
-    linkTo: "/AboutePage",
+    linkTo: "/about",
   },
 ];
 
@@ -361,7 +361,7 @@ export default function HomePage() {
                 SUSCRIBETE
               </Link>
               <Link
-                to="/AboutePage"
+                to="/about"
                 className={cx("home-button home-button--outline")}
               >
                 CONOCE MAS
@@ -449,9 +449,8 @@ export default function HomePage() {
               UN LUGAR DONDE <span>TODOS</span> SE SIENTEN BIENVENIDOS
             </h2>
             <p className={cx("home-section-text")}>
-              Tomando tu referencia, esta zona ahora baja del slider con una
-              presencia mas fuerte: imagen protagonista, corte diagonal,
-              informacion clara y una lectura visual mucho mas viva.
+              Encuentra un espacio para entrenar a tu ritmo, conocer a otros
+              miembros y trabajar en tus metas con el apoyo de nuestro equipo.
             </p>
           </div>
 
@@ -729,8 +728,8 @@ export default function HomePage() {
               NUESTROS <span>ENTRENADORES</span>
             </h2>
             <p className={cx("home-section-text")}>
-              Un equipo visible, cercano y alineado al tipo de experiencia que
-              quieres transmitir en todo el home.
+              Conoce al equipo que te acompaña, resuelve tus dudas y te ayuda
+              a mejorar tu técnica durante el entrenamiento.
             </p>
           </div>
 

@@ -151,7 +151,7 @@ export default function Error400Page() {
                   </Link>
                 </li>
                 <li className="not-found-link-item">
-                  <Link to="/servicios" className="not-found-link">
+                  <Link to="/about" className="not-found-link">
                     <svg
                       className="not-found-link-icon"
                       viewBox="0 0 24 24"
@@ -161,11 +161,11 @@ export default function Error400Page() {
                     >
                       <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                     </svg>
-                    Nuestros Servicios
+                    Nuestro gimnasio
                   </Link>
                 </li>
                 <li className="not-found-link-item">
-                  <Link to="/membresias" className="not-found-link">
+                  <Link to="/suscripciones" className="not-found-link">
                     <svg
                       className="not-found-link-icon"
                       viewBox="0 0 24 24"
@@ -198,7 +198,7 @@ export default function Error400Page() {
               </h4>
               <ul className="not-found-link-list">
                 <li className="not-found-link-item">
-                  <Link to="/horarios" className="not-found-link">
+                  <Link to="/" className="not-found-link">
                     <svg
                       className="not-found-link-icon"
                       viewBox="0 0 24 24"
@@ -213,7 +213,7 @@ export default function Error400Page() {
                   </Link>
                 </li>
                 <li className="not-found-link-item">
-                  <Link to="/entrenadores" className="not-found-link">
+                  <Link to="/about" className="not-found-link">
                     <svg
                       className="not-found-link-icon"
                       viewBox="0 0 24 24"
@@ -230,7 +230,7 @@ export default function Error400Page() {
                   </Link>
                 </li>
                 <li className="not-found-link-item">
-                  <Link to="/blog" className="not-found-link">
+                  <Link to="/catalogue" className="not-found-link">
                     <svg
                       className="not-found-link-icon"
                       viewBox="0 0 24 24"
@@ -241,7 +241,7 @@ export default function Error400Page() {
                       <path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z" />
                       <path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z" />
                     </svg>
-                    Blog de Fitness
+                    Catálogo de productos
                   </Link>
                 </li>
               </ul>
@@ -262,13 +262,13 @@ export default function Error400Page() {
           </div>
 
           <div className="not-found-footer-links">
-            <Link to="/contacto" className="not-found-footer-link">
+            <a href="mailto:tsghuejutla@gmail.com" className="not-found-footer-link">
               Reportar Problema
+            </a>
+            <Link to="/about" className="not-found-footer-link">
+              Acerca de Titanium
             </Link>
-            <Link to="/faq" className="not-found-footer-link">
-              Ayuda
-            </Link>
-            <Link to="/privacy" className="not-found-footer-link">
+            <Link to="/aviso-privacidad" className="not-found-footer-link">
               Privacidad
             </Link>
             <Link to="/terms" className="not-found-footer-link">

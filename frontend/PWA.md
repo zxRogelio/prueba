@@ -31,23 +31,24 @@ En shells distintos de PowerShell puede usarse `npm`/`npx` sin `.cmd`. Si Node n
 
 | Grupo | Archivos creados o modificados |
 | --- | --- |
-| PWA/build | `vite.config.ts`, `index.html`, `vercel.json`, `package.json`, `package-lock.json`, `src/pwa-env.d.ts`, `.gitignore` |
+| PWA/build | `vite.config.ts`, `src/sw.ts`, `src/pwa/publicPageRoutes.ts`, `index.html`, `vercel.json`, `package.json`, `package-lock.json`, `src/pwa-env.d.ts`, `.gitignore` |
 | Iconos del logo existente | `public/icons/pwa-192.png`, `public/icons/pwa-512.png` |
 | Persistencia/peticiones públicas | `src/pwa/publicClient.ts`, `publicStore.ts`, `publicImages.ts`; `src/hooks/useOnline.ts`, `usePublicResource.ts` |
 | Componentes reutilizables | `src/components/pwa/Skeleton.tsx`, `PublicImage.tsx`, `ResourceNotice.tsx`, `PwaStatus.tsx`, `PwaWelcome.tsx`, `pwa.css` |
 | Voz | `src/hooks/useVoiceSearch.ts`, integración en `src/pages/visitor/CatalogePage.tsx` y su CSS |
 | Pantallas públicas | `HomePage.tsx`, `CatalogePage.tsx`, `CatalogProductPage.tsx`, `SuscripcionesPage.tsx`, `AboutePage.tsx`; `catalogData.ts`, `membershipPlanView.ts` |
 | Integración | `src/components/layout/PublicLayout/PublicLayout.tsx`, `src/components/catalog/CatalogProductDetail.tsx`, `src/components/cart/CartDrawer.tsx` |
+| Footer y navegación pública | `src/components/layout/Footer.tsx`, `Footer.css`, `Header/Header.tsx`, `Navbar/Navbar.tsx`, `MobileMenu.tsx`; enlaces de `src/pages/400.tsx`, `Page500.tsx`, `NotFoundPage.tsx`; textos y enlaces de inicio y acerca de |
 | Servicios públicos | `src/services/aboutService.ts`, nueva función `getPublicMembershipPlans` en `membershipService.ts`; la función existente de planes para pagos/paneles conserva su comportamiento |
 | Recursos locales | `src/main.tsx`, `src/styles/fonts.css`, `layout.css`; retiro de imports de Google Fonts de los CSS de inicio, catálogo, suscripciones y detalle |
-| Validación | `playwright.config.ts`, `tests/pwa/offline.spec.ts`, `tests/pwa/welcome.spec.ts`, este documento |
+| Validación | `playwright.config.ts`, `tests/pwa/offline.spec.ts`, `tests/pwa/welcome.spec.ts`, `tests/pwa/public-pages.spec.ts`, este documento |
 
-`dist/manifest.webmanifest`, `dist/sw.js` y `dist/workbox-*.js` son artefactos generados; `dist` permanece ignorado por Git. Las capturas y trazas quedan en `test-results/`, también ignorado.
+`dist/manifest.webmanifest` y `dist/sw.js` son artefactos generados; `dist` permanece ignorado por Git. Con `injectManifest`, Workbox se incluye en el propio SW y ya no se genera el archivo auxiliar `workbox-*.js` de la configuración anterior. Las capturas y trazas quedan en `test-results/`, también ignorado.
 
 ## Service Worker y datos
 
-- `vite-plugin-pwa` genera el SW con Workbox. Precarga HTML, todos los chunks JS/CSS, fuentes, iconos y las imágenes locales emitidas por Vite. Esto incluye el código de las pantallas aún no visitadas. El build verificado contiene **70 entradas de precaché, aproximadamente 5.63 MiB**.
-- El fallback `/index.html` permite abrir directamente inicio, catálogo, detalles, suscripciones y las tres rutas existentes de acerca de, también con parámetros de consulta. Está limitado a esas rutas públicas y no sustituye respuestas de API.
+- `vite-plugin-pwa` compila `src/sw.ts` con **`injectManifest`** y Workbox. Precarga HTML, todos los chunks JS/CSS, fuentes, iconos y las imágenes locales emitidas por Vite. Esto incluye el código de las pantallas aún no visitadas. El build verificado conserva **70 entradas de precaché, aproximadamente 5.63 MiB**. Los módulos Workbox utilizados se declaran explícitamente como dependencias de desarrollo, en la misma versión 7.4.1 ya presente en el lockfile.
+- El fallback del App Shell permite abrir y recargar directamente `/`, `/catalogue`, `/suscripciones`, `/about`, `/terms` y `/aviso-privacidad`, también con parámetros de consulta. Mantiene los alias anteriores `/AboutPage` y `/AboutePage`, y los detalles `/catalogue/:productId`. El contenido de los productos sigue dependiendo de IndexedDB o del backend; una copia del HTML no equivale a guardar los datos del producto. La lista de navegación es pública y explícita: no hay fallback de documentos para API, autenticación, pagos ni paneles privados.
 - El precaché se completa sin mostrar un aviso inicial de caché. El registro del SW y el funcionamiento offline se conservan. Las nuevas versiones muestran un botón **Actualizar**; la recarga requiere pulsarlo para evitar interrumpir formularios. Al volver la conexión se comprueban actualizaciones. Workbox elimina precachés obsoletos.
 - Las imágenes públicas de Cloudinary en `titanium/products/` y `titanium/about/` usan `CacheFirst`, con hasta 120 entradas y 30 días de vigencia. Se admiten respuestas opacas de imágenes entre orígenes. Las imágenes descargadas antes de que el primer SW tome control se solicitan nuevamente después del control para entrar en esa caché. Los demás orígenes no se guardan automáticamente; una imagen fallida muestra el logo local con una descripción de imagen no disponible.
 - IndexedDB `titanium-public-v1`, almacén `resources`, conserva exclusivamente snapshots públicos: productos normalizados, detalles, recomendaciones públicas de productos, planes públicos e información del gimnasio, con fecha de guardado. Un detalle puede recuperarse del catálogo guardado aunque no se haya abierto individualmente. No se precargan datos del catálogo como parte del App Shell.
@@ -59,6 +60,35 @@ En shells distintos de PowerShell puede usarse `npm`/`npx` sin `.cmd`. Si Node n
 - Fuentes, Font Awesome y Animate.css se empaquetan localmente. Los iconos de React se incluyen en JS. El mapa de Google muestra la dirección textual offline. El script de analítica existente queda asíncrono y no participa en el render ni en la caché offline; las redes sociales y el mapa online siguen siendo servicios externos.
 - Las acciones de compra desde datos guardados, sin conexión o sin contenido real quedan deshabilitadas. El carrito permite revisar su contenido y bloquea el enlace a checkout offline. No se difieren ni reproducen operaciones de pago al recuperar internet.
 - La voz usa `SpeechRecognition`/`webkitSpeechRecognition`, `es-MX`, resultado final único, actualización del buscador existente, cancelación y limpieza al desmontar. Se informan permisos denegados y navegadores incompatibles. El botón queda deshabilitado offline porque el motor puede necesitar red; el texto sigue filtrando los productos locales.
+
+## Qué guarda cada caché
+
+| Almacén | Contenido exacto y actualización |
+| --- | --- |
+| `workbox-precache-v2-<scope>` en Cache Storage | Archivos estáticos del build, incluido `index.html`, chunks JS, CSS, fuentes, iconos, fotos y logo locales. Workbox asigna revisiones a los archivos y elimina entradas de compilaciones anteriores al activar el nuevo SW. `cleanupOutdatedCaches()` retira precachés incompatibles del mismo scope. El nombre completo depende del origen y del scope. |
+| `titanium-public-pages-v1` en Cache Storage | Seis copias pequeñas del **mismo HTML público de `index.html`**, identificadas por las URL `/`, `/catalogue`, `/suscripciones`, `/about`, `/terms` y `/aviso-privacidad`. Se preparan durante la activación, después de completar el precaché, aunque las rutas nunca se hayan abierto. Las navegaciones a detalles y alias públicos también pueden crear entradas con sus pathname. No contienen productos, precios, DOM personalizado, respuestas de API ni datos del usuario. |
+| `titanium-public-images-v1` en Cache Storage | Imágenes públicas de Cloudinary exclusivamente bajo `titanium/products/` y `titanium/about/`, con `CacheFirst`, hasta 120 entradas y 30 días. Se conservan al actualizar la caché de páginas. Los metadatos de caducidad los administra Workbox en su IndexedDB `workbox-expiration`. |
+| `titanium-public-v1` / `resources` en IndexedDB | Snapshots públicos de productos, detalles, recomendaciones públicas GET, membresías e información del gimnasio, con fecha. Se leen y revalidan con `usePublicResource`, que conserva los skeletons persistentes y la reconexión automática. No es una caché de documentos HTML y no se borra al actualizar el SW. |
+
+La caché de páginas es un índice visible de las rutas de la SPA, **no una descarga de seis páginas diferentes**: `matchPrecache('/index.html')` obtiene el HTML de la revisión actual y se clona localmente. Los JS, CSS, fuentes e imágenes se mantienen en un único precaché; no se descargan otra vez para cada ruta. El pequeño HTML sí tiene una copia por URL, porque Cache Storage no proporciona alias de claves sin una respuesta asociada.
+
+Las claves de navegación contienen sólo el origen y pathname, sin query strings ni fragmentos. El SW guarda exclusivamente su App Shell empaquetado; nunca copia una respuesta de navegación de red que pudiera contener información autenticada. No guarda peticiones con cabecera Authorization en la caché de navegación, ni rutas de API, login, pagos o paneles. Los permisos y decisiones de bienvenida ya existentes continúan en su preferencia local, fuera de estas cachés.
+
+El nombre de la caché de páginas incluye la versión de su esquema (`v1`). Al activar **cada compilación**, se reescriben las rutas preparadas y las rutas públicas visitadas conservadas con el HTML de la nueva revisión, se retiran entradas ajenas a la lista pública y se eliminan las otras cachés cuyo nombre comienza por `titanium-public-pages-`. Si cambia el esquema se incrementa esa versión; el mismo mecanismo elimina la anterior. No se borran la caché de imágenes, los snapshots públicos ni las preferencias. Una versión en espera conserva el comportamiento del botón Actualizar y no sustituye la activa hasta la aceptación del usuario.
+
+## Footer, enlaces y datos de contacto
+
+El Footer conserva sus colores negro, blanco y rojo, sus enlaces originales a Instagram y Facebook y los iconos existentes. Los enlaces internos usan React Router `Link`:
+
+| Columna | Destinos |
+| --- | --- |
+| Explorar | Inicio → `/`; Catálogo → `/catalogue`; Membresías → `/suscripciones` |
+| Titanium | Acerca de nosotros → `/about`; Contacto → `mailto:tsghuejutla@gmail.com` |
+| Información legal | Términos y condiciones → `/terms`; Aviso de privacidad → `/aviso-privacidad` |
+
+El texto inferior enlaza también a `/terms`; no quedan enlaces `href="#"` ni el dominio de ejemplo de condiciones. La navegación principal apunta a `/about`, manteniendo compatibles los alias antiguos. Las referencias públicas a servicios inexistentes se sustituyen por información del gimnasio; las de contacto, por el correo indicado. Se corrigen también enlaces rotos en páginas 400, 500 y 404, sin añadir un blog, FAQ, página de estado ni servicios ficticios. Se sustituyen textos de desarrollo de inicio y acerca de por descripciones dirigidas a visitantes.
+
+**Contacto pendiente de confirmación:** inicio y el contenido local de Acerca de muestran **771 197 6803**; términos y condiciones muestra **771 221 4594**. La discrepancia se comunicó antes de modificar contactos; no se eligió un teléfono y ambos permanecen intactos mientras no haya confirmación. El correo coincide: **tsghuejutla@gmail.com**. El CMS puede publicar otros valores dinámicos; no se han editado datos del backend. Los únicos textos `/contacto` y `/servicios` restantes en el código son placeholders del editor administrativo, no enlaces públicos renderizados; no se modificó ese panel.
 
 ## Primera apertura instalada y notificación local
 
@@ -83,7 +113,7 @@ Verificación local en Windows, Chromium de Playwright, contra el build de produ
 | --- | --- |
 | `npm run build` | Correcto; genera manifiesto, SW y módulo Workbox; 70 entradas de precaché |
 | `npm run lint` | Correcto |
-| `npm run test:pwa` | 29 pruebas de Chromium aprobadas en 1.3 minutos: 18 de offline y 11 de bienvenida/notificaciones |
+| `npm run test:pwa` | 35 pruebas de Chromium aprobadas en 1.6 minutos: 18 de offline, 6 de rutas/cachés/Footer y 11 de bienvenida/notificaciones |
 | A: primera carga online, precaché y recarga de inicio offline | Aprobado en Chromium, sin datos previos del backend |
 | B: primera entrada a catálogo offline tras precaché | Aprobado; conserva shell, título, buscador, navegación y footer |
 | C: productos guardados y consulta offline | Aprobado con fixtures; IndexedDB, búsqueda textual, detalle previamente visitado, detalle recuperado del catálogo e imagen en caché Workbox |
@@ -101,6 +131,9 @@ Verificación local en Windows, Chromium de Playwright, contra el build de produ
 | Decisiones y fallos | Con permisos y entrega controlados: aceptación sólo tras clic, Ahora no, denegación, solicitud descartada, permiso bloqueado, navegador incompatible y fallo de entrega. La decisión se conserva al recargar |
 | Reemplazo del SW y móvil | Se desregistra y registra nuevamente el SW real; la decisión previa conserva su valor y no reaparece la bienvenida. Tarjeta móvil comprobada a 390 × 844, también offline |
 | Notificación local real | Chromium completo en modo headless, permiso concedido por automatización. Sin sustituir `Notification` ni `showNotification`: el SW existente crea el aviso y `getNotifications()` devuelve título, cuerpo e icono correctos; tras recargar sigue habiendo un solo aviso |
+| Rutas públicas preparadas y DevTools | El protocolo real `CacheStorage` de Chrome DevTools enumera las seis URL antes de visitarlas. Sus respuestas son el mismo App Shell, sin solicitudes individuales de preparación; todas se abren y recargan offline, incluidas las páginas legales |
+| Footer y enlaces públicos | Navegación offline sin recargar el documento en navegador y standalone **emulado**; destinos, correo, redes originales y enlace legal inferior verificados. Auditoría de enlaces y textos en páginas públicas, 400, 500 y 404 aprobada |
+| Actualización y conservación | Servidor HTTP local sirve dos versiones reales del SW y dos revisiones del HTML, derivadas del build. El SW espera hasta pulsar Actualizar, renueva las entradas del caché de páginas, elimina una versión antigua y entradas no públicas, limpia la revisión anterior de `index.html` y conserva la imagen y el snapshot de productos. El detalle guardado se consulta y recarga offline después de actualizar |
 
 La prueba nativa de notificaciones usa `channel: 'chromium'` en `welcome.spec.ts`. En este Windows, el headless shell predeterminado devolvió `Notification.permission === 'denied'` aunque el servicio de permisos informaba `granted`; el binario completo de Chromium sí permitió la prueba. La decisión en el diálogo nativo y la visualización del aviso del sistema se comprueban manualmente. La emulación de standalone sólo valida la condición de interfaz: no se reporta instalación física en iOS/Android como realizada.
 
@@ -113,14 +146,16 @@ El build advierte que el chunk principal supera 500 kB: se conserva la arquitect
 3. **B sin datos previos**: usar un perfil limpio, abrir inicio online y esperar el precaché; el inicio también consulta productos. Para garantizar que NO guarde catálogo, bloquear temporalmente `/api/products` en DevTools → Network → Request blocking durante esa primera carga, o borrar únicamente el registro `products` del almacén `resources` sin borrar Cache Storage ni el SW. Poner Network en Offline y abrir `/catalogue`; los skeletons deben seguir animados más allá de 250 ms y continuar sin límite con el mensaje de espera. Desbloquear `/api/products` y restaurar la conexión: comprobar carga automática y desaparición de skeletons cuando llegan productos. Repetir en detalle, membresías e inicio sin sus snapshots. Con el navegador online pero el backend inaccesible, comprobar que aparece un error con reintento. Activar `prefers-reduced-motion: reduce` en Rendering para comprobar la espera sin animaciones. No usar Clear site data entre el precaché y esta prueba.
 4. **C con datos reales**: online abrir catálogo y un detalle, esperar que terminen imágenes/datos, activar Offline y recargar; buscar por texto y consultar el detalle. Comprobar que se identifica contenido guardado y que comprar está deshabilitado. Restablecer conexión y comprobar actualización.
 5. **Micrófono real**: en Chrome/Edge con HTTPS/localhost, abrir catálogo, permitir micrófono y decir un nombre de producto. Verificar texto y filtro, cancelar escucha, denegar permiso y probar otra vez. Confirmar comportamiento del motor y de permisos del dispositivo. No se capturó audio real.
-6. **Actualización real del SW**: abrir la versión actual, generar/servir una segunda compilación con un cambio visible, volver a la pestaña y comprobar actualización (o Application → Service Workers → Update). Debe mostrarse Actualizar y recargar sólo al pulsarlo. Repetir con varias pestañas y comprobar limpieza de precachés antiguos. No se probó una segunda versión desplegada.
+6. **Actualización del SW en despliegue y con varias pestañas**: la actualización local de dos versiones, el botón Actualizar, la limpieza de cachés y la persistencia de datos sí se ejecutaron automáticamente. Queda repetir con dos compilaciones desplegadas en Vercel y varias pestañas abiertas, comprobando las entradas en Application → Cache Storage. No se publicó una segunda versión en un servicio externo.
 7. **Vercel y flujos privados**: desplegar la rama revisada y comprobar MIME de `sw.js`/manifest, HTTPS, recargas profundas y encabezados configurados. Verificar autenticación, roles y pagos en su entorno habitual. Se revisó su aislamiento en código; no se ejecutaron autenticación ni transacciones reales.
 8. **Notificación visible del sistema**: con una instalación real nueva, pulsar Activar notificaciones y aceptar el permiso nativo. Confirmar el título, texto e icono en el aviso o centro de notificaciones del sistema. Cerrar y reabrir, y luego actualizar la PWA: no debe repetir ni bienvenida ni notificación. Probar también Ahora no y permiso denegado. Para repetir desde cero, borrar únicamente `titanium:pwa-welcome` en Local Storage y reiniciar la app; restaurar el permiso en los ajustes del navegador si fue bloqueado. El sistema puede silenciar avisos por preferencias o modo No molestar, independientemente de que el navegador los acepte.
+9. **Inspección gráfica de DevTools**: el protocolo de DevTools se verificó automáticamente; no se afirma haber inspeccionado manualmente su interfaz gráfica. Abrir Application → Service Workers y esperar el estado activated; después, en Cache Storage → `titanium-public-pages-v1`, confirmar las seis claves y que Response contiene sólo el HTML de la SPA. En Network activar Offline y abrir/recargar cada URL. Después de actualizar, comprobar que no existe otra versión de `titanium-public-pages-*` y que los archivos referidos por el nuevo HTML siguen presentes en el precaché.
+10. **Contacto**: confirmar cuál de los dos teléfonos reportados es correcto antes de unificarlo. Los teléfonos no se modificaron.
 
-Referencias de implementación: [registro de Vite PWA](https://vite-pwa-org.netlify.app/guide/register-service-worker), [recursos estáticos](https://vite-pwa-org.netlify.app/guide/static-assets), [SpeechRecognition](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition).
+Referencias de implementación: [registro de Vite PWA](https://vite-pwa-org.netlify.app/guide/register-service-worker), [`injectManifest`](https://vite-pwa-org.netlify.app/workbox/inject-manifest), [precaché de Workbox y `matchPrecache`](https://developer.chrome.com/docs/workbox/modules/workbox-precaching), [SpeechRecognition](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition).
 
 Mensaje de commit propuesto:
 
 ```text
-feat(pwa): add Titanium offline app shell, public cache, skeletons and voice search
+feat(pwa): prepare public route cache and repair public navigation and footer
 ```
