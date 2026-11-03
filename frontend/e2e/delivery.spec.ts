@@ -30,7 +30,7 @@ async function cart() {
   await expect(customer.getByRole("heading", { name: "Tu carrito", exact: true })).toBeVisible();
   await customer.getByRole("button", { name: "Cerrar carrito", exact: true }).click();
   await customer.goto("/checkout");
-  await expect(customer.getByRole("heading", { name: "PROCESAR PAGO", exact: true })).toBeVisible();
+  await expect(customer.getByRole("heading", { name: "PREPARA TU COMPRA." })).toBeVisible();
   await customer.getByLabel("Nombre del destinatario", { exact: true }).fill("PGDEL Destinatario sintético");
   await customer.getByLabel("Teléfono", { exact: true }).fill("5555555555");
 }
@@ -49,7 +49,7 @@ async function checkout(name: string, approved: boolean) {
 }
 async function openAdmin(name: string) {
   await admin.goto("/admin/pedidos");
-  await admin.getByRole("row").filter({ hasText: orders[name].orderNumber }).getByRole("button", { name: "Gestionar", exact: true }).click();
+  await admin.getByRole("row").filter({ hasText: orders[name].orderNumber }).getByRole("button", { name: /^Gestionar / }).click();
   await expect(admin.getByRole("heading", { name: "Historial del pedido", exact: true })).toBeVisible();
 }
 async function advance(status: string) {

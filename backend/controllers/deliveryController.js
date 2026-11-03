@@ -1,7 +1,7 @@
 import { sequelize } from "../config/sequelize.js";
 import { ShippingRate, UserAddress } from "../models/index.js";
 import { saveUserAddress, deleteUserAddress } from "../services/addressService.js";
-import { getPickupLocation, normalizeShippingRate } from "../services/shippingService.js";
+import { assertShippingRateCoverage, getPickupLocation, normalizeShippingRate } from "../services/shippingService.js";
 import { updateFulfillmentStatus } from "../services/fulfillmentService.js";
 import { createProductCheckoutQuote } from "../services/mercadoPagoCheckoutService.js";
 import { deliveryError, uuidField } from "../utils/deliveryValidation.js";
@@ -53,12 +53,20 @@ export const listShippingRates = endpoint(async (_req, res) => {
 });
 export const saveShippingRate = endpoint(async (req, res) => {
   const rateId = req.params.rateId ? uuidField(req.params.rateId, "Tarifa") : null;
-  const rate = await sequelize.transaction(async (transaction) => {
-    if (!rateId) return ShippingRate.create({ ...normalizeShippingRate(req.body || {}), updatedBy: req.user.id }, { transaction });
-    const saved = await ShippingRate.findByPk(rateId, { transaction, lock: transaction.LOCK.UPDATE });
-    if (!saved) throw deliveryError("Tarifa no encontrada.", 404);
-    const plain = saved.get({ plain: true });
-    return saved.update({ ...normalizeShippingRate({ ...plain, ...req.body }), updatedBy: req.user.id }, { transaction });
+  const rate = await sequelize.transaction({ isolationLevel: "READ COMMITTED" }, async (transaction) => {
+    // Also serialize the first insert, when there is no rate row to lock.
+    await sequelize.query("SELECT pg_advisory_xact_lock(hashtext(:key))", {
+      replacements: { key: "shipping-rate-configuration" }, transaction,
+    });
+    const saved = rateId ? await ShippingRate.findByPk(rateId, { transaction, lock: transaction.LOCK.UPDATE }) : null;
+    if (rateId && !saved) throw deliveryError("Tarifa no encontrada.", 404);
+    const plain = saved ? saved.get({ plain: true }) : {};
+    const normalized = normalizeShippingRate({ ...plain, ...req.body });
+    const existing = await ShippingRate.findAll({ transaction, lock: transaction.LOCK.UPDATE });
+    assertShippingRateCoverage(normalized, existing, { rateId,
+      wasNational: plain.postalCodeFrom === "00000" && plain.postalCodeTo === "99999" });
+    const values = { ...normalized, updatedBy: req.user.id };
+    return saved ? saved.update(values, { transaction }) : ShippingRate.create(values, { transaction });
   });
   res.status(rateId ? 200 : 201).json({ ok: true, rate });
 });

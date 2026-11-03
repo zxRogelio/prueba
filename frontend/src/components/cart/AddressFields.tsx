@@ -1,3 +1,4 @@
+import { useId } from "react";
 import type { Address } from "../../services/deliveryService";
 
 const fields: Array<{ key: keyof Address; label: string; max: number; auto?: string }> = [
@@ -16,11 +17,16 @@ const fields: Array<{ key: keyof Address; label: string; max: number; auto?: str
 export default function AddressFields({ value, onChange, contactOnly = false }: {
   value: Address; onChange: (value: Address) => void; contactOnly?: boolean;
 }) {
+  const id = useId();
   return <div className="delivery-fields">{fields.filter((field) => !contactOnly || ["recipientName", "phone"].includes(field.key)).map(({ key, label, max, auto }) => (
-    <label key={key}>{label}<input name={key} value={value[key] || ""} required={key !== "interiorNumber"}
+    <label key={key} htmlFor={`${id}-${key}`} className={key === "references" ? "delivery-field-wide" : undefined}>{label}<input id={`${id}-${key}`} name={key} value={value[key] || ""} required={key !== "interiorNumber"}
       maxLength={max} autoComplete={auto} type={key === "phone" ? "tel" : "text"}
       inputMode={key === "postalCode" ? "numeric" : undefined}
       pattern={key === "postalCode" ? "[0-9]{5}" : key === "phone" ? "\\+?[0-9 \\(\\)\\-]{10,24}" : undefined}
+      aria-describedby={key === "phone" || key === "postalCode" ? `${id}-${key}-hint` : undefined}
       onChange={(event) => onChange({ ...value, [key]: event.target.value })} /></label>
-  ))}</div>;
+  ))}
+    <p className="delivery-field-hint" id={`${id}-phone-hint`}>Teléfono: entre 10 y 24 caracteres; puede incluir el prefijo +52.</p>
+    {!contactOnly && <p className="delivery-field-hint" id={`${id}-postalCode-hint`}>Código postal: 5 dígitos para consultar tu zona de envío.</p>}
+  </div>;
 }

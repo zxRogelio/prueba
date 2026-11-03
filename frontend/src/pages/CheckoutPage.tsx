@@ -1,24 +1,14 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
-import "../styles/checkout.css";
 import { useCart } from "../context/useCart";
 import { createMercadoPagoCheckout } from "../services/checkoutService";
 import { checkoutAttemptSignature } from "../utils/productCheckoutAttempt";
-import AddressFields from "../components/cart/AddressFields";
-import PickupLocationDetails from "../components/cart/PickupLocationDetails";
+import ProductCheckoutView from "../components/cart/ProductCheckoutView";
 import { emptyAddress, getAddresses, getDeliveryOptions, quoteProducts, saveAddress, deliveryErrorMessage,
   type Address, type DeliveryInput, type PickupLocation, type ProductQuote, type SavedAddress } from "../services/deliveryService";
 import "../styles/delivery.css";
 
 const ATTEMPT_STORAGE_KEY = "titanium_mp_checkout_attempt";
-
-function formatMoney(value: number) {
-  return new Intl.NumberFormat("es-MX", {
-    style: "currency",
-    currency: "MXN",
-  }).format(value);
-}
 
 function createUuid() {
   if (window.crypto?.randomUUID) {
@@ -153,169 +143,10 @@ export default function CheckoutPage() {
     finally { setIsQuoting(false); }
   };
 
-  return (
-    <div className="page-container">
-      <div className="bg-animation">
-        <div className="bg-grid" />
-        <div className="bg-glow bg-glow-1" />
-        <div className="bg-glow bg-glow-2" />
-      </div>
-
-      <nav className="breadcrumbs">
-        <ol className="breadcrumb-list">
-          <li className="breadcrumb-item">
-            <Link to="/" className="breadcrumb-link">
-              INICIO
-            </Link>
-          </li>
-          <li className="breadcrumb-separator">/</li>
-          <li className="breadcrumb-item">
-            <Link to="/catalogue" className="breadcrumb-link">
-              PRODUCTOS
-            </Link>
-          </li>
-          <li className="breadcrumb-separator">/</li>
-          <li className="breadcrumb-item">
-            <span className="breadcrumb-current">PAGO</span>
-          </li>
-        </ol>
-      </nav>
-
-      <section className="checkout-hero">
-        <div className="checkout-hero-content">
-          <h1 className="checkout-title brush-text">PROCESAR PAGO</h1>
-          <p className="checkout-subtitle">
-            Finaliza tu compra con Mercado Pago Checkout Pro.
-          </p>
-        </div>
-      </section>
-
-      <div className="checkout-container">
-        <div className="checkout-content">
-          <div className="checkout-form-section">
-            <form onSubmit={currentQuote ? handleSubmit : handleQuote} className="checkout-form">
-              <div className="form-section">
-                <h3 className="section-title">Método de entrega</h3>
-                <fieldset className="delivery-methods" disabled={isCreatingCheckout || isQuoting}>
-                  <legend>Selecciona cómo recibir tu compra</legend>
-                  <label><input type="radio" name="deliveryMethod" checked={method === "pickup"} onChange={() => setMethod("pickup")} /> Recoger en Titanium Sport Gym · Gratis</label>
-                  <label><input type="radio" name="deliveryMethod" checked={method === "delivery"} onChange={() => setMethod("delivery")} /> Envío a domicilio</label>
-                </fieldset>
-                <fieldset className="delivery-details" disabled={isCreatingCheckout || isQuoting}>
-                  <legend>{method === "pickup" ? "Contacto para recogida" : "Dirección de entrega"}</legend>
-                  {method === "pickup" ? <>
-                    {pickupLocation ? <><PickupLocationDetails location={pickupLocation} /><p>Recogida gratuita. Espera la confirmación de que tu pedido está listo.</p></>
-                      : <p role="status">La recogida requiere que el gimnasio configure su dirección y teléfono.</p>}
-                    <AddressFields value={address} onChange={setAddress} contactOnly />
-                  </> : <>
-                    <label>Dirección guardada<select value={addressId} onChange={(event) => setAddressId(event.target.value)}>
-                      <option value="">Usar una dirección nueva</option>
-                      {addresses.map((saved) => <option key={saved.id} value={saved.id}>{saved.isDefault ? "Predeterminada · " : ""}{saved.recipientName} · {saved.street} {saved.exteriorNumber}, {saved.postalCode}</option>)}
-                    </select></label>
-                    {addressId ? (() => { const saved = addresses.find((item) => item.id === addressId); return saved ? <p>{saved.recipientName} · {saved.phone}<br />{saved.street} {saved.exteriorNumber} {saved.interiorNumber}, {saved.neighborhood}<br />{saved.municipality}, {saved.state}, CP {saved.postalCode}<br />{saved.references}</p> : null; })()
-                      : <><AddressFields value={address} onChange={setAddress} />
-                        <label className="delivery-check"><input type="checkbox" checked={saveForLater} onChange={(event) => setSaveForLater(event.target.checked)} /> Guardar dirección para futuras compras</label></>}
-                  </>}
-                </fieldset>
-
-                {!token ? (
-                  <div className="shipping-notice">
-                    Inicia sesion para continuar con tu compra.
-                  </div>
-                ) : null}
-
-                {items.length === 0 ? (
-                  <div className="shipping-notice">
-                    Tu carrito esta vacio. Agrega productos desde el catalogo.
-                  </div>
-                ) : (
-                  <div className="shipping-options">
-                    <div className="shipping-option">
-                      <div className="shipping-option-content">
-                        <span className="shipping-name">Mercado Pago</span>
-                        <span className="shipping-price">
-                          Checkout Pro seguro
-                        </span>
-                        <span className="shipping-time">
-                          Seras redirigido para completar el pago.
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {errorMessage ? (
-                  <div className="shipping-notice" role="alert">{errorMessage}</div>
-                ) : null}
-              </div>
-
-              {currentQuote && <label className="delivery-check"><input type="checkbox" required
-                checked={confirmedQuote === currentQuote.quoteToken} onChange={(event) => setConfirmedQuote(event.target.checked ? currentQuote.quoteToken : "")} />
-                Confirmo el método de entrega, el envío de {formatMoney(Number(currentQuote.shippingTotal))} y el total de {formatMoney(Number(currentQuote.total))}.</label>}
-              {currentQuote && <button type="button" className="delivery-secondary" disabled={isCreatingCheckout} onClick={() => { setQuote(null); setConfirmedQuote(""); }}>Volver a consultar el total</button>}
-              <button
-                type="submit"
-                className="checkout-submit-btn"
-                disabled={!token || items.length === 0 || isCreatingCheckout || isQuoting || (method === "pickup" && !pickupLocation)}
-              >
-                {isCreatingCheckout ? "CREANDO CHECKOUT..." : isQuoting ? "CONSULTANDO TOTAL..." : currentQuote ? "PAGAR CON MERCADO PAGO" : "CONSULTAR TOTAL Y ENVÍO"}
-              </button>
-
-              {!token ? (
-                <Link to="/login" className="checkout-submit-btn">
-                  INICIAR SESION
-                </Link>
-              ) : null}
-            </form>
-          </div>
-
-          <div className="order-summary-section">
-            <div className="order-summary-card">
-              <h3 className="summary-title">RESUMEN DEL PEDIDO</h3>
-
-              <div className="order-items">
-                {items.map((item) => (
-                  <div key={item.id} className="order-item">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="order-item-image"
-                    />
-                    <div className="order-item-details">
-                      <h4>{item.name}</h4>
-                      <div className="order-item-meta">
-                        <span>Cantidad: {item.quantity}</span>
-                        <span>{formatMoney(Number(item.price))} c/u</span>
-                      </div>
-                    </div>
-                    <div className="order-item-total">
-                      {formatMoney(Number(currentQuote?.items.find((quoted) => String(quoted.productId) === String(item.id))?.subtotal ?? Number(item.price) * item.quantity))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="order-totals">
-                <div className="order-line">
-                  <span>{currentQuote ? "Subtotal" : "Subtotal estimado"}</span>
-                  <span>{formatMoney(Number(currentQuote?.subtotal ?? subtotal))}</span>
-                </div>
-                <div className="order-line"><span>Descuentos aplicados</span><span>{currentQuote ? `−${formatMoney(Number(currentQuote.discountTotal))}` : "Por confirmar"}</span></div>
-                <div className="order-line"><span>{method === "pickup" ? "Recogida" : "Envío"}</span><span>{currentQuote ? formatMoney(Number(currentQuote.shippingTotal)) : method === "pickup" ? "Gratis" : "Por cotizar"}</span></div>
-                <div className="order-total">
-                  <span>Total final</span>
-                  <span>{currentQuote ? formatMoney(Number(currentQuote.total)) : "Por confirmar"}</span>
-                </div>
-              </div>
-
-              <div className="security-badges">
-                <div className="security-badge">Checkout Pro de Mercado Pago</div>
-                <div className="security-badge">Sin datos de tarjeta en Titanium</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  return <ProductCheckoutView items={items} subtotal={subtotal} token={token} method={method} setMethod={setMethod}
+    address={address} setAddress={setAddress} addresses={addresses} addressId={addressId} setAddressId={setAddressId}
+    saveForLater={saveForLater} setSaveForLater={setSaveForLater} pickupLocation={pickupLocation} currentQuote={currentQuote}
+    confirmedQuote={confirmedQuote} setConfirmedQuote={setConfirmedQuote} isCreatingCheckout={isCreatingCheckout}
+    isQuoting={isQuoting} errorMessage={errorMessage} handleSubmit={handleSubmit} handleQuote={handleQuote}
+    onRequote={() => { setQuote(null); setConfirmedQuote(""); }} />;
 }

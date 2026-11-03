@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import OrderDetails from "../../components/cart/OrderDetails";
-import { dateTime, deliveryErrorMessage, fulfillmentLabels, getProductOrder, listProductOrders, money, paymentLabels,
+import { DeliveryHeader, DeliveryIcon, DeliveryLoading, DeliveryEmpty, MethodBadge, StatusBadge } from "../../components/cart/DeliveryUi";
+import { dateTime, deliveryErrorMessage, getProductOrder, listProductOrders, money,
   type OrderList, type ProductOrder } from "../../services/deliveryService";
 import "../../styles/delivery.css";
 
@@ -15,6 +16,8 @@ export default function ClientOrdersPage() {
   const [error, setError] = useState("");
   const [refresh, setRefresh] = useState(0);
   const [loading, setLoading] = useState(true);
+  const detailRef = useRef<HTMLElement>(null);
+  useEffect(() => { if (selected?.id) detailRef.current?.focus(); }, [selected?.id]);
   useEffect(() => {
     let active = true;
     const load = async () => {
@@ -29,19 +32,24 @@ export default function ClientOrdersPage() {
     return () => { active = false; window.clearInterval(interval); };
   }, [page, detailId, refresh]);
   return <div className="delivery-page">
-    <div className="delivery-card-heading"><h1>Mis pedidos</h1><button type="button" onClick={() => setRefresh((value) => value + 1)}>Actualizar</button></div>
-    <p>Consulta el seguimiento de tus productos. La información se consulta cada 30 segundos.</p>
+    <DeliveryHeader eyebrow="Titanium / Tus compras" title="Mis pedidos" description="Del gimnasio a tu puerta. Consulta tus compras y sigue cada entrega en un solo lugar.">
+      <button type="button" onClick={() => setRefresh((value) => value + 1)}><DeliveryIcon name="refresh" />Actualizar pedidos</button>
+    </DeliveryHeader>
+    <div className="delivery-list-caption"><span>{list ? `${list.pagination.total} pedidos registrados` : "Tus compras de productos"}</span><span><DeliveryIcon name="clock" />Actualización cada 30 segundos</span></div>
     {error && <div role="alert" className="delivery-error">{error}</div>}
-    {loading && <p role="status">Consultando pedidos…</p>}
-    {selected && selected.id === detailId && <section className="delivery-card"><button type="button" onClick={() => { setDetailId(null); setSelected(null); }}>Cerrar detalle</button><OrderDetails order={selected} /></section>}
-    <div className="delivery-list">{list?.orders.map((order) => <article key={order.id} className="delivery-card">
-      <div className="delivery-card-heading"><h2>{order.orderNumber}</h2><strong>{money(order.total)}</strong></div>
-      <p>{dateTime(order.createdAt)} · {paymentLabels[order.status] || order.status}</p>
-      <p>{order.items.map((item) => `${item.itemNameSnapshot} × ${item.quantity}`).join(" · ")}</p>
-      <p>{order.fulfillment ? `${order.fulfillment.method === "pickup" ? "Recogida" : "Domicilio"} · ${fulfillmentLabels[order.fulfillment.status] || order.fulfillment.status}` : "Sin seguimiento registrado"}</p>
-      <button type="button" onClick={() => { setSelected(null); setDetailId(order.id); }}>Ver pedido y seguimiento</button>
+    {loading && <DeliveryLoading>Consultando pedidos…</DeliveryLoading>}
+    {detailId && !selected && !error && !loading && <DeliveryLoading>Consultando seguimiento…</DeliveryLoading>}
+    {selected && selected.id === detailId && <section className="delivery-card delivery-selected-detail" ref={detailRef} tabIndex={-1} aria-label={`Detalle ${selected.orderNumber}`}>
+      <div className="delivery-detail-close"><button type="button" onClick={() => { document.getElementById(`delivery-order-${detailId}`)?.focus(); setDetailId(null); setSelected(null); }}>Cerrar detalle</button></div><OrderDetails order={selected} /></section>}
+    <div className="delivery-list delivery-order-cards">{list?.orders.map((order) => <article key={order.id} className="delivery-card delivery-order-card">
+      <div className="delivery-card-heading"><span className="delivery-icon-tile"><DeliveryIcon name="package" /></span><span className="delivery-order-amount">{money(order.total)}<small>MXN · Total de compra</small></span></div>
+      <h2>{order.orderNumber}</h2><p className="delivery-muted"><time dateTime={order.createdAt}>{dateTime(order.createdAt)}</time></p>
+      <div className="delivery-status-row"><StatusBadge status={order.status} payment />{order.fulfillment && <StatusBadge status={order.fulfillment.status} />}</div>
+      <ul className="delivery-order-item-list">{order.items.map((item) => <li key={item.id}><span>{item.itemNameSnapshot}</span><strong>× {item.quantity}</strong></li>)}</ul>
+      <div className="delivery-order-footer">{order.fulfillment ? <MethodBadge method={order.fulfillment.method} /> : <span className="delivery-muted">Sin seguimiento registrado</span>}
+        <button id={`delivery-order-${order.id}`} type="button" aria-label={`Ver pedido y seguimiento ${order.orderNumber}`} onClick={() => { if (detailId === order.id) setRefresh((value) => value + 1); else { setSelected(null); setDetailId(order.id); } }}>Ver pedido y seguimiento<DeliveryIcon name="arrow" /></button></div>
     </article>)}</div>
-    {list && !list.orders.length && <p className="delivery-notice">Aún no tienes compras de productos.</p>}
-    <div className="delivery-pagination"><button disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Anterior</button><span>Página {page} de {Math.max(1, list?.pagination.pages || 1)}</span><button disabled={!list || page >= list.pagination.pages} onClick={() => setPage((value) => value + 1)}>Siguiente</button></div>
+    {list && !list.orders.length && <DeliveryEmpty title="Tu próximo objetivo empieza aquí"><p>Aún no tienes compras de productos.</p><Link className="delivery-primary" to="/catalogue">Explorar productos<DeliveryIcon name="arrow" /></Link></DeliveryEmpty>}
+    {list && list.orders.length > 0 && <nav aria-label="Paginación de pedidos" className="delivery-pagination"><button disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Anterior</button><span>Página {page} de {Math.max(1, list.pagination.pages)}</span><button disabled={page >= list.pagination.pages} onClick={() => setPage((value) => value + 1)}>Siguiente</button></nav>}
   </div>;
 }

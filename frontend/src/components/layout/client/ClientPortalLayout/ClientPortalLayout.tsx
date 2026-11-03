@@ -9,6 +9,7 @@ export default function ClientPortalLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const meta = getClientPortalMeta(location.pathname);
+  const deliveryScreen = ["/cliente/pedidos", "/cliente/direcciones"].includes(location.pathname);
 
   useEffect(() => {
     const savedValue = localStorage.getItem("clientSidebarCollapsed");
@@ -25,10 +26,11 @@ export default function ClientPortalLayout() {
 
   return (
     <div
-      className={`${styles.shell} ${collapsed ? styles.shellCollapsed : ""}`}
+      className={`${styles.shell} ${collapsed ? styles.shellCollapsed : ""} ${deliveryScreen ? styles.deliveryShell : ""}`}
     >
       <aside className={styles.sidebar}>
         <ClientSidebar collapsed={collapsed} />
+        {deliveryScreen && !collapsed && <button type="button" className={styles.deliverySidebarDismiss} aria-label="Cerrar menú lateral" onClick={toggleSidebar}>×</button>}
       </aside>
 
       <main className={styles.main}>

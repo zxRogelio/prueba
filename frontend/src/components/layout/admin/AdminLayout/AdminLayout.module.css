@@ -27,7 +27,20 @@
   grid-template-columns: 80px minmax(0, 1fr);
 }
 
+.deliverySidebarDismiss { display: none; }
+
 @media (max-width: 768px) {
+  /* The delivery page uses the sidebar's existing fixed mobile drawer.
+     Its grid placeholder must not cover content or reserve a full viewport. */
+  .deliveryShell .sidebar {
+    position: static;
+    height: 0;
+    background: transparent;
+    border: 0;
+  }
+  .deliveryShell.shellCollapsed .sidebar > div { visibility: hidden; }
+  .deliverySidebarDismiss { display: grid; place-items: center; position: fixed; top: 12px; left: 228px; z-index: 1001; width: 44px; height: 44px; border-radius: 10px; border: 1px solid #ddd; background: #fff; color: #17191d; font-size: 26px; cursor: pointer; }
+  .deliverySidebarDismiss:focus-visible { outline: 3px solid #b91c1c; outline-offset: 3px; }
   .shell,
   .shellCollapsed {
     grid-template-columns: minmax(0, 1fr);

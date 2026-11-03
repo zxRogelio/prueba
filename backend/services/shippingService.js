@@ -97,3 +97,20 @@ export function normalizeShippingRate(input) {
   if (input.active != null && typeof input.active !== "boolean") throw deliveryError("active debe ser booleano.");
   return { name, postalCodeFrom, postalCodeTo, amount: Number(input.amount).toFixed(2), currency: "MXN", active: input.active ?? true };
 }
+
+// Used by the existing administration endpoint inside its serialized write
+// transaction. Different-sized overlapping ranges retain their priority.
+export function assertShippingRateCoverage(rate, existing, { rateId = null, wasNational = false } = {}) {
+  const national = (item) => item.postalCodeFrom === "00000" && item.postalCodeTo === "99999";
+  const others = existing.filter((item) => item.id !== rateId);
+  if (national(rate) && others.some(national) && !wasNational) {
+    throw deliveryError("Ya existe una tarifa nacional. Edita la existente en lugar de crear otra; revisa también las inactivas.", 409);
+  }
+  if (!rate.active) return; // Always allow disabling an existing conflict.
+  const width = Number(rate.postalCodeTo) - Number(rate.postalCodeFrom);
+  if (others.some((item) => item.active && item.currency === "MXN" &&
+    Number(item.postalCodeTo) - Number(item.postalCodeFrom) === width &&
+    item.postalCodeFrom <= rate.postalCodeTo && item.postalCodeTo >= rate.postalCodeFrom)) {
+    throw deliveryError("El rango coincide con otra tarifa activa de igual amplitud y produciría ambigüedad. Ajusta el rango o desactiva una de las tarifas.", 409);
+  }
+}
