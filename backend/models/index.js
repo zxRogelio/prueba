@@ -29,6 +29,8 @@ import { PaymentWebhookEvent } from "./PaymentWebhookEvent.js";
 import { PaymentRefund } from "./PaymentRefund.js";
 import { PaymentRefundItem } from "./PaymentRefundItem.js";
 import { UserSubscription } from "./UserSubscription.js";
+import { AccessQrToken } from "./AccessQrToken.js";
+import { GymAccessLog } from "./GymAccessLog.js";
 import { Receipt } from "./Receipt.js";
 import { SubscriptionGroup } from "./SubscriptionGroup.js";
 import { SubscriptionGroupMember } from "./SubscriptionGroupMember.js";
@@ -939,7 +941,17 @@ FulfillmentEvent.belongsTo(User, { foreignKey: "actorId", as: "actor" });
 OrderFulfillment.belongsTo(User, { foreignKey: "confirmedBy", as: "confirmedByUser" });
 ShippingRate.belongsTo(User, { foreignKey: "updatedBy", as: "updatedByUser" });
 
+// Gym attendance is independent of payment providers and activation flows.
+AccessQrToken.belongsTo(User, { foreignKey: "userId", as: "owner", onDelete: "RESTRICT" });
+AccessQrToken.belongsTo(UserSubscription, { foreignKey: "subscriptionId", as: "subscription", onDelete: "RESTRICT" });
+GymAccessLog.belongsTo(AccessQrToken, { foreignKey: "qrTokenId", as: "qrToken", onDelete: "RESTRICT" });
+GymAccessLog.belongsTo(User, { foreignKey: "userId", as: "client", onDelete: "RESTRICT" });
+GymAccessLog.belongsTo(User, { foreignKey: "scannedBy", as: "scanner", onDelete: "RESTRICT" });
+GymAccessLog.belongsTo(UserSubscription, { foreignKey: "subscriptionId", as: "subscription", onDelete: "RESTRICT" });
+
 export {
+  AccessQrToken,
+  GymAccessLog,
   UserAddress,
   ShippingRate,
   OrderFulfillment,

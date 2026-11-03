@@ -5,6 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "node --experimental-vm-modules --test --test-isolation=none tests/*.test.js",
+    "test:access": "node --experimental-vm-modules --test --test-isolation=none tests/access*.test.js",
+    "test:access:postgres": "node --experimental-vm-modules --test --test-isolation=none tests/integration/accessPostgres.test.js",
     "test:delivery": "node --experimental-vm-modules --test --test-isolation=none tests/productDelivery.test.js",
     "verify:delivery-postgres": "node scripts/verifyProductDeliveryPostgres.js",
     "verify:delivery-neon": "node --experimental-vm-modules scripts/verifyProductDeliveryNeon.js",
