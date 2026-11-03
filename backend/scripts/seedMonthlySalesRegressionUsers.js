@@ -1,3 +1,4 @@
+import { testSeedPassword } from "../utils/testSeedPassword.js";
 import bcrypt from "bcryptjs";
 import { Op, QueryTypes } from "sequelize";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
@@ -11,7 +12,7 @@ const RANDOM_SEED = "TITANIUM_REGRESSION_USERS_V1";
 const TEST_USER_COUNT = 500;
 const EMAIL_PREFIX = "regression.v1.";
 const EMAIL_DOMAIN = "titanium.test";
-const PASSWORD = "TitaniumTest2026!";
+const PASSWORD = testSeedPassword("REGRESSION_TEST_PASSWORD", { required: false });
 const START_DATE = new Date("2024-01-01T00:00:00.000Z");
 const END_DATE = new Date("2026-05-31T23:59:59.999Z");
 

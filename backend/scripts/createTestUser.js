@@ -1,3 +1,4 @@
+import { testSeedPassword } from "../utils/testSeedPassword.js";
 import bcrypt from "bcrypt";
 import { sequelize } from "../config/sequelize.js";
 import { User } from "../models/User.js";
@@ -5,7 +6,7 @@ import { UserProfile } from "../models/UserProfile.js";
 
 const USER_DATA = {
   email: "castrousuariotitanium@gmail.com",
-  password: "Titanium2026!",
+  password: testSeedPassword("SEED_TEST_USER_PASSWORD"),
   role: "cliente",
 
   profile: {

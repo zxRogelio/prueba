@@ -14,6 +14,8 @@ import {
   User,
 } from "../models/index.js";
 import { generateOrderNumber } from "../utils/orderNumber.js";
+import { createOrderFulfillment, cancelUnpaidFulfillment } from "./fulfillmentService.js";
+import { resolveDelivery, verifyDeliveryQuote, deliveryTotals } from "./shippingService.js";
 import { recordProductSalesForOrder } from "./inventoryService.js";
 import { releaseInventoryReservationsForOrder } from "./inventoryReservationService.js";
 import {
@@ -312,6 +314,8 @@ export async function createOrder({
   createdBy = null,
   notes = null,
   metadata = null,
+  fulfillment = null,
+  quoteToken = null,
   transaction = null,
 }) {
   return withTransaction(transaction, async (t) => {
@@ -325,6 +329,14 @@ export async function createOrder({
     await findCustomer(userId, t);
 
     const totals = await buildOrderItems({ items, transaction: t });
+    let delivery = null;
+    let finalTotals = { ...totals, shippingTotal: "0.00" };
+    if (fulfillment) {
+      if (!items.some((item) => item.itemType === "product")) throw serviceError("Las membresías no requieren entrega física.");
+      delivery = await resolveDelivery({ userId, input: fulfillment, transaction: t });
+      verifyDeliveryQuote({ token: quoteToken, userId, input: fulfillment, items, delivery, totals });
+      finalTotals = deliveryTotals(totals, delivery);
+    }
     const orderNumber = await generateOrderNumber({
       sequelizeInstance: sequelize,
       transaction: t,
@@ -338,7 +350,8 @@ export async function createOrder({
         subtotal: totals.subtotal,
         discountTotal: totals.discountTotal,
         taxTotal: totals.taxTotal,
-        total: totals.total,
+        total: finalTotals.total,
+        shippingTotal: finalTotals.shippingTotal,
         currency: normalizeCurrency(currency),
         createdBy,
         notes,
@@ -360,6 +373,8 @@ export async function createOrder({
       createdItems,
       transaction: t,
     });
+
+    if (delivery) await createOrderFulfillment({ orderId: order.id, delivery, actorId: createdBy, transaction: t });
 
     return getOrderWithDetails({ orderId: order.id, transaction: t });
   });
@@ -383,6 +398,8 @@ export async function createOrderItems({
     if (order.status !== "draft") {
       throw serviceError("Solo se pueden agregar items a ordenes draft.");
     }
+
+    if (order.metadata?.checkoutRequest?.fulfillment) throw serviceError("No se pueden modificar productos después de cotizar la entrega.", 409);
 
     const totals = await buildOrderItems({ items, transaction: t });
     const createdItems = await OrderItem.bulkCreate(
@@ -419,7 +436,7 @@ export async function createOrderItems({
       {
         subtotal: fromCents(subtotalCents),
         discountTotal: fromCents(discountTotalCents),
-        total: fromCents(totalCents),
+        total: fromCents(totalCents + toCents(order.shippingTotal || 0)),
       },
       { transaction: t }
     );
@@ -659,6 +676,8 @@ export async function cancelPendingOrder({
       status: "released",
       transaction: t,
     });
+
+    await cancelUnpaidFulfillment({ orderId: order.id, actorId: cancelledBy, transaction: t });
 
     return order;
   });

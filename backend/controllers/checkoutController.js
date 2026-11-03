@@ -17,11 +17,12 @@ function handleControllerError(res, error, fallbackMessage) {
   });
 }
 
-export async function createMercadoPagoCheckoutPreference(req, res) {
+async function createCheckoutPreference(req, res, requireProductFulfillment = false) {
   try {
     const result = await createMercadoPagoCheckout({
       userId: req.user.id,
       payload: req.body || {},
+      requireProductFulfillment,
     });
 
     return res.status(201).json({
@@ -36,6 +37,9 @@ export async function createMercadoPagoCheckoutPreference(req, res) {
     );
   }
 }
+
+export const createMercadoPagoCheckoutPreference = (req, res) => createCheckoutPreference(req, res);
+export const createProductMercadoPagoCheckoutPreference = (req, res) => createCheckoutPreference(req, res, true);
 
 export async function receiveMercadoPagoWebhook(req, res) {
   try {

@@ -46,6 +46,7 @@ const catalogItems = [
 ];
 
 const bottomItems = [
+  { to: "/admin/pedidos", label: "Pedidos y entregas", icon: <FaBoxOpen /> },
   { to: "/admin/suscripciones", label: "Suscripciones", icon: <FaIdCard /> },
   { to: "/admin/pagos", label: "Pagos", icon: <FaMoneyBillWave /> },
   { to: "/admin/chargebacks", label: "Contracargos", icon: <FaShieldAlt /> },

@@ -74,6 +74,9 @@ web_modules/
 
 # Claves privadas locales: ignorar no retira archivos ya versionados.
 *.key
+*.dpapi
+playwright-report/
+test-results/
 backend/target.local
 
 # parcel-bundler cache (https://parceljs.org/)

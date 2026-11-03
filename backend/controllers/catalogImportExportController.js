@@ -1,5 +1,5 @@
 import { sequelizeImporter, sequelizeReports } from "../config/sequelize.js";
-import { parse } from "csv-parse/sync";
+import { parseProductImportCsv } from "../utils/productImportCsv.js";
 import { Parser } from "json2csv";
 import crypto from "crypto";
 
@@ -197,11 +197,7 @@ export const uploadProductsCsv = async (req, res) => {
     }
 
     const csvText = req.file.buffer.toString("utf-8");
-    const records = parse(csvText, {
-      columns: true,
-      skip_empty_lines: true,
-      trim: true,
-    });
+    const records = parseProductImportCsv(csvText);
 
     if (!records.length) {
       return res.status(400).json({ error: "El archivo CSV está vacío" });
@@ -320,7 +316,7 @@ export const uploadProductsCsv = async (req, res) => {
     });
   } catch (error) {
     console.error("uploadProductsCsv error:", error);
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       error: "Error subiendo CSV",
       details: error.message,
     });

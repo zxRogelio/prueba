@@ -61,7 +61,7 @@ async function fixture({ annual = false, parallel = false } = {}) {
   });
   const modelNames = [
     "Cart", "CartItem", "InventoryMovement", "MembershipPlan", "Order", "OrderItem",
-    "Payment", "PaymentRefund", "PaymentRefundItem", "PaymentWebhookEvent", "Receipt",
+    "Payment", "PaymentRefund", "PaymentRefundItem", "PaymentWebhookEvent", "Receipt", "OrderFulfillment", "FulfillmentEvent",
     "SubscriptionGroup", "SubscriptionGroupMember", "User", "UserSubscription", "Session",
   ];
   for (const name of modelNames) {
@@ -161,7 +161,8 @@ async function fixture({ annual = false, parallel = false } = {}) {
     "../config/sequelize.js": { sequelize },
     "../models/index.js": models,
     "./cartService.js": { markCartConverted: unexpected },
-    "./orderService.js": { createOrder: unexpected, getOrderWithDetails: unexpected },
+    "./orderService.js": { createOrder: unexpected, getOrderWithDetails: unexpected, buildOrderItems: unexpected },
+    "./shippingService.js": { resolveDelivery: unexpected, issueDeliveryQuote: unexpected, deliveryQuoteDigest: unexpected },
     "./inventoryService.js": {
       recordProductSalesForOrder: async () => ({}), recordProductReturnFromOrderItem: unexpected,
     },
@@ -183,8 +184,8 @@ async function fixture({ annual = false, parallel = false } = {}) {
   };
   const realFiles = new Set([
     "mercadoPagoCheckoutService.js", "paymentService.js", "membershipActivationService.js",
-    "receiptService.js", "stateTransitionService.js",
-    "mercadoPagoReconciliationAuthorization.js", "../utils/subscriptionDates.js",
+    "receiptService.js", "stateTransitionService.js", "fulfillmentService.js", "../utils/deliveryValidation.js",
+    "mercadoPagoReconciliationAuthorization.js", "../utils/subscriptionDates.js", "../utils/mercadoPagoAmounts.js",
   ]);
   const cache = new Map();
   async function load(name) {
@@ -196,7 +197,7 @@ async function fixture({ annual = false, parallel = false } = {}) {
       if (specifier.startsWith("./") && realFiles.has(specifier.slice(2))) {
         return load(specifier.slice(2));
       }
-      if (specifier === "../utils/subscriptionDates.js") return load(specifier);
+      if (realFiles.has(specifier)) return load(specifier);
       const values = stubs[specifier];
       assert.ok(values, "No stub for " + specifier);
       return new vm.SyntheticModule(Object.keys(values), function () {
@@ -653,7 +654,7 @@ test("paquete de dos integrantes revierte al fallar recibo y reintenta sin dupli
   const createReceipt = f.models.Receipt.create;
   let reachedReceipt = 0;
   f.models.Receipt.create = async (values, options) => {
-    const row = await createReceipt(values, options);
+    await createReceipt(values, options);
     reachedReceipt++;
     assert.ok(options.transaction);
     assert.equal(f.tables.SubscriptionGroup.length, 1);

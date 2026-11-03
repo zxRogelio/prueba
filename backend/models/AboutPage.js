@@ -182,6 +182,11 @@ export const AboutPage = sequelize.define(
       allowNull: true,
     },
 
+    pickupSettings: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+    },
+
     isActive: {
       type: DataTypes.BOOLEAN,
       allowNull: false,

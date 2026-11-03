@@ -19,6 +19,10 @@ import { MembershipPlan } from "./MembershipPlan.js";
 import { Cart } from "./Cart.js";
 import { CartItem } from "./CartItem.js";
 import { Order } from "./Order.js";
+import { UserAddress } from "./UserAddress.js";
+import { ShippingRate } from "./ShippingRate.js";
+import { OrderFulfillment } from "./OrderFulfillment.js";
+import { FulfillmentEvent } from "./FulfillmentEvent.js";
 import { OrderItem } from "./OrderItem.js";
 import { Payment } from "./Payment.js";
 import { PaymentWebhookEvent } from "./PaymentWebhookEvent.js";
@@ -925,7 +929,21 @@ SubscriptionEvent.belongsTo(Payment, {
   targetKey: "id",
   as: "payment",
 });
+User.hasMany(UserAddress, { foreignKey: "userId", as: "addresses" });
+UserAddress.belongsTo(User, { foreignKey: "userId", as: "user" });
+Order.hasOne(OrderFulfillment, { foreignKey: "orderId", as: "fulfillment" });
+OrderFulfillment.belongsTo(Order, { foreignKey: "orderId", as: "order" });
+OrderFulfillment.hasMany(FulfillmentEvent, { foreignKey: "fulfillmentId", as: "events" });
+FulfillmentEvent.belongsTo(OrderFulfillment, { foreignKey: "fulfillmentId", as: "fulfillment" });
+FulfillmentEvent.belongsTo(User, { foreignKey: "actorId", as: "actor" });
+OrderFulfillment.belongsTo(User, { foreignKey: "confirmedBy", as: "confirmedByUser" });
+ShippingRate.belongsTo(User, { foreignKey: "updatedBy", as: "updatedByUser" });
+
 export {
+  UserAddress,
+  ShippingRate,
+  OrderFulfillment,
+  FulfillmentEvent,
   Brand,
   Category,
   Product,

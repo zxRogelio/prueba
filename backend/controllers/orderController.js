@@ -3,6 +3,8 @@ import { sequelize } from "../config/sequelize.js";
 import {
   MembershipPlan,
   Order,
+  OrderFulfillment,
+  FulfillmentEvent,
   OrderDiscount,
   OrderItem,
   Payment,
@@ -11,11 +13,10 @@ import {
   User,
 } from "../models/index.js";
 import { createOrder as createOrderService } from "../services/orderService.js";
+import { cancelPendingOrder } from "../services/orderService.js";
+import { serializeFulfillment } from "../services/fulfillmentService.js";
+import { FULFILLMENT_STATUSES, uuidField } from "../utils/deliveryValidation.js";
 import { getOrderPaymentStatus as getOrderPaymentStatusService } from "../services/mercadoPagoCheckoutService.js";
-import {
-  assertOrderTransition,
-  assertPaymentTransition,
-} from "../services/stateTransitionService.js";
 
 const ORDER_STATUSES = new Set([
   "draft",
@@ -28,7 +29,6 @@ const ORDER_STATUSES = new Set([
   "refunded",
 ]);
 const ORDER_CHANNELS = new Set(["online", "reception", "mobile"]);
-const CANCELLABLE_ORDER_STATUSES = new Set(["draft", "pending_payment"]);
 
 function parsePagination(query) {
   const page = Math.max(Number.parseInt(query.page || "1", 10), 1);
@@ -225,6 +225,8 @@ function sanitizeOrder(order, { admin = false } = {}) {
     subtotal: plain.subtotal,
     discountTotal: plain.discountTotal,
     taxTotal: plain.taxTotal,
+    shippingTotal: plain.shippingTotal || "0.00",
+    fulfillment: serializeFulfillment(plain.fulfillment, { admin, orderStatus: plain.status }),
     total: plain.total,
     currency: plain.currency,
     paidAt: plain.paidAt,
@@ -275,6 +277,8 @@ function buildOrderWhere(query, options = {}) {
 
 function buildOrderIncludes(query, { admin = false } = {}) {
   const planId = query.planId || null;
+  const deliveryMethod = buildEnumFilter(query.deliveryMethod, new Set(["pickup", "delivery"]), "Método de entrega");
+  const fulfillmentStatus = buildEnumFilter(query.fulfillmentStatus, new Set(FULFILLMENT_STATUSES), "Estado logístico");
   const method = buildEnumFilter(
     query.method,
     new Set(["cash", "transfer", "card_terminal", "online_checkout"]),
@@ -282,6 +286,11 @@ function buildOrderIncludes(query, { admin = false } = {}) {
   );
 
   return [
+    {
+      model: OrderFulfillment, as: "fulfillment", required: Boolean(deliveryMethod || fulfillmentStatus),
+      where: deliveryMethod || fulfillmentStatus ? { ...(deliveryMethod ? { method: deliveryMethod } : {}), ...(fulfillmentStatus ? { status: fulfillmentStatus } : {}) } : undefined,
+      include: [{ model: FulfillmentEvent, as: "events", separate: true, order: [["sequence", "ASC"]] }],
+    },
     ...(admin
       ? [
           {
@@ -294,8 +303,8 @@ function buildOrderIncludes(query, { admin = false } = {}) {
     {
       model: OrderItem,
       as: "items",
-      required: Boolean(planId),
-      where: planId ? { membershipPlanId: planId } : undefined,
+      required: Boolean(planId || query.productOnly === "true"),
+      where: planId ? { membershipPlanId: planId } : query.productOnly === "true" ? { itemType: "product" } : undefined,
       include: [
         {
           model: Product,
@@ -433,6 +442,7 @@ export async function createAdminOrder(req, res) {
 
 export async function listMyOrders(req, res) {
   try {
+    res.set("Cache-Control", "no-store");
     const { page, limit, offset } = parsePagination(req.query);
     const where = buildOrderWhere(req.query, { userId: req.user.id });
 
@@ -462,6 +472,8 @@ export async function listMyOrders(req, res) {
 
 export async function getOrderById(req, res) {
   try {
+    uuidField(req.params.orderId, "Orden");
+    res.set("Cache-Control", "no-store");
     const isAdmin = req.user.role === "administrador";
     const order = await findOrderById(req.params.orderId, { admin: isAdmin });
 
@@ -509,6 +521,7 @@ export async function getOrderPaymentStatus(req, res) {
 
 export async function listAdminOrders(req, res) {
   try {
+    res.set("Cache-Control", "no-store");
     const { page, limit, offset } = parsePagination(req.query);
     const where = buildOrderWhere(req.query);
 
@@ -537,66 +550,10 @@ export async function listAdminOrders(req, res) {
 }
 
 export async function cancelOrder(req, res) {
-  const transaction = await sequelize.transaction();
-
   try {
+    uuidField(req.params.orderId, "Orden");
     const isAdmin = req.user.role === "administrador";
-    const order = await Order.findByPk(req.params.orderId, {
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
-
-    if (!order) {
-      await transaction.rollback();
-      return res.status(404).json({ ok: false, error: "Orden no encontrada" });
-    }
-
-    if (!isAdmin && order.userId !== req.user.id) {
-      await transaction.rollback();
-      return res.status(403).json({
-        ok: false,
-        error: "No tienes permisos para cancelar esta orden",
-      });
-    }
-
-    if (!CANCELLABLE_ORDER_STATUSES.has(order.status)) {
-      await transaction.rollback();
-      return res.status(409).json({
-        ok: false,
-        error: "Solo se pueden cancelar ordenes draft o pending_payment",
-      });
-    }
-
-    const cancelledAt = new Date();
-
-    assertOrderTransition(order.status, "cancelled");
-
-    await order.update(
-      {
-        status: "cancelled",
-        cancelledAt,
-      },
-      { transaction }
-    );
-
-    assertPaymentTransition("pending", "cancelled");
-
-    await Payment.update(
-      {
-        status: "cancelled",
-        cancelledAt,
-      },
-      {
-        where: {
-          orderId: order.id,
-          status: "pending",
-        },
-        transaction,
-      }
-    );
-
-    await transaction.commit();
-
+    const order = await cancelPendingOrder({ orderId: req.params.orderId, userId: isAdmin ? null : req.user.id, cancelledBy: req.user.id });
     const cancelled = await findOrderById(order.id, { admin: isAdmin });
 
     return res.json({
@@ -604,7 +561,6 @@ export async function cancelOrder(req, res) {
       order: sanitizeOrder(cancelled, { admin: isAdmin }),
     });
   } catch (error) {
-    await transaction.rollback();
     return handleControllerError(res, error, "Error cancelando orden");
   }
 }

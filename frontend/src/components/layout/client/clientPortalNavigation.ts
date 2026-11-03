@@ -7,6 +7,8 @@ import {
   FaUserCircle,
   FaWallet,
   FaDumbbell,
+  FaBoxOpen,
+  FaMapMarkerAlt,
 } from "react-icons/fa";
 
 export interface ClientPortalItem {
@@ -47,6 +49,8 @@ export const clientPortalSections: ClientPortalSection[] = [
   {
     title: "Servicios",
     items: [
+      { to: "/cliente/pedidos", label: "Mis pedidos", description: "Consulta tus compras y el seguimiento de entregas.", icon: FaBoxOpen },
+      { to: "/cliente/direcciones", label: "Mis direcciones", description: "Administra tus direcciones de envío.", icon: FaMapMarkerAlt },
       {
         to: "/cliente/suscripcion",
         label: "Mi suscripcion",

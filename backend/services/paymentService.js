@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { confirmFulfillmentPayment } from "./fulfillmentService.js";
 import { Op } from "sequelize";
 import { sequelize } from "../config/sequelize.js";
 import {
@@ -663,6 +664,7 @@ async function updateOrderAfterPaymentStatus(payment, transaction) {
       reference: `payment:${payment.id}`,
       transaction,
     });
+    await confirmFulfillmentPayment({ orderId: order.id, transaction });
     return order;
   }
 

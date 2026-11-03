@@ -25,7 +25,10 @@ import {
 } from "./mercadoPagoReconciliationAuthorization.js";
 import { markCartConverted } from "./cartService.js";
 import { createInventoryReservationsForOrder } from "./inventoryReservationService.js";
-import { createOrder, getOrderWithDetails } from "./orderService.js";
+import { createOrder, getOrderWithDetails, buildOrderItems } from "./orderService.js";
+import { normalizeDeliveryInput } from "../utils/deliveryValidation.js";
+import { mercadoPagoPaymentAmounts } from "../utils/mercadoPagoAmounts.js";
+import { resolveDelivery, issueDeliveryQuote, deliveryQuoteDigest } from "./shippingService.js";
 import {
   confirmPaidPayment,
   createPaymentAttempt,
@@ -289,10 +292,12 @@ function normalizeCheckoutRequest(payload = {}) {
     return {
       source: "cart",
       cartId,
+      ...(payload.fulfillment ? { fulfillment: normalizeDeliveryInput(payload.fulfillment), quoteToken: normalizeRequiredString(payload.quoteToken, "quoteToken") } : {}),
     };
   }
 
   if (membershipPlanId) {
+    if (payload.fulfillment || payload.quoteToken) throw serviceError("Las membresías no requieren entrega física.");
     return {
       source: "membership",
       membershipPlanId,
@@ -303,6 +308,7 @@ function normalizeCheckoutRequest(payload = {}) {
   return {
     source: "items",
     items: productItems,
+    ...(payload.fulfillment ? { fulfillment: normalizeDeliveryInput(payload.fulfillment), quoteToken: normalizeRequiredString(payload.quoteToken, "quoteToken") } : {}),
   };
 }
 
@@ -323,10 +329,17 @@ function stableStringify(value) {
 
 function assertSameCheckoutRequest(existingPayment, checkoutRequest) {
   const existingRequest = existingPayment.metadata?.checkoutRequest || null;
+  const operation = (request) => {
+    if (!request?.fulfillment) return request;
+    // An existing order keeps its confirmed snapshot. A renewed signature for
+    // the same quote must reuse it, even after the original quote has expired.
+    return { ...request, quoteToken: deliveryQuoteDigest({ token: request.quoteToken,
+      userId: existingPayment.userId, allowExpired: true }) };
+  };
 
   if (
     !existingRequest ||
-    stableStringify(existingRequest) !== stableStringify(checkoutRequest)
+    stableStringify(operation(existingRequest)) !== stableStringify(operation(checkoutRequest))
   ) {
     throw serviceError(
       "idempotencyKey ya existe para una operacion diferente.",
@@ -545,6 +558,8 @@ async function createLocalCheckout({
         sourceCartId,
       },
       items: orderItems,
+      fulfillment: checkoutRequest.fulfillment || null,
+      quoteToken: checkoutRequest.quoteToken || null,
       transaction,
     });
 
@@ -586,7 +601,7 @@ function selectCheckoutUrl({ checkoutUrl, sandboxCheckoutUrl }) {
   return checkoutUrl || sandboxCheckoutUrl;
 }
 
-function buildPreferenceBody({ order, payment }) {
+export function buildPreferenceBody({ order, payment }) {
   const frontendUrl = getPublicUrl("FRONTEND_URL");
   const backendPublicUrl = getPublicUrl("BACKEND_PUBLIC_URL", {
     requireHttps: true,
@@ -597,20 +612,32 @@ function buildPreferenceBody({ order, payment }) {
     throw serviceError("La orden no tiene items para checkout.");
   }
 
-  return {
-    items: orderItems.map((item) => {
+  const preferenceItems = orderItems.flatMap((item) => {
       const quantity = Number(item.quantity);
-      const unitPriceCents = Math.round(toCents(item.subtotal, "subtotal") / quantity);
-
-      return {
+      const lineCents = toCents(item.subtotal, "subtotal");
+      const unitPriceCents = Math.floor(lineCents / quantity);
+      const remainder = lineCents % quantity;
+      const base = {
         id: String(item.id),
         title: item.itemNameSnapshot,
         description: item.itemDescriptionSnapshot || undefined,
-        quantity,
-        unit_price: Number(fromCents(unitPriceCents)),
         currency_id: CURRENCY,
       };
-    }),
+      // Split discounted lines by one cent when necessary so the preference
+      // equals the order exactly (e.g. 100.00 across three units).
+      return [
+        ...(quantity > remainder ? [{ ...base, quantity: quantity - remainder, unit_price: Number(fromCents(unitPriceCents)) }] : []),
+        ...(remainder ? [{ ...base, id: `${item.id}-remainder`, quantity: remainder, unit_price: Number(fromCents(unitPriceCents + 1)) }] : []),
+      ];
+    });
+  const shippingCents = toCents(order.shippingTotal || 0);
+  const preferenceTotal = preferenceItems.reduce((sum, item) => sum + toCents(item.unit_price) * item.quantity, shippingCents);
+  if (preferenceTotal !== toCents(order.total) || preferenceTotal !== toCents(payment.amount)) {
+    throw serviceError("Los importes de orden, pago y preferencia no coinciden.", 409);
+  }
+  return {
+    items: preferenceItems,
+    ...(shippingCents > 0 ? { shipments: { cost: Number(fromCents(shippingCents)), mode: "not_specified" } } : {}),
     external_reference: String(order.id),
     notification_url: `${backendPublicUrl}/api/webhooks/mercadopago`,
     back_urls: {
@@ -1021,9 +1048,25 @@ async function savePreferenceSuccess({
   });
 }
 
+export async function createProductCheckoutQuote({ userId, payload = {} }) {
+  const input = normalizeDeliveryInput(payload.fulfillment);
+  // Reuse the exact cart/product normalization used by checkout.
+  const checkoutRequest = normalizeCheckoutRequest({ ...payload, fulfillment: undefined, quoteToken: undefined });
+  if (checkoutRequest.source === "membership") throw serviceError("Las membresías no requieren entrega física.");
+  return sequelize.transaction(async (transaction) => {
+    const { orderItems } = await buildOrderItemsForCheckout({ checkoutRequest, userId, transaction });
+    const totals = await buildOrderItems({ items: orderItems, transaction });
+    const delivery = await resolveDelivery({ userId, input, transaction });
+    return { ...issueDeliveryQuote({ userId, input, items: orderItems, delivery, totals }),
+      items: totals.items.map(({ item }) => ({ productId: item.productId, name: item.itemNameSnapshot,
+        quantity: item.quantity, unitPrice: item.unitPrice, discountAmount: item.discountAmount, subtotal: item.subtotal })) };
+  });
+}
+
 export async function createMercadoPagoCheckout({
   userId,
   payload = {},
+  requireProductFulfillment = false,
   mercadoPagoApi = createMercadoPagoSdk(),
 }) {
   const idempotencyKey = normalizeRequiredString(
@@ -1031,6 +1074,9 @@ export async function createMercadoPagoCheckout({
     "idempotencyKey"
   );
   const checkoutRequest = normalizeCheckoutRequest(payload);
+  if (requireProductFulfillment && (checkoutRequest.source === "membership" || !checkoutRequest.fulfillment)) {
+    throw serviceError("Selecciona y cotiza la entrega de productos antes de pagar.");
+  }
   const existingPayment = await findPaymentByIdempotencyKey(idempotencyKey);
 
   if (existingPayment) {
@@ -1343,11 +1389,7 @@ function getProviderPaymentMetadata(providerPayment) {
 }
 
 function getProviderPaymentAmount(providerPayment) {
-  if (providerPayment?.transaction_amount != null) {
-    return providerPayment.transaction_amount;
-  }
-
-  return providerPayment?.transaction_details?.total_paid_amount;
+  return Number(fromCents(mercadoPagoPaymentAmounts(providerPayment).totalCents));
 }
 
 function getProviderPaymentCurrency(providerPayment) {
@@ -1452,10 +1494,12 @@ function assertProviderPaymentMatchesOrder({ providerPayment, payment, order, re
       throw nonRetryableWebhookError("El importe debe ser positivo y expresarse en centavos exactos.", 400);
     }
   }
-  const amountCents = toCents(providerPayment.transaction_amount, "amount");
+  const providerAmounts = mercadoPagoPaymentAmounts(providerPayment);
+  const amountCents = providerAmounts.totalCents;
   const orderTotalCents = toCents(order.total, "order.total");
 
-  if (amountCents !== orderTotalCents || amountCents !== toCents(payment.amount, "payment.amount")) {
+  if (providerAmounts.shippingCents !== toCents(order.shippingTotal || 0, "order.shippingTotal") ||
+      amountCents !== orderTotalCents || amountCents !== toCents(payment.amount, "payment.amount")) {
     throw nonRetryableWebhookError(
       "El monto aprobado no coincide con la orden local.",
       400
@@ -1595,6 +1639,9 @@ async function applyProviderPaymentStatus({
           ),
           preferenceId: normalizeNullableString(providerPayment?.preference_id),
           amount: getProviderPaymentAmount(providerPayment),
+          merchandiseAmount: providerPayment.transaction_amount,
+          shippingAmount: providerPayment.shipping_amount ?? 0,
+          totalPaidAmount: providerPayment.transaction_details?.total_paid_amount ?? null,
           currency: getProviderPaymentCurrency(providerPayment),
         },
       },
@@ -1775,7 +1822,7 @@ export async function reconcileMercadoPagoPayment({
       paymentId: payment.id, providerPaymentId: id, providerStatus: providerPayment.status,
       liveMode: providerPayment.live_mode, sellerId: String(providerPayment.collector_id),
       paymentMode: policy.paymentMode,
-      localStatus: payment.status, amount: providerPayment.transaction_amount, currency: CURRENCY,
+      localStatus: payment.status, amount: getProviderPaymentAmount(providerPayment), currency: CURRENCY,
       receipt: receipt ? { id: receipt.id, status: receipt.status } : null, memberships,
     } };
   };

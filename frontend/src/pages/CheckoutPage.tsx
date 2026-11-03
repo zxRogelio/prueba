@@ -1,9 +1,15 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 import "../styles/checkout.css";
 import { useCart } from "../context/useCart";
 import { createMercadoPagoCheckout } from "../services/checkoutService";
+import { checkoutAttemptSignature } from "../utils/productCheckoutAttempt";
+import AddressFields from "../components/cart/AddressFields";
+import PickupLocationDetails from "../components/cart/PickupLocationDetails";
+import { emptyAddress, getAddresses, getDeliveryOptions, quoteProducts, saveAddress, deliveryErrorMessage,
+  type Address, type DeliveryInput, type PickupLocation, type ProductQuote, type SavedAddress } from "../services/deliveryService";
+import "../styles/delivery.css";
 
 const ATTEMPT_STORAGE_KEY = "titanium_mp_checkout_attempt";
 
@@ -58,7 +64,25 @@ export default function CheckoutPage() {
   const { items } = useCart();
   const [isCreatingCheckout, setIsCreatingCheckout] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [method, setMethod] = useState<"pickup" | "delivery">("pickup");
+  const [address, setAddress] = useState<Address>({ ...emptyAddress });
+  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
+  const [addressId, setAddressId] = useState("");
+  const [saveForLater, setSaveForLater] = useState(false);
+  const [pickupLocation, setPickupLocation] = useState<PickupLocation | null>(null);
+  const [quote, setQuote] = useState<{ signature: string; data: ProductQuote } | null>(null);
+  const [confirmedQuote, setConfirmedQuote] = useState("");
+  const [isQuoting, setIsQuoting] = useState(false);
   const token = localStorage.getItem("token");
+  useEffect(() => {
+    let active = true;
+    Promise.all([getAddresses(), getDeliveryOptions()]).then(([saved, options]) => {
+      if (active) { setAddresses(saved); setPickupLocation(options.pickupLocation); }
+    }).catch((error: unknown) => { if (active) setErrorMessage(deliveryErrorMessage(error)); });
+    return () => { active = false; };
+  }, []);
+  const fulfillment: DeliveryInput = method === "pickup" ? { method, recipientName: address.recipientName, phone: address.phone }
+    : addressId ? { method, addressId } : { method, address };
   const subtotal = useMemo(
     () => items.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0),
     [items]
@@ -75,6 +99,8 @@ export default function CheckoutPage() {
       ),
     [items]
   );
+  const deliverySignature = JSON.stringify({ cartSignature, fulfillment });
+  const currentQuote = quote?.signature === deliverySignature ? quote.data : null;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -85,9 +111,20 @@ export default function CheckoutPage() {
     setIsCreatingCheckout(true);
 
     try {
-      const idempotencyKey = getStoredAttemptKey(cartSignature);
+      if (!currentQuote || confirmedQuote !== currentQuote.quoteToken) throw new Error("Consulta y confirma el total antes de pagar.");
+      if (Date.parse(currentQuote.expiresAt) <= Date.now()) throw new Error("La cotización venció. Consulta de nuevo el total.");
+      if (method === "delivery" && !addressId && saveForLater) {
+        const saved = await saveAddress(address);
+        setAddresses((previous) => [...previous, saved]);
+        setSaveForLater(false);
+      }
+      // Persist only a hash, never the customer's address or phone.
+      const signature = await checkoutAttemptSignature(token || "", deliverySignature, currentQuote.quoteToken);
+      const idempotencyKey = getStoredAttemptKey(signature);
       const response = await createMercadoPagoCheckout({
         idempotencyKey,
+        fulfillment,
+        quoteToken: currentQuote.quoteToken,
         items: items.map((item) => ({
           productId: item.id,
           quantity: item.quantity,
@@ -100,9 +137,20 @@ export default function CheckoutPage() {
 
       window.location.assign(response.checkoutUrl);
     } catch (error) {
-      setErrorMessage(getErrorMessage(error));
+      setErrorMessage(error instanceof Error && !axios.isAxiosError(error) ? error.message : getErrorMessage(error));
       setIsCreatingCheckout(false);
     }
+  };
+
+  const handleQuote = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!items.length || isQuoting || isCreatingCheckout) return;
+    setIsQuoting(true); setErrorMessage(null); setConfirmedQuote("");
+    try {
+      const data = await quoteProducts(items.map((item) => ({ productId: item.id, quantity: item.quantity })), fulfillment);
+      setQuote({ signature: deliverySignature, data });
+    } catch (error) { setErrorMessage(deliveryErrorMessage(error)); }
+    finally { setIsQuoting(false); }
   };
 
   return (
@@ -145,9 +193,30 @@ export default function CheckoutPage() {
       <div className="checkout-container">
         <div className="checkout-content">
           <div className="checkout-form-section">
-            <form onSubmit={handleSubmit} className="checkout-form">
+            <form onSubmit={currentQuote ? handleSubmit : handleQuote} className="checkout-form">
               <div className="form-section">
-                <h3 className="section-title">CHECKOUT PRO</h3>
+                <h3 className="section-title">Método de entrega</h3>
+                <fieldset className="delivery-methods" disabled={isCreatingCheckout || isQuoting}>
+                  <legend>Selecciona cómo recibir tu compra</legend>
+                  <label><input type="radio" name="deliveryMethod" checked={method === "pickup"} onChange={() => setMethod("pickup")} /> Recoger en Titanium Sport Gym · Gratis</label>
+                  <label><input type="radio" name="deliveryMethod" checked={method === "delivery"} onChange={() => setMethod("delivery")} /> Envío a domicilio</label>
+                </fieldset>
+                <fieldset className="delivery-details" disabled={isCreatingCheckout || isQuoting}>
+                  <legend>{method === "pickup" ? "Contacto para recogida" : "Dirección de entrega"}</legend>
+                  {method === "pickup" ? <>
+                    {pickupLocation ? <><PickupLocationDetails location={pickupLocation} /><p>Recogida gratuita. Espera la confirmación de que tu pedido está listo.</p></>
+                      : <p role="status">La recogida requiere que el gimnasio configure su dirección y teléfono.</p>}
+                    <AddressFields value={address} onChange={setAddress} contactOnly />
+                  </> : <>
+                    <label>Dirección guardada<select value={addressId} onChange={(event) => setAddressId(event.target.value)}>
+                      <option value="">Usar una dirección nueva</option>
+                      {addresses.map((saved) => <option key={saved.id} value={saved.id}>{saved.isDefault ? "Predeterminada · " : ""}{saved.recipientName} · {saved.street} {saved.exteriorNumber}, {saved.postalCode}</option>)}
+                    </select></label>
+                    {addressId ? (() => { const saved = addresses.find((item) => item.id === addressId); return saved ? <p>{saved.recipientName} · {saved.phone}<br />{saved.street} {saved.exteriorNumber} {saved.interiorNumber}, {saved.neighborhood}<br />{saved.municipality}, {saved.state}, CP {saved.postalCode}<br />{saved.references}</p> : null; })()
+                      : <><AddressFields value={address} onChange={setAddress} />
+                        <label className="delivery-check"><input type="checkbox" checked={saveForLater} onChange={(event) => setSaveForLater(event.target.checked)} /> Guardar dirección para futuras compras</label></>}
+                  </>}
+                </fieldset>
 
                 {!token ? (
                   <div className="shipping-notice">
@@ -176,16 +245,20 @@ export default function CheckoutPage() {
                 )}
 
                 {errorMessage ? (
-                  <div className="shipping-notice">{errorMessage}</div>
+                  <div className="shipping-notice" role="alert">{errorMessage}</div>
                 ) : null}
               </div>
 
+              {currentQuote && <label className="delivery-check"><input type="checkbox" required
+                checked={confirmedQuote === currentQuote.quoteToken} onChange={(event) => setConfirmedQuote(event.target.checked ? currentQuote.quoteToken : "")} />
+                Confirmo el método de entrega, el envío de {formatMoney(Number(currentQuote.shippingTotal))} y el total de {formatMoney(Number(currentQuote.total))}.</label>}
+              {currentQuote && <button type="button" className="delivery-secondary" disabled={isCreatingCheckout} onClick={() => { setQuote(null); setConfirmedQuote(""); }}>Volver a consultar el total</button>}
               <button
                 type="submit"
                 className="checkout-submit-btn"
-                disabled={!token || items.length === 0 || isCreatingCheckout}
+                disabled={!token || items.length === 0 || isCreatingCheckout || isQuoting || (method === "pickup" && !pickupLocation)}
               >
-                {isCreatingCheckout ? "CREANDO CHECKOUT..." : "PAGAR CON MERCADO PAGO"}
+                {isCreatingCheckout ? "CREANDO CHECKOUT..." : isQuoting ? "CONSULTANDO TOTAL..." : currentQuote ? "PAGAR CON MERCADO PAGO" : "CONSULTAR TOTAL Y ENVÍO"}
               </button>
 
               {!token ? (
@@ -216,7 +289,7 @@ export default function CheckoutPage() {
                       </div>
                     </div>
                     <div className="order-item-total">
-                      {formatMoney(Number(item.price) * item.quantity)}
+                      {formatMoney(Number(currentQuote?.items.find((quoted) => String(quoted.productId) === String(item.id))?.subtotal ?? Number(item.price) * item.quantity))}
                     </div>
                   </div>
                 ))}
@@ -224,12 +297,14 @@ export default function CheckoutPage() {
 
               <div className="order-totals">
                 <div className="order-line">
-                  <span>Subtotal estimado</span>
-                  <span>{formatMoney(subtotal)}</span>
+                  <span>{currentQuote ? "Subtotal" : "Subtotal estimado"}</span>
+                  <span>{formatMoney(Number(currentQuote?.subtotal ?? subtotal))}</span>
                 </div>
+                <div className="order-line"><span>Descuentos aplicados</span><span>{currentQuote ? `−${formatMoney(Number(currentQuote.discountTotal))}` : "Por confirmar"}</span></div>
+                <div className="order-line"><span>{method === "pickup" ? "Recogida" : "Envío"}</span><span>{currentQuote ? formatMoney(Number(currentQuote.shippingTotal)) : method === "pickup" ? "Gratis" : "Por cotizar"}</span></div>
                 <div className="order-total">
-                  <span>Total estimado</span>
-                  <span>{formatMoney(subtotal)}</span>
+                  <span>Total final</span>
+                  <span>{currentQuote ? formatMoney(Number(currentQuote.total)) : "Por confirmar"}</span>
                 </div>
               </div>
 

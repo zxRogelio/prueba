@@ -1,4 +1,5 @@
 import { API } from "../api/api";
+import type { DeliveryInput } from "./deliveryService";
 
 export type ProductCheckoutItem = {
   productId: number | string;
@@ -9,6 +10,8 @@ export type MercadoPagoCheckoutPayload =
   | {
       idempotencyKey: string;
       items: ProductCheckoutItem[];
+      fulfillment?: DeliveryInput;
+      quoteToken?: string;
     }
   | {
       idempotencyKey: string;
@@ -18,6 +21,8 @@ export type MercadoPagoCheckoutPayload =
   | {
       idempotencyKey: string;
       cartId: string;
+      fulfillment?: DeliveryInput;
+      quoteToken?: string;
     };
 
 export type MercadoPagoCheckoutResponse = {
@@ -86,7 +91,7 @@ export async function createMercadoPagoCheckout(
   payload: MercadoPagoCheckoutPayload
 ) {
   const response = await API.post<MercadoPagoCheckoutResponse>(
-    "/checkout/mercadopago",
+    "membershipPlanId" in payload ? "/checkout/mercadopago" : "/checkout/products/mercadopago",
     payload
   );
 

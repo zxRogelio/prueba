@@ -299,7 +299,7 @@ export default function PagoResultadoPage() {
               <Link to="/cliente/suscripcion" className="btn-secondary">
                 MI MEMBRESIA
               </Link>
-              <Link to="/cliente" className="btn-secondary">
+              <Link to={`/cliente/pedidos${orderId ? `?orderId=${encodeURIComponent(orderId)}` : ""}`} className="btn-secondary">
                 MIS PEDIDOS
               </Link>
               <Link to="/catalogue" className="btn-secondary">

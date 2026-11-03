@@ -44,6 +44,9 @@ import AdminUsersPage from "./pages/admin/AdminUsersPage";
 import AdminRoutinesPage from "./pages/admin/AdminRoutinesPage";
 import AdminChargebacksPage from "./pages/admin/AdminChargebacksPage";
 import AdminPaymentsPage from "./pages/admin/AdminPaymentsPage";
+import AdminOrdersPage from "./pages/admin/AdminOrdersPage";
+import ClientOrdersPage from "./pages/client/ClientOrdersPage";
+import ClientAddressesPage from "./pages/client/ClientAddressesPage";
 import AdminSalesPredictionPage from "./pages/admin/AdminSalesPredictionPage";
 import AdminClientRenewalPredictionPage from "./pages/admin/AdminClientRenewalPredictionPage";
 // Client Portal
@@ -117,6 +120,7 @@ export default function App() {
           />
           <Route path="suscripciones" element={<AdminSuscripcionesPage />} />
           <Route path="pagos" element={<AdminPaymentsPage />} />
+          <Route path="pedidos" element={<AdminOrdersPage />} />
           <Route path="chargebacks" element={<AdminChargebacksPage />} />
           <Route path="settings" element={<AdminSiteSettingsPage />} />
           <Route path="backups" element={<AdminBackupsPage />} />
@@ -146,7 +150,7 @@ export default function App() {
           <Route path="rutinas" element={<TrainerRoutinesPage />} />
           <Route path="agenda" element={<TrainerAgendaPage />} />
           <Route path="perfil" element={<TrainerProfilePage />} />
-          
+
         </Route>
       </Route>
 
@@ -163,6 +167,8 @@ export default function App() {
           <Route path="perfil" element={<ClientProfilePage />} />
           <Route path="suscripcion" element={<ClientSubscriptionPage />} />
           <Route path="pagos" element={<ClientPaymentsPage />} />
+          <Route path="pedidos" element={<ClientOrdersPage />} />
+          <Route path="direcciones" element={<ClientAddressesPage />} />
           <Route path="configuracion" element={<Configuracion2FA />} />
           <Route path="/cliente/invitaciones" element={<ClientInvitationsPage />} />
           <Route path="/cliente/rutinas" element={<ClientRoutinesPage />} />

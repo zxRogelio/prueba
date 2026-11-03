@@ -1,20 +1,7 @@
-import { Sequelize } from "sequelize";
 import dotenv from "dotenv";
+import { createPostgresConnection as make } from "./postgresConnection.js";
 
 dotenv.config();
-
-function make(url, { pooled = true } = {}) {
-  return new Sequelize(url, {
-    dialect: "postgres",
-    logging: false,
-    dialectOptions: {
-      ssl: { require: true, rejectUnauthorized: false },
-    },
-    pool: pooled
-      ? { max: 10, min: 0, acquire: 30000, idle: 10000 }
-      : { max: 1, min: 0, acquire: 30000, idle: 10000 },
-  });
-}
 
 // App normal
 export const sequelize = make(process.env.DATABASE_URL_RUNTIME, {

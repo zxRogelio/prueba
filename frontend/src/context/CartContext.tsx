@@ -15,23 +15,19 @@ export type { CartItem, CartProduct } from "./cartContextCore";
 
 const CART_STORAGE_KEY = "titanium_cart_items";
 
+function readStoredCart(): CartItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(CART_STORAGE_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed as CartItem[] : [];
+  } catch { return []; }
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([]);
+  // Hydrate before the first persistence effect. An initial empty effect could
+  // erase the saved cart during StrictMode's repeated mount in development.
+  const [items, setItems] = useState<CartItem[]>(readStoredCart);
   const [isCartOpen, setIsCartOpen] = useState(false);
-
-  useEffect(() => {
-    const storedItems = localStorage.getItem(CART_STORAGE_KEY);
-    if (!storedItems) return;
-
-    try {
-      const parsed = JSON.parse(storedItems) as CartItem[];
-      if (Array.isArray(parsed)) {
-        setItems(parsed);
-      }
-    } catch {
-      localStorage.removeItem(CART_STORAGE_KEY);
-    }
-  }, []);
 
   useEffect(() => {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));

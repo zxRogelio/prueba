@@ -1,0 +1,38 @@
+.delivery-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1rem; }
+.delivery-fields label, .delivery-details > label, .delivery-toolbar label, .delivery-admin-form label, .delivery-rates label { display:flex; flex-direction:column; gap:.4rem; font-size:.9rem; }
+.delivery-fields input, .delivery-details select, .delivery-toolbar select, .delivery-admin-form input, .delivery-admin-form textarea, .delivery-admin-form select, .delivery-rates input { width:100%; box-sizing:border-box; padding:.7rem; border:1px solid #cbd0d6; border-radius:8px; background:#fff; color:#20242c; font:inherit; }
+.delivery-methods, .delivery-details { border:1px solid #d9dce1; border-radius:12px; padding:1rem; color:#20242c; min-width:0; }
+.delivery-methods label { display:block; margin:.8rem 0; }
+.delivery-methods input, .delivery-check input { accent-color:#e02935; margin-right:.5rem; }
+.delivery-details p { line-height:1.6; overflow-wrap:anywhere; }
+.delivery-check { display:flex; gap:.5rem; align-items:flex-start; color:#20242c; font-size:.9rem; line-height:1.5; }
+.delivery-check input { width:auto; flex-shrink:0; margin-top:.3rem; }
+.delivery-secondary, .delivery-page button { border:1px solid #d3d7dd; border-radius:8px; padding:.6rem 1rem; background:white; color:#20242c; cursor:pointer; font:inherit; }
+.delivery-page { color:#20242c; display:grid; gap:1.2rem; }
+.delivery-page h1 { font-size:1.6rem; margin:0; }
+.delivery-page h2 { font-size:1.2rem; margin:0 0 .7rem; }
+.delivery-page h3 { font-size:1.05rem; margin:.6rem 0; }
+.delivery-page button:disabled, .delivery-secondary:disabled { opacity:.5; cursor:wait; }
+.delivery-card { background:#fff; border:1px solid #e0e3e8; padding:1.3rem; border-radius:14px; min-width:0; overflow-wrap:anywhere; }
+.delivery-toolbar, .delivery-card-heading, .delivery-pagination { display:flex; align-items:center; gap:1rem; flex-wrap:wrap; }
+.delivery-card-heading { justify-content:space-between; }
+.delivery-toolbar select { min-width:170px; }
+.delivery-list { display:grid; gap:1rem; }
+.delivery-badge { display:inline-block; background:#f3f4f6; border-radius:15px; padding:.25rem .7rem; font-size:.85rem; }
+.delivery-error { background:#fff0f0; color:#a01826; border:1px solid #efb7bd; padding:1rem; border-radius:10px; }
+.delivery-notice { background:#f5f6f8; padding:1rem; border-radius:10px; }
+.delivery-table-wrap { overflow-x:auto; }
+.delivery-table { width:100%; border-collapse:collapse; text-align:left; font-size:.9rem; }
+.delivery-table th, .delivery-table td { padding:.7rem .4rem; border-bottom:1px solid #eceef1; }
+.delivery-detail-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
+.delivery-timeline { list-style:none; padding-left:1.2rem; border-left:2px solid #e02935; }
+.delivery-timeline li { margin:0 0 1rem; line-height:1.5; }
+.delivery-timeline time { display:block; color:#636b76; font-size:.85rem; }
+.delivery-timeline p { margin:.25rem 0; white-space:pre-wrap; }
+.delivery-admin-form, .delivery-rates form { display:grid; gap:1rem; margin-top:1rem; }
+.delivery-page .delivery-primary { background:#d92234; border-color:#d92234; color:#fff; }
+.delivery-totals { display:grid; grid-template-columns:1fr auto; gap:.6rem; margin:1rem 0; }
+.delivery-totals dt, .delivery-totals dd { margin:0; }
+.delivery-totals dd { text-align:right; }
+.delivery-address-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
+@media(max-width:700px) { .delivery-fields, .delivery-detail-grid { grid-template-columns:1fr; } .delivery-card { padding:1rem; } .delivery-toolbar { align-items:stretch; flex-direction:column; } }

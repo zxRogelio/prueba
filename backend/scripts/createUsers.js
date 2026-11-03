@@ -1,3 +1,4 @@
+import { testSeedPassword } from "../utils/testSeedPassword.js";
 import bcrypt from "bcryptjs";
 import { sequelize } from "../config/sequelize.js";
 import { User } from "../models/User.js";
@@ -10,7 +11,7 @@ async function createUsers() {
     const usersToCreate = [
       {
         email: "entrenador@titanium.com",
-        password: "entrenador123",
+        password: testSeedPassword("SEED_COACH_PASSWORD"),
         role: "entrenador",
         isVerified: true,
         authMethod: "normal",
@@ -18,7 +19,7 @@ async function createUsers() {
       },
       {
         email: "cliente@titanium.com",
-        password: "cliente123",
+        password: testSeedPassword("SEED_CLIENT_PASSWORD"),
         role: "cliente",
         isVerified: true,
         authMethod: "normal",

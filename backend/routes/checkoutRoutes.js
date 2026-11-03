@@ -1,12 +1,21 @@
 import { Router } from "express";
 import {
   createMercadoPagoCheckoutPreference,
+  createProductMercadoPagoCheckoutPreference,
   receiveMercadoPagoWebhook,
 } from "../controllers/checkoutController.js";
 import { verifyToken, authorizeRole } from "../middleware/authMiddleware.js";
 import { checkBlacklist } from "../middleware/checkBlacklist.js";
 
 const router = Router();
+
+router.post(
+  "/checkout/products/mercadopago",
+  verifyToken,
+  checkBlacklist,
+  authorizeRole("cliente", "administrador"),
+  createProductMercadoPagoCheckoutPreference
+);
 
 router.post(
   "/checkout/mercadopago",

@@ -1,0 +1,14 @@
+{
+  "environment": "test",
+  "projectId": "REPLACE_WITH_VERIFIED_PROJECT_ID",
+  "neonBranchId": "br-replace-with-verified-test-branch",
+  "neonBranchName": "test/product-delivery-system",
+  "branchVerifiedInNeon": false,
+  "deploymentIsolationVerified": false,
+  "productionHosts": ["REPLACE_WITH_PROTECTED_PRODUCTION_HOST"],
+  "host": "REPLACE_WITH_ISOLATED_DIRECT_ENDPOINT",
+  "port": 5432,
+  "database": "REPLACE_WITH_TEST_DATABASE",
+  "username": "REPLACE_WITH_TEST_ROLE",
+  "expectedDatabaseId": "REPLACE_WITH_INDEPENDENTLY_REVIEWED_SHA256"
+}

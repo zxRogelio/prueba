@@ -19,6 +19,7 @@ build/
 
 # Test coverage
 coverage/
+storage/test-reports/
 
 # Render o Vercel local
 .vercel/
