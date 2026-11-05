@@ -7,6 +7,8 @@ import { forceHTTPS } from "./middleware/forceHTTPS.js";
 import authRoutes from "./routes/authRoutes.js";
 import { sequelize } from "./config/sequelize.js";
 import userRoutes from "./routes/userRoutes.js";
+import privacyRoutes from "./routes/privacyRoutes.js";
+import { redactJsonErrors } from "./middleware/privacySecurity.js";
 import devRoutes from "./routes/devroutes.js";
 import publicProductRoutes from "./routes/public/productRoutes.js";
 import brandRoutes from "./routes/admin/brandRoutes.js";
@@ -43,9 +45,10 @@ const app = express();
 // En Render, confiar solo en el proxy inmediato; fuera de Render, no confiar en proxies.
 app.set("trust proxy", process.env.RENDER === "true" ? 1 : false);
 
-app.use(cors());
+app.use(cors({ exposedHeaders: ["ETag"] }));
 app.use(helmet());
 app.use(express.json());
+app.use(redactJsonErrors);
 app.use(secureHeaders);
 app.use(forceHTTPS);
 
@@ -61,6 +64,7 @@ app.get("/health", (req, res) => {
 app.use("/api/products", publicProductRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
+app.use("/api/privacy", privacyRoutes);
 app.use("/api/dev", devRoutes);
 app.use("/api/admin/brands", brandRoutes);
 app.use("/api/admin/categories", categoryRoutes);

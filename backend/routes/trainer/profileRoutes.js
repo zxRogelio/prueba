@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { verifyToken, authorizeRole } from "../../middleware/authMiddleware.js";
+import { authorizeRole } from "../../middleware/authMiddleware.js";
+import { requirePrivacySession as verifyToken, privateResponse } from "../../middleware/privacySecurity.js";
 import { checkBlacklist } from "../../middleware/checkBlacklist.js";
 import { upload } from "../../middleware/uploadMemory.js";
 
@@ -10,7 +11,7 @@ import {
 
 const router = Router();
 
-router.use(verifyToken, checkBlacklist, authorizeRole("entrenador"));
+router.use(privateResponse, verifyToken, checkBlacklist, authorizeRole("entrenador"));
 
 router.get("/", getTrainerProfile);
 router.put("/", upload.single("photo"), updateTrainerProfile);

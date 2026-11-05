@@ -186,3 +186,11 @@ node scripts/backfillLegacyMembershipOrders.js --apply --payment-id=<uuid>
 
 El reporte final incluye registros convertidos, ignorados, errores y pagos con
 plan o relacion legacy faltante. El script no borra campos legacy.
+
+## Derechos ARCO y consentimiento (Actividad 6)
+
+Los contratos, migración, pruebas locales y decisiones pendientes están en
+[docs/actividad6-arco-backend.md](docs/actividad6-arco-backend.md).
+La cancelación automatizada solo registra una solicitud pendiente de revisión.
+El aviso aprobado y la exigencia de consentimiento en el registro requieren
+configuración explícita; no hay aceptación retroactiva ni borrado de cuentas.

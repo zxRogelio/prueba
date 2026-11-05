@@ -1,35 +1,13 @@
 import express from "express";
 import { verifyToken, authorizeRole } from "../middleware/authMiddleware.js";
 import { updateAuthMethod } from "../controllers/userController.js";
-import { User } from "../models/User.js";
+import userPrivacyRoutes from "./userPrivacyRoutes.js";
 import { checkBlacklist } from "../middleware/checkBlacklist.js";
 import { changePassword } from "../controllers/authController.js";
 
 const router = express.Router();
 
-router.get("/profile", verifyToken, checkBlacklist, async (req, res) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ error: "Usuario no autenticado" });
-    }
-
-    const user = req.user;
-    const loginMethod =
-      req.loginMethod || (user.provider === "google" ? "google" : "local");
-
-    return res.json({
-      id: user.id,
-      email: user.email,
-      rol: user.role,
-      authMethod: user.authMethod,
-      provider: user.provider,
-      loginMethod,
-    });
-  } catch (err) {
-    console.error("❌ Error al obtener perfil:", err);
-    return res.status(500).json({ error: "Error del servidor" });
-  }
-});
+router.use(userPrivacyRoutes);
 
 router.patch(
   "/update-auth-method",

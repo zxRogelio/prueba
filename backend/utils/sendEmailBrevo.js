@@ -14,6 +14,20 @@ const sender = {
   email: process.env.BREVO_SENDER_EMAIL,
 };
 
+// Security notification; never mixed with optional advertising preferences.
+export const sendCancellationOTP = async (email, code) => {
+  try {
+    await apiInstance.sendTransacEmail({ to: [{ email }], sender,
+      subject: 'Confirma tu solicitud ARCO - Titanium Sport Gym',
+      htmlContent: `<p>Usa este código únicamente para solicitar la cancelación de tu cuenta:</p>
+        <h1>${code}</h1><p>Expira en 5 minutos. La solicitud requiere revisión y no elimina tu cuenta automáticamente.</p>
+        <p>Si no iniciaste este trámite, no compartas el código.</p>`,
+    });
+  } catch {
+    throw new Error('Cancellation verification delivery failed');
+  }
+};
+
 // Enviar código de verificación de registro móvil
 export const sendAccountVerificationOTP = async (email, otpCode) => {
   try {

@@ -6,6 +6,8 @@ import { AboutPage } from "./AboutPage.js";
 import { AboutValue } from "./AboutValue.js";
 import { AboutTeamMember } from "./AboutTeamMember.js";
 import { User } from "./User.js";
+import { UserPersonalData, PrivacyConsent, PrivacyPreference, PrivacyPreferenceEvent,
+  ReauthenticationChallenge, ReauthenticationProof, AccountCancellationRequest } from "./Privacy.js";
 import { Session } from "./Session.js";
 import { UserProfile } from "./UserProfile.js";
 import { UserWeightHistory } from "./UserWeightHistory.js";
@@ -950,6 +952,8 @@ GymAccessLog.belongsTo(User, { foreignKey: "scannedBy", as: "scanner", onDelete:
 GymAccessLog.belongsTo(UserSubscription, { foreignKey: "subscriptionId", as: "subscription", onDelete: "RESTRICT" });
 
 export {
+  UserPersonalData, PrivacyConsent, PrivacyPreference, PrivacyPreferenceEvent,
+  ReauthenticationChallenge, ReauthenticationProof, AccountCancellationRequest,
   AccessQrToken,
   GymAccessLog,
   UserAddress,

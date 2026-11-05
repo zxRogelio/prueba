@@ -1,4 +1,7 @@
 import { TrainerProfile } from "../models/index.js";
+import { sequelize } from "../config/sequelize.js";
+import { lockPrivacyUser } from "../services/privacyService.js";
+import { personalFields, PrivacyError } from "../utils/privacyValidation.js";
 import {
   uploadMediaBufferToCloudinary,
   destroyCloudinaryImage,
@@ -48,7 +51,6 @@ export const getTrainerProfile = async (req, res) => {
       profile: serializeProfile(profile, req.user),
     });
   } catch (error) {
-    console.error("getTrainerProfile error:", error);
     return res.status(500).json({ error: "No se pudo cargar el perfil" });
   }
 };
@@ -57,6 +59,7 @@ export const updateTrainerProfile = async (req, res) => {
   if (!ensureTrainer(req, res)) return;
 
   try {
+    const identity = personalFields({ fullName: req.body.fullName ?? null, phone: req.body.phone ?? null });
     let profile = await TrainerProfile.findOne({
       where: {
         trainerId: req.user.id,
@@ -83,8 +86,7 @@ export const updateTrainerProfile = async (req, res) => {
 
     const payload = {
       trainerId: req.user.id,
-      fullName: cleanText(req.body.fullName),
-      phone: cleanText(req.body.phone),
+      ...identity,
       specialty: cleanText(req.body.specialty),
       certifications: cleanText(req.body.certifications),
       experienceYears: Number(req.body.experienceYears || 0),
@@ -94,18 +96,23 @@ export const updateTrainerProfile = async (req, res) => {
       photoPublicId,
     };
 
-    if (profile) {
-      await profile.update(payload);
-    } else {
-      profile = await TrainerProfile.create(payload);
-    }
+    profile = await sequelize.transaction(async (transaction) => {
+      // Shared lock with PATCH /user/profile. No duplicate identity storage.
+      await lockPrivacyUser(req.user.id, transaction);
+      const current = await TrainerProfile.findOne({ where: { trainerId: req.user.id }, transaction });
+      if (!file?.buffer) {
+        payload.photoUrl = current?.photoUrl ?? null;
+        payload.photoPublicId = current?.photoPublicId ?? null;
+      }
+      return current ? current.update(payload, { transaction }) : TrainerProfile.create(payload, { transaction });
+    });
 
     return res.json({
       message: "Perfil actualizado correctamente",
       profile: serializeProfile(profile, req.user),
     });
   } catch (error) {
-    console.error("updateTrainerProfile error:", error);
+    if (error instanceof PrivacyError) return res.status(error.status).json({ code: error.code, error: error.message, fields: error.fields });
     return res.status(500).json({ error: "No se pudo actualizar el perfil" });
   }
 };

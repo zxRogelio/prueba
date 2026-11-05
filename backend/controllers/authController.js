@@ -13,6 +13,10 @@ import { blacklistToken } from "../middleware/tokenBlacklist.js";
 import { Session } from "../models/Session.js";
 import { generateRandomPassword } from "../utils/passwordPolicy.js";
 import { getClientIp } from "../utils/clientIp.js";
+import { validateConsent } from "../config/privacyNotice.js";
+import { persistConsent } from "../services/privacyService.js";
+import { privacyFailure } from "./privacyController.js";
+import { PrivacyError } from "../utils/privacyValidation.js";
 const failedAttempts = new Map(); // email => { count, lastAttempt }
 dotenv.config();
 
@@ -47,6 +51,9 @@ export const register = async (req, res) => {
 
   try {
     // Verificar si ya existe
+    const notice = validateConsent(req.body.privacyConsent, { registration: true });
+    // Public registration cannot grant administrative or trainer privileges.
+    if (role !== "cliente") return res.status(422).json({ code: "INVALID_INPUT", error: "El registro público solo permite clientes." });
     const existing = await User.findOne({ where: { email } });
     if (existing) {
       return res.status(400).json({ error: "El correo ya está registrado" });
@@ -56,7 +63,7 @@ export const register = async (req, res) => {
     const hashed = await bcrypt.hash(password, 10);
     const verification =
       client === "mobile" ? await createAccountVerificationOTP() : null;
-    const user = await User.create({
+    const values = {
       email,
       password: hashed,
       role,
@@ -65,11 +72,17 @@ export const register = async (req, res) => {
         verificationOtp: verification.verificationOtp,
         verificationOtpExpires: verification.verificationOtpExpires,
       }),
+    };
+    const { user, consent } = await User.sequelize.transaction(async (transaction) => {
+      const user = await User.create(values, { transaction });
+      const consent = notice ? await persistConsent(user.id, notice, "registration", transaction) : null;
+      return { user, consent };
     });
 
     if (verification) {
       await sendAccountVerificationOTP(user.email, verification.code);
       return res.status(201).json({
+        ...(consent ? { privacyConsent: consent } : {}),
         message:
           "Usuario registrado. Se ha enviado un código de verificación a tu correo.",
       });
@@ -86,10 +99,12 @@ export const register = async (req, res) => {
     await sendVerificationEmail(user.email, verifyToken);
 
     res.status(201).json({
+      ...(consent ? { privacyConsent: consent } : {}),
       message:
         "Usuario registrado. Verifica tu correo antes de iniciar sesión.",
     });
   } catch (err) {
+    if (err instanceof PrivacyError) return privacyFailure(err, res);
     console.error("❌ Error en registro:", err.name);
     res.status(400).json({ error: "Error al registrar usuario" });
   }

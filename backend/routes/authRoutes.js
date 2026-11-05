@@ -28,8 +28,13 @@ import { checkBlacklist } from "../middleware/checkBlacklist.js";
 import { resendLoginOTP } from "../controllers/authController.js";
 import { validateRegister } from "../middleware/validateRegister.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
+import { privateResponse, privacyIpLimiter, requirePrivacySession, reauthenticationLimiter } from "../middleware/privacySecurity.js";
+import { postReauthentication, verifyReauthenticationChallenge } from "../controllers/privacyController.js";
 
 const router = express.Router();
+
+router.post("/reauthenticate", privateResponse, privacyIpLimiter, requirePrivacySession, reauthenticationLimiter, postReauthentication);
+router.post("/reauthenticate/verify", privateResponse, privacyIpLimiter, requirePrivacySession, reauthenticationLimiter, verifyReauthenticationChallenge);
 
 // Registro y verificación
 router.post("/register", validateRegister, register);

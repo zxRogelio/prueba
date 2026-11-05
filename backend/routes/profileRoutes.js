@@ -9,9 +9,10 @@ import {
   getMyCalorieHistory,
   createDailyCalorieRecord,
 } from "../controllers/profileController.js";
-import { requireAuth } from "../middleware/authMiddleware.js";
+import { requirePrivacySession as requireAuth, privateResponse } from "../middleware/privacySecurity.js";
 
 const router = express.Router();
+router.use(privateResponse);
 
 router.get("/me", requireAuth, getMyProfileDashboard);
 router.put("/me", requireAuth, upsertMyProfile);

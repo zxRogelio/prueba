@@ -6,6 +6,9 @@
   "scripts": {
     "test": "node --experimental-vm-modules --test --test-isolation=none tests/*.test.js",
     "test:access": "node --experimental-vm-modules --test --test-isolation=none tests/access*.test.js",
+    "test:privacy": "node --experimental-vm-modules --test --test-isolation=none tests/privacy*.test.js",
+    "test:privacy:postgres": "node --experimental-vm-modules --test --test-isolation=none tests/integration/privacyPostgres.test.js",
+    "verify:privacy:postgres": "node scripts/testArcoPostgres.js",
     "test:access:postgres": "node --experimental-vm-modules --test --test-isolation=none tests/integration/accessPostgres.test.js",
     "test:delivery": "node --experimental-vm-modules --test --test-isolation=none tests/productDelivery.test.js",
     "verify:delivery-postgres": "node scripts/verifyProductDeliveryPostgres.js",
