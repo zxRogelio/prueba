@@ -9,7 +9,7 @@ import { exactObject, personalFields, reject } from "../utils/privacyValidation.
 export const OPTIONAL_PURPOSES = ["promotional_communications", "satisfaction_surveys"];
 export async function lockPrivacyUser(userId, transaction) {
   const user = await User.findByPk(userId, { transaction, lock: transaction.LOCK.UPDATE });
-  if (!user) reject(401, "UNAUTHORIZED", "Usuario no disponible.");
+  if (!user || user.deletionCompletedAt) reject(401, "UNAUTHORIZED", "Usuario no disponible.");
   return user;
 }
 
@@ -50,6 +50,7 @@ function serializePersonal(user, row) {
 }
 export async function getPersonalProfile(user, loginMethod) {
   return { email: user.email, rol: user.role, authMethod: user.authMethod, provider: user.provider,
+    reauthenticationMethods: user.password ? ["password"] : user.provider === "google" ? ["google-email"] : [],
     loginMethod: loginMethod || (user.provider === "google" ? "google" : "local"),
     ...serializePersonal(user, await personalRow(user)) };
 }

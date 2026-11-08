@@ -42,7 +42,7 @@ export const verifyToken = async (req, res, next) => {
 
     const user = await User.findByPk(decoded.id);
 
-    if (!user) {
+    if (!user || user.deletionCompletedAt) {
       console.log("🔴 verifyToken: usuario no encontrado para id:", decoded.id);
       return res.status(401).json({ error: "Usuario no encontrado" });
     }

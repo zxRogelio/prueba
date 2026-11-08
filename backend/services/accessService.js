@@ -31,9 +31,9 @@ export async function generateAccessQr({ userId }) {
     // Follow activation's user-before-subscription lock order, including the
     // user FK lock acquired when inserting a QR. Also freeze the owner's role.
     const owner = await User.findByPk(userId, {
-      attributes: ["id", "role"], transaction, lock: transaction.LOCK.SHARE,
+      attributes: ["id", "role", "deletionCompletedAt"], transaction, lock: transaction.LOCK.SHARE,
     });
-    if (!owner || owner.role !== "cliente") {
+    if (!owner || owner.deletionCompletedAt || owner.role !== "cliente") {
       throw new AccessError("QR_OWNER_INVALID", "La cuenta asociada no puede ingresar como cliente.", 403);
     }
     const today = subscriptionDateOnly(new Date());
@@ -73,9 +73,9 @@ export async function scanAccessQr({ token, scannedBy }) {
     if (qr.userId === scannedBy) throw new AccessError("SELF_SCAN_FORBIDDEN", "No puedes autorizar tu propio acceso.", 403);
 
     const owner = await User.findByPk(qr.userId, {
-      attributes: ["id", "role"], transaction, lock: transaction.LOCK.SHARE,
+      attributes: ["id", "role", "deletionCompletedAt"], transaction, lock: transaction.LOCK.SHARE,
     });
-    if (!owner || owner.role !== "cliente") {
+    if (!owner || owner.deletionCompletedAt || owner.role !== "cliente") {
       throw new AccessError("QR_OWNER_INVALID", "La cuenta asociada no puede ingresar como cliente.", 403);
     }
     // Lock the exact subscription used at generation so cancellation/refund

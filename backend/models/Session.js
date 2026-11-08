@@ -40,6 +40,12 @@ export const Session = sequelize.define(
     tableName: "sessions",
     schema: "core",
     timestamps: true,
+    hooks: {
+      async beforeCreate(session, options) {
+        const owner = await User.findByPk(session.userId, { transaction: options.transaction });
+        if (!owner || owner.deletionCompletedAt) throw new Error("Account is unavailable");
+      },
+    },
   }
 );
 

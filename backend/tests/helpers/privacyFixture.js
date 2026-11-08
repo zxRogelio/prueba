@@ -22,12 +22,13 @@ export async function privacyFixture({ database, databaseModels } = {}) {
     constructor(...args) { super(...(args.length ? args : [now])); }
     static now() { return now; }
   }
-  const logs = [], deliveries = [], blacklist = new Set(), failNext = new Set(), locks = new Map();
+  const logs = [], deliveries = [], schemaQueries = [], blacklist = new Set(), failNext = new Set(), locks = new Map();
   const context = vm.createContext({ process: { env }, Date: Clock, Buffer, URL, setTimeout, clearTimeout,
     console: Object.fromEntries(["log", "warn", "error"].map((name) => [name, (...args) => logs.push(args)])) });
   const privacyNames = ["UserPersonalData", "PrivacyConsent", "PrivacyPreference", "PrivacyPreferenceEvent",
-    "ReauthenticationChallenge", "ReauthenticationProof", "AccountCancellationRequest"];
-  const names = ["User", "Session", "TrainerProfile", "UserProfile", "UserWeightHistory", "UserCalorieHistory", ...privacyNames];
+    "ReauthenticationChallenge", "ReauthenticationProof", "AccountCancellationRequest", "AccountCancellationEvent"];
+  const names = ["User", "Session", "TrainerProfile", "UserProfile", "UserWeightHistory", "UserCalorieHistory",
+    "UserSubscription", "Order", "Payment", "AccessQrToken", ...privacyNames];
   const tables = Object.fromEntries(names.map((name) => [name, []]));
   const models = {};
   const fail = (key) => { if (failNext.delete(key)) throw new Error("private SQL password=secret email=private@example.invalid"); };
@@ -66,7 +67,7 @@ export async function privacyFixture({ database, databaseModels } = {}) {
         transaction?.undo.push(() => tables[name].splice(tables[name].indexOf(row), 1));
         return row;
       },
-      async findAll({ where, order = [] } = {}) {
+      async findAll({ where, order = [], limit, offset = 0 } = {}) {
         fail(`${name}.find`);
         return tables[name].filter((row) => matches(row, where)).sort((a, b) => {
           for (const [key, direction] of order) {
@@ -74,7 +75,7 @@ export async function privacyFixture({ database, databaseModels } = {}) {
             if (a[key] > b[key]) return direction === "DESC" ? -1 : 1;
           }
           return 0;
-        });
+        }).slice(offset, limit === undefined ? undefined : offset + limit);
       },
       async findOne(options = {}) {
         for (const row of await this.findAll(options)) {
@@ -90,6 +91,12 @@ export async function privacyFixture({ database, databaseModels } = {}) {
     };
   }
   const memoryDatabase = {
+    async query(sql) {
+      schemaQueries.push(sql); fail('schema.query');
+      assert.match(sql, /^\s*WITH required/);
+      assert.doesNotMatch(sql, /\b(?:INSERT|UPDATE|DELETE|ALTER|DROP|CREATE)\b/i);
+      return [[{ ready: env.PRIVACY_TEST_SCHEMA_READY !== 'false' }]];
+    },
     async transaction(options, callback) {
       if (typeof options === "function") callback = options;
       const transaction = { LOCK: { UPDATE: "UPDATE" }, undo: [], held: new Set(), releases: [] };
@@ -98,7 +105,7 @@ export async function privacyFixture({ database, databaseModels } = {}) {
       finally { for (const release of transaction.releases.reverse()) release(); }
     },
   };
-  const actualModels = databaseModels || models;
+  const actualModels = { ...models, ...databaseModels };
   const actualDatabase = database || memoryDatabase;
   const mail = Object.fromEntries(["sendOTP", "sendConfirmationEmail", "sendVerificationEmail", "sendAccountVerificationOTP", "sendCancellationOTP"].map((name) =>
     [name, async (email, code) => { fail("email"); deliveries.push({ name, email, code }); }]));
@@ -147,6 +154,7 @@ export async function privacyFixture({ database, databaseModels } = {}) {
     user: (await load("routes/userRoutes.js")).default,
     auth: (await load("routes/authRoutes.js")).default,
     privacy: (await load("routes/privacyRoutes.js")).default,
+    "admin/account-cancellation-requests": (await load("routes/admin/accountCancellationRoutes.js")).default,
     trainer: (await load("routes/trainer/profileRoutes.js")).default,
     ...(!database ? { profile: (await load("routes/profileRoutes.js")).default } : {}),
   };
@@ -180,5 +188,5 @@ export async function privacyFixture({ database, databaseModels } = {}) {
     };
   }
   return { env, service, cancellation, load, models: actualModels, tables, client, other, admin, trainer, password,
-    sessionFor, sessionTokens, blacklist, failNext, logs, deliveries, http, advance(ms) { now += ms; }, now: () => now };
+    sessionFor, sessionTokens, blacklist, failNext, logs, deliveries, schemaQueries, http, advance(ms) { now += ms; }, now: () => now };
 }

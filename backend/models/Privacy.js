@@ -44,4 +44,13 @@ export const AccountCancellationRequest = define("AccountCancellationRequest", {
   status: { type: DataTypes.STRING(30), allowNull: false, defaultValue: "pending_review" },
   membershipImpact: { type: DataTypes.JSONB, allowNull: false }, retentionSummary: { type: DataTypes.JSONB, allowNull: false },
   createdAt: { type: DataTypes.DATE, allowNull: false }, resolvedAt: DataTypes.DATE,
+  version: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 }, resolutionCode: DataTypes.STRING(80),
+}, false);
+export const AccountCancellationEvent = define("AccountCancellationEvent", {
+  id: uuid(), requestId: { type: DataTypes.UUID, allowNull: false }, actorId: userId(),
+  idempotencyKey: { type: DataTypes.UUID, allowNull: false }, commandHash: { type: DataTypes.STRING(64), allowNull: false },
+  fromStatus: { type: DataTypes.STRING(30), allowNull: false }, toStatus: { type: DataTypes.STRING(30), allowNull: false },
+  reasonCode: { type: DataTypes.STRING(80), allowNull: false }, policyId: DataTypes.STRING(100),
+  policySha256: DataTypes.STRING(64),
+  version: { type: DataTypes.INTEGER, allowNull: false }, recordedAt: { type: DataTypes.DATE, allowNull: false },
 }, false);

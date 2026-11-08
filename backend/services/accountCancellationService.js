@@ -13,7 +13,7 @@ const PURPOSE = "account-cancellation";
 const TTL = 5 * 60000;
 const hash = (text) => createHash("sha256").update(text).digest("hex");
 const keyedHash = (text) => createHmac("sha256", process.env.JWT_SECRET).update(text).digest("hex");
-const credentialHash = (user) => keyedHash(JSON.stringify([user.password, user.totpSecret, user.authMethod, user.provider, user.isVerified]));
+const credentialHash = (user) => keyedHash(JSON.stringify([user.password, user.totpSecret, user.authMethod, user.provider, user.providerId, user.isVerified]));
 const sameHash = (a, b) => typeof a === "string" && typeof b === "string" && a.length === b.length &&
   timingSafeEqual(Buffer.from(a), Buffer.from(b));
 const reauthError = () => reject(403, "REAUTHENTICATION_REQUIRED", "Se requiere una reautenticación vigente para esta operación.");
@@ -34,24 +34,26 @@ async function issueProof(user, sessionId, transaction) {
   return { reauthenticationToken: token, expiresAt };
 }
 
-export async function reauthenticate(userId, sessionId, body) {
+export async function reauthenticate(userId, sessionId, body, loginMethod = "local") {
   exactObject(body, ["purpose", "method", "password"], ["purpose", "method"]);
   if (body.purpose !== PURPOSE) reject(422, "INVALID_INPUT", "Propósito inválido.");
   const result = await sequelize.transaction(async (transaction) => {
     const user = await lockPrivacyUser(userId, transaction);
     await activeSession(userId, sessionId, transaction);
-    if (!user.password || body.method === "google") {
+    const googleEmail = body.method === "google-email" && loginMethod === "google" && user.provider === "google" &&
+      Boolean(user.providerId) && user.isVerified && !user.password;
+    if ((!user.password && !googleEmail) || body.method === "google") {
       reject(409, "REAUTHENTICATION_METHOD_UNAVAILABLE", "La prueba fresca de Google está pendiente de implementación; utiliza el canal ARCO manual.");
     }
-    if (body.method !== "password" || typeof body.password !== "string" || !body.password.length || Buffer.byteLength(body.password) > 1024) {
+    if (!googleEmail && (body.method !== "password" || typeof body.password !== "string" || !body.password.length || Buffer.byteLength(body.password) > 1024)) {
       reject(422, "INVALID_INPUT", "Se requiere la contraseña actual como primer factor.");
     }
-    if (!user.isVerified || user.mustChangePassword || !(await bcrypt.compare(body.password, user.password))) return { invalid: true };
+    if (!user.isVerified || user.mustChangePassword || (!googleEmail && !(await bcrypt.compare(body.password, user.password)))) return { invalid: true };
     // This bound persists across server restarts and replicas. HTTP rate limiting
     // additionally bounds password attempts before they reach this transaction.
     const recent = await ReauthenticationChallenge.findAll({ where: { userId, createdAt: { [Op.gte]: new Date(Date.now() - TTL) } }, transaction });
     if (recent.length >= 3) reject(429, "REAUTHENTICATION_RATE_LIMITED", "Espera antes de solicitar otro reto.");
-    if (user.authMethod === "normal" || !user.authMethod) return { status: 200, body: await issueProof(user, sessionId, transaction) };
+    if (!googleEmail && (user.authMethod === "normal" || !user.authMethod)) return { status: 200, body: await issueProof(user, sessionId, transaction) };
     const method = user.authMethod === "totp" ? "totp" : "otp";
     if (method === "totp" && !user.totpSecret) reject(409, "REAUTHENTICATION_METHOD_UNAVAILABLE", "El segundo factor no está configurado.");
     let code;
@@ -108,7 +110,8 @@ export async function verifyReauthentication(userId, sessionId, body) {
 }
 
 const requestView = (row) => ({ requestId: row.id, status: row.status, createdAt: row.createdAt,
-  resolvedAt: row.resolvedAt ?? null, membershipImpact: row.membershipImpact, retentionSummary: row.retentionSummary });
+  resolvedAt: row.resolvedAt ?? null, membershipImpact: row.membershipImpact, retentionSummary: row.retentionSummary,
+  version: row.version ?? 1, resolutionCode: row.resolutionCode ?? null });
 
 export async function requestCancellation(userId, sessionId, body, idempotencyKey) {
   exactObject(body, ["confirmation", "reauthenticationToken"], ["confirmation"]);
@@ -128,7 +131,8 @@ export async function requestCancellation(userId, sessionId, body, idempotencyKe
       tokenHash: hash(body.reauthenticationToken) }, transaction, lock: transaction.LOCK.UPDATE });
     if (!proof || proof.consumedAt || new Date(proof.expiresAt).getTime() <= Date.now() ||
         !sameHash(proof.credentialHash, credentialHash(user))) reauthError();
-    if (await AccountCancellationRequest.findOne({ where: { userId, status: "pending_review" }, transaction })) {
+    const existing = await AccountCancellationRequest.findAll({ where: { userId }, transaction });
+    if (existing.some((row) => ["pending_review", "under_review", "awaiting_policy"].includes(row.status))) {
       reject(409, "CANCELLATION_ALREADY_PENDING", "Ya existe una solicitud pendiente para esta cuenta.");
     }
     const row = await AccountCancellationRequest.create({ userId, idempotencyKey, requestHash,
@@ -141,6 +145,10 @@ export async function requestCancellation(userId, sessionId, body, idempotencyKe
     await proof.update({ consumedAt: new Date() }, { transaction });
     return requestView(row);
   });
+}
+
+export async function listCancellations(userId) {
+  return { requests: (await AccountCancellationRequest.findAll({ where: { userId }, order: [["createdAt", "DESC"], ["id", "DESC"]], limit: 50 })).map(requestView) };
 }
 
 export async function getCancellation(userId, requestId) {

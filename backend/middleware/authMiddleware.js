@@ -29,7 +29,7 @@ export const verifyToken = async (req, res, next) => {
     }
 
     const user = await User.findByPk(decoded.id);
-    if (!user) {
+    if (!user || user.deletionCompletedAt) {
       return res.status(401).json({ error: "Usuario no encontrado" });
     }
 
@@ -51,7 +51,7 @@ export const requireAuth = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const user = await User.findByPk(decoded.id);
-    if (!user) return res.status(401).json({ error: "Usuario inválido" });
+    if (!user || user.deletionCompletedAt) return res.status(401).json({ error: "Usuario inválido" });
 
     req.user = { id: user.id, email: user.email, role: user.role };
     next();
@@ -85,7 +85,7 @@ export const optionalAuth = async (req, res, next) => {
     }
 
     const user = await User.findByPk(decoded.id);
-    if (!user) {
+    if (!user || user.deletionCompletedAt) {
       return next();
     }
 

@@ -41,7 +41,7 @@ export async function requirePrivacySession(req, res, next) {
       return res.status(401).json({ code: "UNAUTHORIZED", error: "Sesión inválida o expirada." });
     }
     const user = await User.findByPk(decoded.id);
-    if (!user) return res.status(401).json({ code: "UNAUTHORIZED", error: "Usuario no disponible." });
+    if (!user || user.deletionCompletedAt) return res.status(401).json({ code: "UNAUTHORIZED", error: "Usuario no disponible." });
     req.user = user;
     req.authSession = session;
     req.loginMethod = decoded.loginMethod || "local";

@@ -27,6 +27,8 @@ import NewPassword from "./pages/NewPassword";
 import OAuthCallbackPage from "./pages/OAuthCallbackPage";
 import TermsAndConditionsPage from "./pages/TermsAndConditionsPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+import AccountDeletionPage from "./pages/AccountDeletionPage";
+import AdminAccountDeletionPage from "./pages/admin/AdminAccountDeletionPage";
 import FirstLoginPasswordPage from "./pages/FirstLoginPasswordPage";
 
 // Admin
@@ -105,6 +107,7 @@ export default function App() {
 
         <Route path="/terms" element={<TermsAndConditionsPage />} />
         <Route path="/aviso-privacidad" element={<PrivacyPolicyPage />} />
+        <Route path="/eliminar-cuenta" element={<AccountDeletionPage />} />
       </Route>
 
       {/* ✅ Admin protegido por rol */}
@@ -128,6 +131,7 @@ export default function App() {
           <Route path="categories" element={<AdminCategoriesPage />} />
           <Route path="about" element={<AdminAboutPage />} />
           <Route path="users" element={<AdminUsersPage />} />
+          <Route path="solicitudes-eliminacion" element={<AdminAccountDeletionPage />} />
           <Route path="/admin/routines" element={<AdminRoutinesPage />} />
         </Route>
       </Route>

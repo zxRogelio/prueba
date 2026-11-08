@@ -73,6 +73,7 @@ export const User = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
+    deletionCompletedAt: { type: DataTypes.DATE, allowNull: true },
   },
   {
     tableName: "Users",

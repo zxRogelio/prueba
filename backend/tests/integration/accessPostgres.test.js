@@ -28,7 +28,7 @@ test("QR sobre PostgreSQL real aislado: migración, HTTP, concurrencia y rollbac
   ownSchema = true;
   const uuid = () => ({ type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true });
   // Minimal existing-domain tables; new QR tables/models and service are real.
-  const User = db.define("User", { id: uuid(), role: DataTypes.STRING, email: DataTypes.STRING }, { schema: "core", tableName: "Users", timestamps: false });
+  const User = db.define("User", { id: uuid(), role: DataTypes.STRING, email: DataTypes.STRING, deletionCompletedAt: DataTypes.DATE }, { schema: "core", tableName: "Users", timestamps: false });
   const Session = db.define("Session", { id: uuid(), userId: DataTypes.UUID, token: DataTypes.TEXT, revoked: DataTypes.BOOLEAN, expiresAt: DataTypes.DATE }, { schema: "core", tableName: "sessions", timestamps: false });
   const UserSubscription = db.define("UserSubscription", {
     id: uuid(), userId: DataTypes.UUID, startsAt: DataTypes.DATEONLY, endsAt: DataTypes.DATEONLY,

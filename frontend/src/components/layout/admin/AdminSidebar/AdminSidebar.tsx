@@ -27,6 +27,7 @@ import Logo from "../../../../assets/LogoP.png";
 const topItems = [
   { to: "/admin", label: "Resumen", icon: <FaChartBar /> },
   { to: "/admin/users", label: "Usuarios", icon: <FaUsers /> },
+  { to: "/admin/solicitudes-eliminacion", label: "Eliminación de cuentas", icon: <FaShieldAlt /> },
   {
     to: "/admin/client-renewal-prediction",
     label: "Renovacion clientes",

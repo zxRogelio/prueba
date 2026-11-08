@@ -1,4 +1,4 @@
-// src/pages/PrivacyPolicyPage.tsx
+import { Link } from 'react-router-dom';
 export default function PrivacyPolicyPage() {
   return (
     <main className="auth-page">
@@ -19,6 +19,7 @@ export default function PrivacyPolicyPage() {
           style={{ maxHeight: "80vh", overflowY: "auto" }}
         >
           <h2 className="auth-title">Aviso de Privacidad de Titanium Sport Gym</h2>
+          <p><Link to="/eliminar-cuenta">Solicitar eliminación de cuenta o consultar mi trámite</Link></p>
           <p className="auth-subtitle">
             Este aviso explica de manera general cómo recabamos, usamos y
             protegemos tus datos personales cuando utilizas la plataforma

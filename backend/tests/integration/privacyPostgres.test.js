@@ -5,6 +5,7 @@ import { DataTypes, Sequelize } from "sequelize";
 import { privacyFixture } from "../helpers/privacyFixture.js";
 import { validatePrivacyPostgresTarget } from "../helpers/privacyPostgresTarget.js";
 import { up, down } from "../../migrations/20261104000100-create-arco-privacy.js";
+import { up as upReview, down as downReview } from "../../migrations/20261108000100-account-cancellation-review.js";
 
 test("ARCO: PostgreSQL local real, migración, HTTP, concurrencia y conservación", {
   skip: !process.env.ARCO_TEST_DATABASE_URL, timeout: 30000,
@@ -40,6 +41,11 @@ test("ARCO: PostgreSQL local real, migración, HTTP, concurrencia y conservació
   await db.transaction((transaction) => up({ sequelize: db, transaction }));
   await db.transaction((transaction) => down({ sequelize: db, transaction }));
   await db.transaction((transaction) => up({ sequelize: db, transaction }));
+  await db.transaction((transaction) => upReview({ sequelize: db, transaction }));
+  await db.transaction((transaction) => downReview({ sequelize: db, transaction }));
+  await db.transaction((transaction) => upReview({ sequelize: db, transaction }));
+  User.rawAttributes.deletionCompletedAt = { type: DataTypes.DATE, allowNull: true };
+  User.refreshAttributes();
   const f = await privacyFixture({ database: db, databaseModels: { User, Session, TrainerProfile } });
   const request = await f.http(t);
   const consent = { noticeId: "privacy-notice", version: "test-v1", accepted: true };
@@ -139,6 +145,24 @@ test("ARCO: PostgreSQL local real, migración, HTTP, concurrencia y conservació
     assert.equal((await request(`/user/account-cancellation-requests/${results[0].requestId}`)).body.status, "pending_review");
     await assert.rejects(() => db.transaction((transaction) => User.destroy({ where: { id: f.client.id }, transaction })));
     assert.equal(await User.count(), userCount);
+  });
+
+  await t.test("revisión administrativa: bloqueos, idempotencia e índice abierto reales", async () => {
+    const row = await f.models.AccountCancellationRequest.findOne({where:{userId:f.client.id}});
+    const path = `/admin/account-cancellation-requests/${row.id}/decisions`;
+    const key = randomUUID();
+    const send = (status, version, idempotencyKey=key) => request(path,{user:f.admin,method:'POST',headers:{'Idempotency-Key':idempotencyKey},body:{status,version,reasonCode:'SYNTHETIC_REVIEW'}});
+    const same = await Promise.all(Array.from({length:8},()=>send('under_review',1)));
+    assert.ok(same.every((r)=>r.status===200)); assert.equal(await f.models.AccountCancellationEvent.count(),1);
+    assert.equal((await send('completed',2,randomUUID())).body.code,'RETENTION_POLICY_PENDING_APPROVAL');
+    const competing = await Promise.all([send('awaiting_policy',2,randomUUID()),send('rejected',2,randomUUID())]);
+    assert.deepEqual(competing.map((r)=>r.status).sort(),[200,409]);
+    assert.equal(await f.models.AccountCancellationEvent.count(),2);
+    await assert.rejects(()=>f.models.AccountCancellationEvent.update({reasonCode:'TAMPERED'},{where:{requestId:row.id}}));
+    await assert.rejects(()=>f.models.AccountCancellationEvent.destroy({where:{requestId:row.id}}));
+    assert.equal(await f.models.AccountCancellationEvent.count(),2);
+    assert.equal((await request('/user/account-cancellation-requests')).body.requests[0].version,3);
+    await assert.rejects(()=>db.transaction((transaction)=>downReview({sequelize:db,transaction})));
   });
 
   await t.test("migración down rechaza pérdida de evidencias existentes", async () => {
